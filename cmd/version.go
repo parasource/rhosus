@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/spf13/cobra"
-	"parasource/rhosus/src/util"
+	"parasource/rhosus/rhosus/util"
 	"runtime"
 )
 

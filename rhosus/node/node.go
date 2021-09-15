@@ -1,7 +1,7 @@
 package rhosus_node
 
 import (
-	"parasource/rhosus/src/logging"
+	"parasource/rhosus/rhosus/rlog"
 	"sync"
 	"time"
 )
@@ -11,12 +11,12 @@ type Config struct {
 	Address string
 	Timeout time.Duration
 	Dir     []string
-	Logger  *logging.LogHandler
+	Logger  *rlog.LogHandler
 }
 
 type Node struct {
 	cfg    Config
-	logger *logging.LogHandler
+	Logger *rlog.LogHandler
 
 	mu       sync.RWMutex
 	shutdown chan struct{}
@@ -25,7 +25,7 @@ type Node struct {
 func NewNode(config Config) *Node {
 	return &Node{
 		cfg:    config,
-		logger: config.Logger,
+		Logger: config.Logger,
 
 		shutdown: make(chan struct{}, 1),
 	}
@@ -41,12 +41,16 @@ func (n *Node) Start() error {
 			case <-n.shutdown:
 				return
 			case <-ticker.C:
-				n.logger.Log(logging.NewLogEntry(logging.LogLevelInfo, "ticker"))
+				n.Logger.Log(rlog.NewLogEntry(rlog.LogLevelInfo, "ticker"))
 			}
 		}
 	}()
 
 	return nil
+}
+
+func (n *Node) NotifyShutdown() <-chan struct{} {
+	return n.shutdown
 }
 
 func (n *Node) Shutdown() {

@@ -5,8 +5,8 @@ import (
 	"github.com/spf13/cobra"
 	"os"
 	"os/signal"
-	"parasource/rhosus/src/logging"
-	rhosusnode "parasource/rhosus/src/node"
+	rhosusnode "parasource/rhosus/rhosus/node"
+	"parasource/rhosus/rhosus/rlog"
 	"syscall"
 	"time"
 )
@@ -39,7 +39,7 @@ func runNode(cmd *cobra.Command, args []string) {
 		Name:    nodeName,
 		Address: nodeAddress,
 		Timeout: time.Second * time.Duration(nodeTimeout),
-		Logger:  logging.NewLogHandler(),
+		Logger:  rlog.NewLogHandler(),
 	}
 
 	node := rhosusnode.NewNode(config)

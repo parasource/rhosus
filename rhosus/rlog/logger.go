@@ -1,4 +1,4 @@
-package logging
+package rlog
 
 import (
 	"github.com/sirupsen/logrus"
