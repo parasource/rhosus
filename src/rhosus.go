@@ -1,5 +1,13 @@
 package main
 
+import (
+	"log"
+	"parasource/rhosus/cmd/rhosus"
+)
+
 func main() {
-	println("hello world!")
+	err := rhosus.Execute()
+	if err != nil {
+		log.Fatalf("error running root command: %v", err)
+	}
 }
