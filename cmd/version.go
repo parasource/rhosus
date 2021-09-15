@@ -1,4 +1,4 @@
-package rhosus
+package cmd
 
 import (
 	"fmt"
