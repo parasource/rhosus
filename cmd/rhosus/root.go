@@ -1,4 +1,4 @@
-package cmd
+package rhosus
 
 import "github.com/spf13/cobra"
 

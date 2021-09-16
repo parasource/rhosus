@@ -1,4 +1,4 @@
-package cmd
+package rhosus
 
 import (
 	"github.com/sirupsen/logrus"
@@ -24,7 +24,7 @@ func init() {
 	startCmd.Flags().StringVarP(&nodeName, "name", "n", "default", "node name")
 	startCmd.Flags().StringVarP(&nodeAddress, "address", "a", "127.0.0.1:3617", "node address")
 	startCmd.Flags().IntVarP(&nodeTimeout, "timeout", "t", 30, "connection idle seconds")
-	startCmd.Flags().StringVarP(&nodeFolders, "dir", "d", os.TempDir(), "directories to store data files. dir[,dir]")
+	startCmd.Flags().StringVarP(&nodeFolders, "dir", "d", os.TempDir(), "directories to store storage_object files. dir[,dir]")
 
 	rootCmd.AddCommand(startCmd)
 }
