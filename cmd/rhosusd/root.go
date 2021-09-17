@@ -1,12 +1,12 @@
-package rhosus
+package main
 
 import (
+	rhosusnode "github.com/parasource/rhosus/rhosus/node"
+	"github.com/parasource/rhosus/rhosus/rlog"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"os"
 	"os/signal"
-	rhosusnode "parasource/rhosus/rhosus/node"
-	"parasource/rhosus/rhosus/rlog"
 	"syscall"
 	"time"
 )
@@ -21,20 +21,18 @@ var (
 )
 
 func init() {
-	startCmd.Flags().StringVarP(&nodeName, "name", "n", "default", "node name")
-	startCmd.Flags().StringVarP(&nodeAddress, "address", "a", "127.0.0.1:3617", "node address")
-	startCmd.Flags().IntVarP(&nodeTimeout, "timeout", "t", 30, "connection idle seconds")
-	startCmd.Flags().StringVarP(&nodeFolders, "dir", "d", os.TempDir(), "directories to store storage_object files. dir[,dir]")
-
-	rootCmd.AddCommand(startCmd)
+	rootCmd.Flags().StringVarP(&nodeName, "name", "n", "default", "node name")
+	rootCmd.Flags().StringVarP(&nodeAddress, "address", "a", "127.0.0.1:3617", "node address")
+	rootCmd.Flags().IntVarP(&nodeTimeout, "timeout", "t", 30, "connection idle seconds")
+	rootCmd.Flags().StringVarP(&nodeFolders, "dir", "d", os.TempDir(), "directories to store storage_object files. dir[,dir]")
 }
 
-var startCmd = &cobra.Command{
-	Use: "start",
-	Run: runNode,
+var rootCmd = &cobra.Command{
+	Use: "rhosusd",
+	Run: startupRhosusServer,
 }
 
-func runNode(cmd *cobra.Command, args []string) {
+func startupRhosusServer(cmd *cobra.Command, args []string) {
 	config := rhosusnode.Config{
 		Name:    nodeName,
 		Address: nodeAddress,

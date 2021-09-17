@@ -2,9 +2,9 @@ package so
 
 import (
 	"fmt"
+	"github.com/parasource/rhosus/rhosus/util/bytes"
 	"hash/crc32"
 	"io"
-	"parasource/rhosus/rhosus/util/bytes"
 )
 
 var table = crc32.MakeTable(crc32.Castagnoli)

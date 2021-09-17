@@ -1,17 +1,17 @@
 package storage
 
 import (
-	rhosus_node "parasource/rhosus/rhosus/node"
-	"parasource/rhosus/rhosus/rlog"
-	"parasource/rhosus/rhosus/storage/finder"
-	"parasource/rhosus/rhosus/storage/storage_object"
+	rhosusnode "github.com/parasource/rhosus/rhosus/node"
+	"github.com/parasource/rhosus/rhosus/rlog"
+	"github.com/parasource/rhosus/rhosus/storage/finder"
+	"github.com/parasource/rhosus/rhosus/storage/storage_object"
 	"path"
 	"strconv"
 	"sync"
 )
 
 type Volume struct {
-	Node       *rhosus_node.Node
+	Node       *rhosusnode.Node
 	Id         uint64
 	Dir        string
 	Collection string

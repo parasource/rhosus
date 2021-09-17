@@ -2,9 +2,9 @@ package so
 
 import (
 	"bytes"
+	"github.com/parasource/rhosus/rhosus/storage/finder"
+	utilbytes "github.com/parasource/rhosus/rhosus/util/bytes"
 	"math"
-	"parasource/rhosus/rhosus/storage/finder"
-	utilbytes "parasource/rhosus/rhosus/util/bytes"
 	"sync"
 )
 

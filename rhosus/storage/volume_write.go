@@ -2,9 +2,9 @@ package storage
 
 import (
 	"errors"
+	"github.com/parasource/rhosus/rhosus/storage/finder"
+	"github.com/parasource/rhosus/rhosus/storage/storage_object"
 	"os"
-	"parasource/rhosus/rhosus/storage/finder"
-	"parasource/rhosus/rhosus/storage/storage_object"
 )
 
 var (

@@ -1,7 +1,7 @@
 package rhosus_node
 
 import (
-	"parasource/rhosus/rhosus/rlog"
+	"github.com/parasource/rhosus/rhosus/rlog"
 	"sync"
 	"time"
 )

@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+
+service Rhosus {
+    rpc SendHeartbeat (stream Heartbeat) returns (stream HeartbeatResponse) {
+    }
+}
+
+message Heartbeat {
+    string name = 1;
+    string ip = 2;
+    string port = 3;
+    repeated VolumeInformationMessage volumes = 4;
+    repeated VolumeInformationMessage new_volumes = 5;
+    repeated VolumeInformationMessage deleted_volumes = 6;
+}
+
+message HeartbeatResponse {
+    string leader = 1;
+    string metrics_address = 2;
+    uint32 metrics_interval = 3;
+}
+
+message VolumeInformationMessage {
+    uint32 Id = 1;
+    uint64 size = 2;
+    uint64 file_count = 3;
+    bool readonly = 4;
+    uint32 version = 5;
+    string disk_type = 6;
+    uint64 last_modified_at = 7;
+}

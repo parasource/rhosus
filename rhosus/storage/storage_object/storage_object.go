@@ -1,6 +1,6 @@
 package so
 
-import "parasource/rhosus/rhosus/storage/finder"
+import "github.com/parasource/rhosus/rhosus/storage/finder"
 
 type StorageObject struct {
 	Id   string

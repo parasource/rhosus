@@ -1,9 +1,9 @@
-package rhosus
+package main
 
 import (
 	"fmt"
+	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/spf13/cobra"
-	"parasource/rhosus/rhosus/util"
 	"runtime"
 )
 

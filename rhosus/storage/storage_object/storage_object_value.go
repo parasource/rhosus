@@ -2,7 +2,7 @@ package so
 
 import (
 	"github.com/google/btree"
-	"parasource/rhosus/rhosus/storage/finder"
+	"github.com/parasource/rhosus/rhosus/storage/finder"
 )
 
 type StorageObjectValue struct {
