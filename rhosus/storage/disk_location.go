@@ -2,8 +2,8 @@ package storage
 
 import (
 	"errors"
+	"github.com/parasource/rhosus/rhosus/logging"
 	"github.com/parasource/rhosus/rhosus/node"
-	"github.com/parasource/rhosus/rhosus/rlog"
 	"github.com/parasource/rhosus/rhosus/storage/stats"
 	"github.com/parasource/rhosus/rhosus/util/fs"
 	"github.com/parasource/rhosus/rhosus/util/tickers"

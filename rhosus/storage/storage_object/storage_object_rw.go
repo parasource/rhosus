@@ -2,8 +2,6 @@ package so
 
 import (
 	"bytes"
-	"github.com/parasource/rhosus/rhosus/storage/finder"
-	utilbytes "github.com/parasource/rhosus/rhosus/util/bytes"
 	"math"
 	"sync"
 )
@@ -36,7 +34,7 @@ var bufPool = sync.Pool{
 	},
 }
 
-func (o *StorageObject) prepareWriteBuffer(writeBytes *bytes.Buffer) (finder.Size, error) {
+func (o *StorageObject) prepareWriteBuffer(writeBytes *bytes.Buffer) (int64, error) {
 	writeBytes.Reset()
 
 	header := make([]byte, NeedleHeaderSize+TimestampSize)
@@ -45,24 +43,34 @@ func (o *StorageObject) prepareWriteBuffer(writeBytes *bytes.Buffer) (finder.Siz
 	} else {
 		o.NameSize = uint8(len(o.Name))
 	}
-	o.DataSize, o.MimeSize = uint32(len(o.Data)), uint8(len(o.Mime))
+	o.DataSize, o.MimeSize = uint64(len(o.Data)), uint8(len(o.Mime))
 
 	writeBytes.Write(header[0:NeedleHeaderSize])
 	if o.DataSize > 0 {
-		utilbytes.Uint32toBytes(header[0:4], o.DataSize)
 		writeBytes.Write(header[0:4])
 		writeBytes.Write(o.Data)
 		writeBytes.Write(header[0:1])
 	}
 	// TODO
 
-	return finder.Size(o.DataSize), nil
+	return int64(o.DataSize), nil
 }
 
-func (o *StorageObject) Append(offset uint64, size finder.Size) {
+func (o *StorageObject) Append(offset uint64, size uint64) {
 
 }
 
-func (o *StorageObject) ReadBytes(bytes []byte, offset uint64, size finder.Size) error {
+func (o *StorageObject) ReadBytes(bytes []byte, offset uint64, size uint64) error {
 	return nil
 }
+
+//func (o *StorageObject) ReadData(offset int64, size finder.Size) error {
+//	bytes, err := ReadStorageObjectBlob(o, offset, size)
+//}
+//
+//func ReadStorageObjectBlob(o *StorageObject, offset int64, size finder.Size) ([]byte, error) {
+//	dataSlice := make([]byte, size)
+//
+//	var n int
+//	n, err := r.readAt
+//}

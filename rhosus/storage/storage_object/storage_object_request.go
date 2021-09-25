@@ -1,24 +1,22 @@
 package so
 
 type StorageObjectRequest struct {
-	Object     *StorageObject
-	ActualSize int64
-	Offset     uint64
-	Size       uint64
-	doneCh     chan interface{}
-	modified   bool
-	err        error
+	Object   *StorageObject
+	Offset   uint64
+	Size     uint64
+	doneCh   chan interface{}
+	modified bool
+	err      error
 }
 
 func NewStorageObjectRequest(o *StorageObject) *StorageObjectRequest {
 	return &StorageObjectRequest{
-		Object:     o,
-		ActualSize: 0,
-		Offset:     0,
-		Size:       0,
-		doneCh:     make(chan interface{}),
-		modified:   true,
-		err:        nil,
+		Object:   o,
+		Offset:   0,
+		Size:     0,
+		doneCh:   make(chan interface{}),
+		modified: true,
+		err:      nil,
 	}
 }
 

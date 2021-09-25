@@ -2,26 +2,27 @@ package storage
 
 import (
 	rhosusnode "github.com/parasource/rhosus/rhosus/node"
-	"github.com/parasource/rhosus/rhosus/rlog"
-	"github.com/parasource/rhosus/rhosus/storage/finder"
 	"github.com/parasource/rhosus/rhosus/storage/storage_object"
 	"path"
-	"strconv"
 	"sync"
 )
 
+const (
+	MaxVolumeSize uint64 = 4 * 1024 * 1024 * 1024 * 8 // 32GB
+)
+
 type Volume struct {
-	Node       *rhosusnode.Node
-	Id         uint64
-	Dir        string
-	Collection string
-	Finder     finder.Finder
+	Node *rhosusnode.Node
+	Id   uint64
+	Dir  string
 
 	dataMu        sync.RWMutex
 	MemoryMaxSize uint32
 
 	reqCh    chan *so.StorageObjectRequest
 	Location *DiskLocation
+
+	files []string
 
 	lastIoError  error
 	isCompacting bool
@@ -31,7 +32,6 @@ func NewVolume(dirname string, collection string, id uint64, preallocate int64, 
 	v := &Volume{
 		Id:            id,
 		Dir:           dirname,
-		Collection:    collection,
 		MemoryMaxSize: memoryMaxSize,
 		reqCh:         make(chan *so.StorageObjectRequest, 128),
 	}
@@ -40,70 +40,50 @@ func NewVolume(dirname string, collection string, id uint64, preallocate int64, 
 	return v, nil
 }
 
-func VolumeFileName(dir string, collection string, id int) string {
-	idString := strconv.Itoa(id)
-	if collection == "" {
-		return path.Join(dir, idString)
-	}
-
-	return path.Join(dir, collection+"_"+idString)
+func VolumeFileName(dir string, key string) string {
+	return path.Join(dir, key)
 }
 
-func (v *Volume) DataFileName() string {
-	return VolumeFileName(v.Dir, v.Collection, int(v.Id))
+func (v *Volume) DataFileName(fileKey string) string {
+	return VolumeFileName(v.Dir, fileKey)
 }
 
 func (v *Volume) ContentSize() uint64 {
 	v.dataMu.RLock()
 	defer v.dataMu.RUnlock()
 
-	if v.Finder == nil {
-		return 0
-	}
-
-	return v.Finder.ContentSize()
+	// todo
+	return 0
 }
 
 func (v *Volume) FilesCount() uint64 {
 	v.dataMu.RLock()
 	defer v.dataMu.RUnlock()
 
-	if v.Finder == nil {
-		return 0
-	}
-	return uint64(v.Finder.FileCount())
+	// todo
+	return 0
 }
 
 func (v *Volume) DeletedCount() uint64 {
 	v.dataMu.RLock()
 	defer v.dataMu.RUnlock()
-	if v.Finder == nil {
-		return 0
-	}
-	return uint64(v.Finder.DeletedCount())
+
+	// todo
+	return 0
 }
 
 func (v *Volume) MaxFileKey() string {
 	v.dataMu.RLock()
 	defer v.dataMu.RUnlock()
-	if v.Finder == nil {
-		return ""
-	}
-	return v.Finder.MaxFileKey()
+
+	// todo
+	return ""
 }
 
 func (v *Volume) Close() {
 	v.dataMu.Lock()
 	defer v.dataMu.Unlock()
 
-	if v.Finder != nil {
-		if err := v.Finder.Sync(); err != nil {
-			v.Node.Logger.Log(rlog.NewLogEntry(rlog.LogLevelError, "error syncing volume before shutdown", map[string]interface{}{"vid": v.Id, "error": err}))
-		}
-		v.Finder.Close()
-		v.Finder = nil
-	}
-
-	// Something related to DataBackend
+	// todo
 
 }

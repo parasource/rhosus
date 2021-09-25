@@ -1,12 +1,11 @@
 package so
 
-import "github.com/parasource/rhosus/rhosus/storage/finder"
-
 type StorageObject struct {
 	Id   string
-	Size finder.Size
+	Size uint64
 
-	DataSize uint32
+	Cookie   string
+	DataSize uint64
 	Data     []byte
 	Flags    byte
 	NameSize uint8

@@ -2,8 +2,7 @@ package storage
 
 import (
 	"errors"
-	"github.com/parasource/rhosus/rhosus/storage/finder"
-	"github.com/parasource/rhosus/rhosus/storage/storage_object"
+	so "github.com/parasource/rhosus/rhosus/storage/storage_object"
 	"os"
 )
 
@@ -39,24 +38,15 @@ func (v *Volume) Destroy() error {
 	// todo
 
 	v.Close()
-	removeVolumeFiles(v.DataFileName())
+	for _, fileKey := range v.files {
+		removeVolumeFiles(v.DataFileName(fileKey))
+	}
 
 	return nil
 }
 
 func removeVolumeFiles(filename string) {
 	os.Remove(filename + ".dat")
-	os.Remove(filename + ".idx")
-	os.Remove(filename + ".vif")
-	// sorted index file
-	os.Remove(filename + ".sdx")
-	// compaction
-	os.Remove(filename + ".cpd")
-	os.Remove(filename + ".cpx")
-	// level db indx file
-	os.RemoveAll(filename + ".ldb")
-	// marker for damaged or incomplete volume
-	os.Remove(filename + ".note")
 }
 
 func (v *Volume) enqueueRequest(req *so.StorageObjectRequest) {
@@ -67,10 +57,9 @@ func (v *Volume) isModified(o *so.StorageObject) bool {
 	return false
 }
 
-func (v *Volume) doWriteReq(o *so.StorageObject) (uint64, finder.Size, bool, error) {
+func (v *Volume) doWriteReq(o *so.StorageObject) (uint64, uint64, bool, error) {
 	if !v.isModified(o) {
-		size := finder.Size(o.DataSize)
-		return 0, size, false, nil
+		return 0, o.DataSize, false, nil
 	}
 
 	// todo
@@ -78,13 +67,13 @@ func (v *Volume) doWriteReq(o *so.StorageObject) (uint64, finder.Size, bool, err
 	return 0, 0, false, nil
 }
 
-func (v *Volume) syncDelete(o *so.StorageObject) (finder.Size, error) {
+func (v *Volume) syncDelete(o *so.StorageObject) (uint64, error) {
 	// todo
 
 	return 0, nil
 }
 
-func (v *Volume) doDeleteReq(o *so.StorageObject) (finder.Size, error) {
+func (v *Volume) doDeleteReq(o *so.StorageObject) (uint64, error) {
 	// todo
 
 	return 0, nil
@@ -98,23 +87,51 @@ func (v *Volume) startWorker() {
 				break
 			}
 
-			//reqs := make([]*storage_object.StorageObjectRequest, 0, 128)
-			//bytesToWrite := int64(0)
+			reqs := make([]*so.StorageObjectRequest, 0, 128)
+			bytesToWrite := int64(0)
 			//
-			//for {
-			//	req, ok := <- v.reqCh
-			//	if !ok {
-			//		closedCh = true
-			//		break
-			//	}
-			//
-			//
-			//}
+
+			for {
+				req, ok := <-v.reqCh
+				if !ok {
+
+				}
+
+				if v.ContentSize()+uint64(bytesToWrite) > MaxVolumeSize {
+					// По идее надо что-то делать, но пока не знаю что
+				}
+
+				reqs = append(reqs, req)
+				bytesToWrite += int64(req.Size)
+
+				if bytesToWrite >= 4*1024*1024 || len(reqs) >= 128 || len(v.reqCh) == 0 {
+					break
+				}
+				if len(reqs) == 0 {
+					continue
+				}
+
+				func() {
+					v.dataMu.Lock()
+					defer v.dataMu.Unlock()
+
+					for i := 0; i < len(reqs); i++ {
+						// todo check if write request
+
+						offset, size, isModified, err := v.doWriteReq(reqs[i].Object)
+						if err != nil {
+
+						}
+
+						reqs[i].Complete(offset, size, isModified, err)
+					}
+				}()
+			}
 		}
 	}()
 }
 
-func (v *Volume) WriteBlob(id string, data []byte, size finder.Size) error {
+func (v *Volume) WriteBlob(id string, data []byte, size uint64) error {
 	v.dataMu.Lock()
 	defer v.dataMu.Unlock()
 

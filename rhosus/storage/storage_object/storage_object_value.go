@@ -2,13 +2,12 @@ package so
 
 import (
 	"github.com/google/btree"
-	"github.com/parasource/rhosus/rhosus/storage/finder"
 )
 
 type StorageObjectValue struct {
 	Key    string
-	Offset finder.Offset
-	Size   finder.Size
+	Offset int64
+	Size   uint64
 }
 
 func (v StorageObjectValue) Less(than btree.Item) bool {

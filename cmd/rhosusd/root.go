@@ -1,8 +1,8 @@
 package main
 
 import (
+	"github.com/parasource/rhosus/rhosus/logging"
 	rhosusnode "github.com/parasource/rhosus/rhosus/node"
-	"github.com/parasource/rhosus/rhosus/rlog"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"os"
