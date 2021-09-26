@@ -26,7 +26,11 @@ func NewRegistry(config RegistryConfig) (*Registry, error) {
 		config:  config,
 		closeCh: make(chan struct{}, 1),
 	}
-	r.Storage = NewRedisRegistryStorage(r)
+	storage, err := NewRedisRegistryStorage(r, nil)
+	if err != nil {
+		return nil, err
+	}
+	r.Storage = storage
 
 	return r, nil
 }
