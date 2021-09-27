@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package node_proto;
+option go_package = "github.com/rhosus/rhosus/internal/pb/node_pb";
+
+service NodeDiscoveryService {
+  rpc DiscoverNode(NodeDiscoveryRequest) returns (NodeDiscoveryResponse);
+  rpc RemoveNode(NodeRemovalRequest) returns (NodeRemovalResponse);
+  rpc GetNodes(GetNodesRequest) returns (GetNodesResponse);
+
+  rpc UpdateMetrics(UpdateMetricsRequest) returns (UpdateMetricsResponse);
+}
+
+message NodeDiscoveryRequest {
+  string uid = 1;
+  string name = 2;
+  string addr = 3;
+  string port = 4;
+  string rack = 5;
+}
+
+message NodeDiscoveryResponse {
+  map<string, DataNode> nodes = 1;
+}
+
+
+message NodeRemovalRequest {
+  string uid = 1;
+}
+
+message NodeRemovalResponse {
+  map<string, DataNode> nodes = 1;
+}
+
+
+message GetNodesRequest {
+
+}
+
+message GetNodesResponse {
+  map<string, DataNode> nodes = 1;
+}
+
+
+message UpdateMetricsRequest {
+  string uid = 1;
+  Metrics metrics = 2;
+}
+
+message UpdateMetricsResponse {
+
+}
+
+message DataNode {
+  string uid = 1;
+  string name = 2;
+  string version = 4;
+  string address = 5;
+  uint32 volumes = 6;
+}
+
+message Metrics {
+  double intervalSec = 1;
+  map<string, double> metrics = 2;
+}
