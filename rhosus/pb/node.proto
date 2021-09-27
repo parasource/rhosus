@@ -44,6 +44,10 @@ message GetNodesResponse {
 
 message UpdateMetricsRequest {
   string uid = 1;
+  message Metrics {
+    double intervalSec = 1;
+    map<string, double> metrics = 2;
+  }
   Metrics metrics = 2;
 }
 
@@ -59,7 +63,3 @@ message DataNode {
   uint32 volumes = 6;
 }
 
-message Metrics {
-  double intervalSec = 1;
-  map<string, double> metrics = 2;
-}
