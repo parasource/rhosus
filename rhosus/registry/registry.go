@@ -64,3 +64,7 @@ func (r *Registry) RemoveNode(key string) error {
 
 	return nil
 }
+
+func (r *Registry) CreateEntry() error {
+	return nil
+}

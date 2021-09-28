@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+package fm_pb;
+option go_package = "github.com/parasource/rhosus/rhosus/pb/fm_pb";
+
+service FileManagerService {
+  rpc CreatePackage(CreatePackageRequest) returns (CreatePackageResponse);
+  rpc AppendPackage(AppendPackageRequest) returns (AppendPackageResponse);
+  rpc DeletePackage(DeletePackageRequest) returns (DeletePackageResponse);
+}
+
+message CreatePackageRequest {
+  string uid = 1;
+  string directory = 2;
+  Package package = 3;
+  repeated int32 signatures = 4;
+}
+
+message CreatePackageResponse {
+  string error = 1;
+}
+
+message AppendPackageRequest {
+  string uid = 1;
+  repeated FileChunk chunks = 2;
+}
+
+message AppendPackageResponse {
+  string error = 1;
+}
+
+message DeletePackageRequest {
+  string directory = 1;
+  string uid = 2;
+  repeated int32 signatures = 3;
+}
+
+message DeletePackageResponse {
+  string error = 1;
+}
+
+
+///////////////////////
+// File Manager types
+
+
+// Package is a wrapper over FileChunks that
+// stored in one node
+
+message Package {
+  message FileKey {
+    uint32 volume_id = 1;
+    uint64 file_key = 2;
+    fixed32 cookie = 3;
+  }
+  FileKey fkey = 1;
+  string name = 2;
+  repeated FileChunk chunks = 3;
+  bytes content = 4;
+}
+
+message FileChunk {
+  message PackageKey {
+    string package_id = 1;
+    string node_id = 2;
+  }
+  PackageKey package_key = 1;
+  string uid = 2;
+  int64 size = 3;
+  uint64 offset = 4;
+  uint64 lastModifiedAt = 5;
+}
