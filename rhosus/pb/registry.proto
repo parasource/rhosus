@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package registry_pb;
+option go_package = "github.com/parasource/rhosus/rhosus/pb/registry_pb";
+
+message RegistryInfo {
+  string rpcAddress = 1;
+  string httpAddress = 2;
+  enum RegistryRole {
+    REGISTRY = 0;
+    BACKUP = 1;
+  }
+}
