@@ -11,7 +11,7 @@ type Config struct {
 	Address string
 	Timeout time.Duration
 	Dir     []string
-	Logger  *rlog.LogHandler
+	Log     *rlog.LogHandler
 }
 
 type Node struct {
@@ -25,7 +25,7 @@ type Node struct {
 func NewNode(config Config) *Node {
 	return &Node{
 		cfg:    config,
-		Logger: config.Logger,
+		Logger: config.Log,
 
 		shutdown: make(chan struct{}, 1),
 	}

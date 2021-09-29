@@ -1,6 +1,7 @@
 package registry
 
 import (
+	rlog "github.com/parasource/rhosus/rhosus/logging"
 	rhosus_node "github.com/parasource/rhosus/rhosus/node"
 	"sync"
 )
@@ -11,6 +12,8 @@ type RegistryConfig struct {
 
 type Registry struct {
 	config RegistryConfig
+
+	Log *rlog.LogHandler
 
 	nodesMu sync.Mutex
 	Storage RegistryStorage

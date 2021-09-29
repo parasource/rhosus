@@ -37,7 +37,7 @@ func startupRhosusServer(cmd *cobra.Command, args []string) {
 		Name:    nodeName,
 		Address: nodeAddress,
 		Timeout: time.Second * time.Duration(nodeTimeout),
-		Logger:  rlog.NewLogHandler(),
+		Log:     rlog.NewLogHandler(),
 	}
 
 	node := rhosusnode.NewNode(config)
