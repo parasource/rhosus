@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	registryInfoChannel = "--rhosus-registry-info-channel"
+	registryInfoChannel = "--rhosus-registry-channel"
 )
 
 type RegistryConfig struct {
@@ -24,9 +24,11 @@ type Registry struct {
 
 	Log *rlog.LogHandler
 
+	Storage       RegistryStorage
+	Broker        RegistryBroker
+	RegistriesMap *RegistriesMap
+
 	nodesMu sync.RWMutex
-	Storage RegistryStorage
-	Broker  RegistryBroker
 	nodes   map[string]*rhosus_node.Node
 
 	closeCh chan struct{}
@@ -58,29 +60,15 @@ func (r *Registry) NotifyShutdown() <-chan struct{} {
 	return r.closeCh
 }
 
-func (r *Registry) RegisterNode(key string, node *rhosus_node.Node) error {
-	r.nodesMu.Lock()
-	defer r.nodesMu.Unlock()
+///////////////////////////////////////////
+// RegistriesMap instances management methods
 
-	r.nodes[key] = node
-
-	return nil
+func (r *Registry) AddRegistry(uid string, info *registry_pb.RegistryInfo) {
+	r.RegistriesMap.Add(uid, info)
 }
 
-func (r *Registry) RemoveNode(key string) error {
-	r.nodesMu.Lock()
-	defer r.nodesMu.Unlock()
-
-	delete(r.nodes, key)
-
-	return nil
-}
-
-func (r *Registry) Shutdown() error {
-
-	r.closeCh <- struct{}{}
-
-	return nil
+func (r *Registry) RemoveRegistry(uid string) {
+	r.RegistriesMap.Remove(uid)
 }
 
 func (r *Registry) sendPing() {
@@ -132,4 +120,32 @@ func (r *Registry) pubRegistryInfo() {
 
 	}
 
+}
+
+////////////////////////////
+// Nodes management methods
+
+func (r *Registry) RegisterNode(key string, node *rhosus_node.Node) error {
+	r.nodesMu.Lock()
+	defer r.nodesMu.Unlock()
+
+	r.nodes[key] = node
+
+	return nil
+}
+
+func (r *Registry) RemoveNode(key string) error {
+	r.nodesMu.Lock()
+	defer r.nodesMu.Unlock()
+
+	delete(r.nodes, key)
+
+	return nil
+}
+
+func (r *Registry) Shutdown() error {
+
+	r.closeCh <- struct{}{}
+
+	return nil
 }
