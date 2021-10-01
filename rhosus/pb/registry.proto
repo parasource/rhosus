@@ -3,6 +3,14 @@ syntax = "proto3";
 package registry_pb;
 option go_package = "github.com/parasource/rhosus/rhosus/pb/registry_pb";
 
+message Command {
+  enum CommandType {
+    PING = 0;
+  }
+  CommandType type = 1;
+  bytes data = 2;
+}
+
 message RegistryInfo {
   string rpcAddress = 1;
   string httpAddress = 2;

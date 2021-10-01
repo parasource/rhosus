@@ -1,50 +1,55 @@
 package registry
 
 import (
-	"errors"
+	"github.com/gomodule/redigo/redis"
+	registry_pb "github.com/parasource/rhosus/rhosus/pb/registry"
 	rhosus_redis "github.com/parasource/rhosus/rhosus/registry/redis"
 )
 
-// RegistryStorageRedis ///////////////////////
-// Registry Storage that stores mappings files and bytes in Redis database
+var (
+	registerNodeSource = `redis.call("hset", KEYS[1], ARGV[1], ARGV[2])`
+
+	removeNodeSource = `redis.call("hdel", KEYS[1], ARGV[1])`
+
+	getNodesSource = `return redis.call("hgetall", KEYS[1])`
+)
+
 type RegistryStorageRedis struct {
 	Registry *Registry
 
-	shards []*rhosus_redis.RedisShard
+	shards *rhosus_redis.RedisShardPool
 }
 
 func NewRedisRegistryStorage(registry *Registry, shardsConf []rhosus_redis.RedisShardConfig) (*RegistryStorageRedis, error) {
 
-	var shards []*rhosus_redis.RedisShard
+	shardsPool, err := rhosus_redis.NewRedisShardPool(registry, shardsConf)
+	if err != nil {
 
-	if shardsConf == nil || len(shardsConf) == 0 {
-		return nil, errors.New("redis shards are not specified. either use different driver, or specify redis shards")
 	}
+	shardsPool.SetMessagesHandler(func(message redis.Message) {
+		switch message.Channel {
+		case registryInfoChannel:
+			var cmd *registry_pb.Command
+			err := cmd.Unmarshal(message.Data)
+			if err != nil {
 
-	for _, conf := range shardsConf {
-		shard, err := rhosus_redis.NewShard(registry, conf)
-		if err != nil {
-			return nil, err
+			}
+
+			var info *registry_pb.RegistryInfo
+			err = info.Unmarshal(cmd.Data)
+			if err != nil {
+
+			}
+
+			// todo
 		}
-		shards = append(shards, shard)
-	}
-
+	})
 	return &RegistryStorageRedis{
 		Registry: registry,
-		shards:   shards,
+		shards:   shardsPool,
 	}, nil
 }
 
-func (s *RegistryStorageRedis) RegisterNode(key string, data map[string]interface{}) error {
+func (r *RegistryStorageRedis) GetNodes() {
 
-	return nil
-}
-
-func (s *RegistryStorageRedis) RemoveNode(key string) error {
-
-	return nil
-}
-
-func (s *RegistryStorageRedis) GetNodes() map[string]map[string]interface{} {
-	return nil
 }

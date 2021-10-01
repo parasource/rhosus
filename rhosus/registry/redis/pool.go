@@ -22,6 +22,8 @@ const (
 type RedisShardPool struct {
 	registry *registry.Registry
 	shards   []*RedisShard
+
+	handler func(message redis.Message)
 }
 
 func NewRedisShardPool(registry *registry.Registry, conf []RedisShardConfig) (*RedisShardPool, error) {
@@ -73,9 +75,11 @@ type RedisShard struct {
 
 	registry *registry.Registry
 	config   RedisShardConfig
-	pool     *redis.Pool
 
-	pubCh chan redis.Message
+	shardsPool *RedisShardPool
+	pool       *redis.Pool
+
+	pubCh chan PubRequest
 	recCh chan redis.Message
 
 	isAvailable       bool
@@ -152,7 +156,7 @@ func NewShard(r *registry.Registry, conf RedisShardConfig) (*RedisShard, error) 
 			}
 		}(r, conf),
 
-		pubCh: make(chan redis.Message),
+		pubCh: make(chan PubRequest),
 		recCh: make(chan redis.Message),
 	}
 	return shard, nil
@@ -186,4 +190,8 @@ func (s *RedisShard) Run() {
 	go s.RunReceivePipeline()
 	go s.RunPubPipeline()
 
+}
+
+func (s *RedisShardPool) SetMessagesHandler(handler func(message redis.Message)) {
+	s.handler = handler
 }

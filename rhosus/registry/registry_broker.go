@@ -1,5 +1,7 @@
 package registry
 
+import rhosus_redis "github.com/parasource/rhosus/rhosus/registry/redis"
+
 type RegistryBroker interface {
-	Run() error
+	PublishCommand(pubReq rhosus_redis.PubRequest) error
 }

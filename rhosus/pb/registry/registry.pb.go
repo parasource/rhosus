@@ -22,6 +22,28 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
+type Command_CommandType int32
+
+const (
+	Command_PING Command_CommandType = 0
+)
+
+var Command_CommandType_name = map[int32]string{
+	0: "PING",
+}
+
+var Command_CommandType_value = map[string]int32{
+	"PING": 0,
+}
+
+func (x Command_CommandType) String() string {
+	return proto.EnumName(Command_CommandType_name, int32(x))
+}
+
+func (Command_CommandType) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_41af05d40a615591, []int{0, 0}
+}
+
 type RegistryInfo_RegistryRole int32
 
 const (
@@ -44,7 +66,62 @@ func (x RegistryInfo_RegistryRole) String() string {
 }
 
 func (RegistryInfo_RegistryRole) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_41af05d40a615591, []int{0, 0}
+	return fileDescriptor_41af05d40a615591, []int{1, 0}
+}
+
+type Command struct {
+	Type                 Command_CommandType `protobuf:"varint,1,opt,name=type,proto3,enum=registry_pb.Command_CommandType" json:"type,omitempty"`
+	Data                 []byte              `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
+	XXX_unrecognized     []byte              `json:"-"`
+	XXX_sizecache        int32               `json:"-"`
+}
+
+func (m *Command) Reset()         { *m = Command{} }
+func (m *Command) String() string { return proto.CompactTextString(m) }
+func (*Command) ProtoMessage()    {}
+func (*Command) Descriptor() ([]byte, []int) {
+	return fileDescriptor_41af05d40a615591, []int{0}
+}
+func (m *Command) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *Command) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_Command.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *Command) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Command.Merge(m, src)
+}
+func (m *Command) XXX_Size() int {
+	return m.Size()
+}
+func (m *Command) XXX_DiscardUnknown() {
+	xxx_messageInfo_Command.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Command proto.InternalMessageInfo
+
+func (m *Command) GetType() Command_CommandType {
+	if m != nil {
+		return m.Type
+	}
+	return Command_PING
+}
+
+func (m *Command) GetData() []byte {
+	if m != nil {
+		return m.Data
+	}
+	return nil
 }
 
 type RegistryInfo struct {
@@ -59,7 +136,7 @@ func (m *RegistryInfo) Reset()         { *m = RegistryInfo{} }
 func (m *RegistryInfo) String() string { return proto.CompactTextString(m) }
 func (*RegistryInfo) ProtoMessage()    {}
 func (*RegistryInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_41af05d40a615591, []int{0}
+	return fileDescriptor_41af05d40a615591, []int{1}
 }
 func (m *RegistryInfo) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -103,26 +180,72 @@ func (m *RegistryInfo) GetHttpAddress() string {
 }
 
 func init() {
+	proto.RegisterEnum("registry_pb.Command_CommandType", Command_CommandType_name, Command_CommandType_value)
 	proto.RegisterEnum("registry_pb.RegistryInfo_RegistryRole", RegistryInfo_RegistryRole_name, RegistryInfo_RegistryRole_value)
+	proto.RegisterType((*Command)(nil), "registry_pb.Command")
 	proto.RegisterType((*RegistryInfo)(nil), "registry_pb.RegistryInfo")
 }
 
 func init() { proto.RegisterFile("registry.proto", fileDescriptor_41af05d40a615591) }
 
 var fileDescriptor_41af05d40a615591 = []byte{
-	// 191 bytes of a gzipped FileDescriptorProto
+	// 263 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0x2b, 0x4a, 0x4d, 0xcf,
 	0x2c, 0x2e, 0x29, 0xaa, 0xd4, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xe2, 0x86, 0xf1, 0xe3, 0x0b,
-	0x92, 0x94, 0xaa, 0xb8, 0x78, 0x82, 0xa0, 0x5c, 0xcf, 0xbc, 0xb4, 0x7c, 0x21, 0x39, 0x2e, 0xae,
-	0xa2, 0x82, 0x64, 0xc7, 0x94, 0x94, 0xa2, 0xd4, 0xe2, 0x62, 0x09, 0x46, 0x05, 0x46, 0x0d, 0xce,
-	0x20, 0x24, 0x11, 0x21, 0x05, 0x2e, 0xee, 0x8c, 0x92, 0x92, 0x02, 0x98, 0x02, 0x26, 0xb0, 0x02,
-	0x64, 0x21, 0x25, 0x0d, 0x84, 0x89, 0x41, 0xf9, 0x39, 0xa9, 0x42, 0x3c, 0x5c, 0x1c, 0x41, 0xae,
-	0xee, 0x9e, 0xc1, 0x21, 0x41, 0x91, 0x02, 0x0c, 0x42, 0x5c, 0x5c, 0x6c, 0x4e, 0x8e, 0xce, 0xde,
-	0xa1, 0x01, 0x02, 0x8c, 0x4e, 0x2e, 0x27, 0x1e, 0xc9, 0x31, 0x5e, 0x78, 0x24, 0xc7, 0xf8, 0xe0,
-	0x91, 0x1c, 0xe3, 0x8c, 0xc7, 0x72, 0x0c, 0x51, 0x46, 0xe9, 0x99, 0x25, 0x19, 0xa5, 0x49, 0x7a,
-	0xc9, 0xf9, 0xb9, 0xfa, 0x05, 0x89, 0x45, 0x89, 0xc5, 0xf9, 0xa5, 0x45, 0xc9, 0xa9, 0xfa, 0x45,
-	0x19, 0xf9, 0xc5, 0xa5, 0xc5, 0x30, 0xaa, 0x20, 0x49, 0x1f, 0xc9, 0x07, 0x49, 0x6c, 0x60, 0x5f,
-	0x19, 0x03, 0x02, 0x00, 0x00, 0xff, 0xff, 0xe8, 0x27, 0xb1, 0xa3, 0xe7, 0x00, 0x00, 0x00,
+	0x92, 0x94, 0x72, 0xb8, 0xd8, 0x9d, 0xf3, 0x73, 0x73, 0x13, 0xf3, 0x52, 0x84, 0x4c, 0xb8, 0x58,
+	0x4a, 0x2a, 0x0b, 0x52, 0x25, 0x18, 0x15, 0x18, 0x35, 0xf8, 0x8c, 0x14, 0xf4, 0x90, 0x94, 0xe9,
+	0x41, 0xd5, 0xc0, 0xe8, 0x90, 0xca, 0x82, 0xd4, 0x20, 0xb0, 0x6a, 0x21, 0x21, 0x2e, 0x96, 0x94,
+	0xc4, 0x92, 0x44, 0x09, 0x26, 0x05, 0x46, 0x0d, 0x9e, 0x20, 0x30, 0x5b, 0x49, 0x9c, 0x8b, 0x1b,
+	0x49, 0xa1, 0x10, 0x07, 0x17, 0x4b, 0x80, 0xa7, 0x9f, 0xbb, 0x00, 0x83, 0x52, 0x15, 0x17, 0x4f,
+	0x10, 0xd4, 0x54, 0xcf, 0xbc, 0xb4, 0x7c, 0x21, 0x39, 0x2e, 0xae, 0xa2, 0x82, 0x64, 0xc7, 0x94,
+	0x94, 0xa2, 0xd4, 0xe2, 0x62, 0xb0, 0xc5, 0x9c, 0x41, 0x48, 0x22, 0x42, 0x0a, 0x5c, 0xdc, 0x19,
+	0x25, 0x25, 0x05, 0x30, 0x05, 0x4c, 0x60, 0x05, 0xc8, 0x42, 0x4a, 0x1a, 0x08, 0x13, 0x83, 0xf2,
+	0x73, 0x52, 0x85, 0x78, 0xb8, 0x38, 0x82, 0x5c, 0xdd, 0x3d, 0x83, 0x43, 0x82, 0x22, 0x05, 0x18,
+	0x84, 0xb8, 0xb8, 0xd8, 0x9c, 0x1c, 0x9d, 0xbd, 0x43, 0x03, 0x04, 0x18, 0x9d, 0x5c, 0x4e, 0x3c,
+	0x92, 0x63, 0xbc, 0xf0, 0x48, 0x8e, 0xf1, 0xc1, 0x23, 0x39, 0xc6, 0x19, 0x8f, 0xe5, 0x18, 0xa2,
+	0x8c, 0xd2, 0x33, 0x4b, 0x32, 0x4a, 0x93, 0xf4, 0x92, 0xf3, 0x73, 0xf5, 0x0b, 0x12, 0x8b, 0x12,
+	0x8b, 0xf3, 0x4b, 0x8b, 0x92, 0x53, 0xf5, 0x8b, 0x32, 0xf2, 0x8b, 0x4b, 0x8b, 0x61, 0x54, 0x41,
+	0x92, 0x3e, 0x52, 0x40, 0x24, 0xb1, 0x81, 0xc3, 0xd0, 0x18, 0x10, 0x00, 0x00, 0xff, 0xff, 0xa0,
+	0xde, 0x37, 0x3d, 0x55, 0x01, 0x00, 0x00,
+}
+
+func (m *Command) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Command) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Command) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Data) > 0 {
+		i -= len(m.Data)
+		copy(dAtA[i:], m.Data)
+		i = encodeVarintRegistry(dAtA, i, uint64(len(m.Data)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Type != 0 {
+		i = encodeVarintRegistry(dAtA, i, uint64(m.Type))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *RegistryInfo) Marshal() (dAtA []byte, err error) {
@@ -177,6 +300,25 @@ func encodeVarintRegistry(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return base
 }
+func (m *Command) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Type != 0 {
+		n += 1 + sovRegistry(uint64(m.Type))
+	}
+	l = len(m.Data)
+	if l > 0 {
+		n += 1 + l + sovRegistry(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
 func (m *RegistryInfo) Size() (n int) {
 	if m == nil {
 		return 0
@@ -202,6 +344,110 @@ func sovRegistry(x uint64) (n int) {
 }
 func sozRegistry(x uint64) (n int) {
 	return sovRegistry(uint64((x << 1) ^ uint64((int64(x) >> 63))))
+}
+func (m *Command) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowRegistry
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Command: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Command: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Type", wireType)
+			}
+			m.Type = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRegistry
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Type |= Command_CommandType(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Data", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRegistry
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthRegistry
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthRegistry
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Data = append(m.Data[:0], dAtA[iNdEx:postIndex]...)
+			if m.Data == nil {
+				m.Data = []byte{}
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipRegistry(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthRegistry
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
 }
 func (m *RegistryInfo) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
