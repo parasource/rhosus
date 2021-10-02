@@ -6,14 +6,6 @@ import (
 	rhosus_redis "github.com/parasource/rhosus/rhosus/registry/redis"
 )
 
-var (
-	registerNodeSource = `redis.call("hset", KEYS[1], ARGV[1], ARGV[2])`
-
-	removeNodeSource = `redis.call("hdel", KEYS[1], ARGV[1])`
-
-	getNodesSource = `return redis.call("hgetall", KEYS[1])`
-)
-
 type RegistryStorageRedis struct {
 	Registry *Registry
 

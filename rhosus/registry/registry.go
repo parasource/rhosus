@@ -2,7 +2,7 @@ package registry
 
 import (
 	rlog "github.com/parasource/rhosus/rhosus/logging"
-	rhosus_node "github.com/parasource/rhosus/rhosus/node"
+	node_pb "github.com/parasource/rhosus/rhosus/pb/node"
 	registry_pb "github.com/parasource/rhosus/rhosus/pb/registry"
 	rhosus_redis "github.com/parasource/rhosus/rhosus/registry/redis"
 	"sync"
@@ -24,22 +24,21 @@ type Registry struct {
 
 	Log *rlog.LogHandler
 
-	Storage       RegistryStorage
-	Broker        RegistryBroker
+	Storage RegistryStorage
+	Broker  RegistryBroker
+
 	RegistriesMap *RegistriesMap
+	NodesMap      *NodesMap
 
-	nodesMu sync.RWMutex
-	nodes   map[string]*rhosus_node.Node
-
-	closeCh chan struct{}
+	shutdownCh chan struct{}
 
 	lastUpdate uint64
 }
 
 func NewRegistry(config RegistryConfig) (*Registry, error) {
 	r := &Registry{
-		config:  config,
-		closeCh: make(chan struct{}, 1),
+		config:     config,
+		shutdownCh: make(chan struct{}, 1),
 	}
 	storage, err := NewRedisRegistryStorage(r, nil)
 	if err != nil {
@@ -57,7 +56,7 @@ func NewRegistry(config RegistryConfig) (*Registry, error) {
 }
 
 func (r *Registry) NotifyShutdown() <-chan struct{} {
-	return r.closeCh
+	return r.shutdownCh
 }
 
 ///////////////////////////////////////////
@@ -125,27 +124,17 @@ func (r *Registry) pubRegistryInfo() {
 ////////////////////////////
 // Nodes management methods
 
-func (r *Registry) RegisterNode(key string, node *rhosus_node.Node) error {
-	r.nodesMu.Lock()
-	defer r.nodesMu.Unlock()
-
-	r.nodes[key] = node
-
-	return nil
+func (r *Registry) AddNode(uid string, info *node_pb.NodeInfo) {
+	r.NodesMap.AddNode(uid, info)
 }
 
-func (r *Registry) RemoveNode(key string) error {
-	r.nodesMu.Lock()
-	defer r.nodesMu.Unlock()
-
-	delete(r.nodes, key)
-
-	return nil
+func (r *Registry) RemoveNode(uid string) {
+	r.NodesMap.RemoveNode(uid)
 }
 
 func (r *Registry) Shutdown() error {
 
-	r.closeCh <- struct{}{}
+	r.shutdownCh <- struct{}{}
 
 	return nil
 }
