@@ -11,12 +11,16 @@ type RegistriesMap struct {
 	currentUID string
 	registries map[string]*registry_pb.RegistryInfo
 	updates    map[string]int64
+
+	cleaningInterval time.Duration
 }
 
-func NewRegistriesMap(registry *Registry) *RegistriesMap {
+func NewRegistriesMap() *RegistriesMap {
 	return &RegistriesMap{
 		registries: make(map[string]*registry_pb.RegistryInfo),
 		updates:    make(map[string]int64),
+
+		cleaningInterval: time.Second * 5,
 	}
 }
 
@@ -65,6 +69,16 @@ func (m *RegistriesMap) Remove(uid string) {
 	}
 }
 
+func (r *RegistriesMap) RunCleaning() {
+	ticker := time.NewTicker(r.cleaningInterval)
+	for {
+		select {
+		case <-ticker.C:
+			r.clean(time.Minute)
+		}
+	}
+}
+
 func (m *RegistriesMap) clean(delay time.Duration) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -85,4 +99,6 @@ func (m *RegistriesMap) clean(delay time.Duration) {
 			delete(m.updates, uid)
 		}
 	}
+
+	println("cleaned some stuff")
 }

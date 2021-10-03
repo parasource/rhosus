@@ -6,6 +6,7 @@ import (
 	node_pb "github.com/parasource/rhosus/rhosus/pb/node"
 	registry_pb "github.com/parasource/rhosus/rhosus/pb/registry"
 	rhosus_redis "github.com/parasource/rhosus/rhosus/registry/redis"
+	"github.com/parasource/rhosus/rhosus/util/uuid"
 	"github.com/sirupsen/logrus"
 	"sync"
 	"time"
@@ -17,6 +18,7 @@ type RegistryConfig struct {
 }
 
 type Registry struct {
+	Uid    string
 	mu     sync.RWMutex
 	config RegistryConfig
 
@@ -35,7 +37,12 @@ type Registry struct {
 
 func NewRegistry(config RegistryConfig) (*Registry, error) {
 
+	uid, err := uuid.NewV4()
+	if err != nil {
+		logrus.Fatalf("could not generate uid for registry instance: %v", err)
+	}
 	r := &Registry{
+		Uid:    uid.String(),
 		config: config,
 		Log:    rlog.NewLogHandler(),
 
@@ -51,10 +58,14 @@ func NewRegistry(config RegistryConfig) (*Registry, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Here we set a message handler for incoming messages.
+	// Basically this should be done inside shard pool,
+	// but since we have no other drivers yet - it's fine
 	shardsPool.SetMessagesHandler(func(message redis.Message) {
 		switch message.Channel {
 		case rhosus_redis.RegistryInfoChannel:
-			logrus.Infof("node info message received")
+			r.handleRegistryInfo(message.Data)
 		case rhosus_redis.PingChannel:
 		default:
 			logrus.Infof("message from unknown channel %v", message.Channel)
@@ -72,7 +83,7 @@ func NewRegistry(config RegistryConfig) (*Registry, error) {
 		return nil, err
 	}
 
-	rMap := NewRegistriesMap(r)
+	rMap := NewRegistriesMap()
 	r.RegistriesMap = rMap
 
 	nMap := NewNodesMap(r)
@@ -104,6 +115,9 @@ func (r *Registry) Run() error {
 
 	// Here will be grpc server. Probably.
 
+	// running cleaning process. It watches if other registries are still alive
+	go r.RegistriesMap.RunCleaning()
+
 	r.sendPing()
 
 	return err
@@ -126,6 +140,7 @@ func (r *Registry) pubRegistryInfo() {
 	r.mu.RLock()
 
 	info := registry_pb.RegistryInfo{
+		Uid:         r.Uid,
 		RpcAddress:  r.config.RpcAddress,
 		HttpAddress: r.config.HttpAddress,
 	}
@@ -160,6 +175,23 @@ func (r *Registry) pubRegistryInfo() {
 		logrus.Fatalf("error publishing registry command: %v", err)
 	}
 
+}
+
+func (r *Registry) handleRegistryInfo(data []byte) {
+	var cmd registry_pb.Command
+	err := cmd.Unmarshal(data)
+	if err != nil {
+		logrus.Errorf("error unmarshaling command: %v", err)
+	}
+
+	var info registry_pb.RegistryInfo
+	err = info.Unmarshal(cmd.Data)
+	if err != nil {
+		logrus.Errorf("error unmarshaling info: %v", err)
+	}
+
+	r.RegistriesMap.Add(info.Uid, &info)
+	println(r.RegistriesMap.List())
 }
 
 ////////////////////////////

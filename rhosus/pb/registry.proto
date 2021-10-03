@@ -12,10 +12,12 @@ message Command {
 }
 
 message RegistryInfo {
-  string rpcAddress = 1;
-  string httpAddress = 2;
+  string uid = 1;
+  string rpcAddress = 2;
+  string httpAddress = 3;
   enum RegistryRole {
     REGISTRY = 0;
     BACKUP = 1;
   }
+  RegistryRole role = 4;
 }
