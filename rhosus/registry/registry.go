@@ -1,13 +1,15 @@
 package registry
 
 import (
+	"context"
 	"github.com/gomodule/redigo/redis"
-	rlog "github.com/parasource/rhosus/rhosus/logging"
 	node_pb "github.com/parasource/rhosus/rhosus/pb/node"
 	registry_pb "github.com/parasource/rhosus/rhosus/pb/registry"
 	rhosus_redis "github.com/parasource/rhosus/rhosus/registry/redis"
+	rhosus_server "github.com/parasource/rhosus/rhosus/server"
 	"github.com/parasource/rhosus/rhosus/util/uuid"
 	"github.com/sirupsen/logrus"
+	"net/http"
 	"sync"
 	"time"
 )
@@ -15,14 +17,14 @@ import (
 type RegistryConfig struct {
 	RpcAddress  string
 	HttpAddress string
+
+	fileHttpServer *rhosus_server.Server
 }
 
 type Registry struct {
 	Uid    string
 	mu     sync.RWMutex
 	config RegistryConfig
-
-	Log *rlog.LogHandler
 
 	Storage RegistryStorage
 	Broker  RegistryBroker
@@ -44,7 +46,6 @@ func NewRegistry(config RegistryConfig) (*Registry, error) {
 	r := &Registry{
 		Uid:    uid.String(),
 		config: config,
-		Log:    rlog.NewLogHandler(),
 
 		shutdownCh: make(chan struct{}, 1),
 	}
@@ -118,9 +119,53 @@ func (r *Registry) Run() error {
 	// running cleaning process. It watches if other registries are still alive
 	go r.RegistriesMap.RunCleaning()
 
+	go r.runHttpFileServer()
+
 	r.sendPing()
 
 	return err
+}
+
+func (r *Registry) runHttpFileServer() {
+
+	server, err := rhosus_server.NewServer(rhosus_server.ServerConfig{
+		Host:      "127.0.0.1",
+		Port:      "8080",
+		MaxSizeMb: 5000,
+	})
+	if err != nil {
+		return
+	}
+
+	httpServer := &http.Server{
+		Addr:              "127.0.0.1:8080",
+		Handler:           http.HandlerFunc(server.Handle),
+		TLSConfig:         nil,
+		ReadTimeout:       0,
+		ReadHeaderTimeout: 0,
+		WriteTimeout:      0,
+		IdleTimeout:       0,
+		MaxHeaderBytes:    0,
+		TLSNextProto:      nil,
+		ConnState:         nil,
+		ErrorLog:          nil,
+		BaseContext:       nil,
+		ConnContext:       nil,
+	}
+
+	if err := httpServer.ListenAndServe(); err != nil {
+		logrus.Fatalf("error starting file http server: %v", err)
+	}
+
+	logrus.Infof("http file server is up and running")
+
+	for {
+		select {
+		case <-r.NotifyShutdown():
+			httpServer.Shutdown(context.Background())
+		}
+	}
+
 }
 
 func (r *Registry) sendPing() {
