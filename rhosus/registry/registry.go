@@ -133,6 +133,9 @@ func (r *Registry) runHttpFileServer() {
 		Port:      "8080",
 		MaxSizeMb: 5000,
 	})
+	server.SetRegistryAddFunc(r.RegisterFile)
+	server.SetRegistryDeleteFunc(r.DeleteFile)
+
 	if err != nil {
 		return
 	}

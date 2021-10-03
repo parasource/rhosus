@@ -1,8 +1,10 @@
 package server
 
 import (
+	"github.com/parasource/rhosus/rhosus/storage"
 	"net/http"
 	"strings"
+	"sync"
 )
 
 type ServerConfig struct {
@@ -12,7 +14,11 @@ type ServerConfig struct {
 }
 
 type Server struct {
+	mu     sync.RWMutex
 	config ServerConfig
+
+	RegistryAddFunc    func(dir string, name string, owner string, group string, data []byte) (*storage.StoragePlacementInfo, error)
+	RegistryDeleteFunc func(dir string, name string) error
 }
 
 func NewServer(conf ServerConfig) (*Server, error) {
@@ -52,6 +58,20 @@ func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Accept-Ranges", "bytes")
 
 	// Returns file
+}
+
+func (s *Server) SetRegistryAddFunc(fun func(dir string, name string, owner string, group string, data []byte) (*storage.StoragePlacementInfo, error)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.RegistryAddFunc = fun
+}
+
+func (s *Server) SetRegistryDeleteFunc(fun func(dir string, name string) error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.RegistryDeleteFunc = fun
 }
 
 func (s *Server) handlePostPut(w http.ResponseWriter, r *http.Request) {
