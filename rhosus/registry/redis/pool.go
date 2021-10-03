@@ -3,9 +3,8 @@ package rhosus_redis
 import (
 	"errors"
 	"github.com/gomodule/redigo/redis"
-	rlog "github.com/parasource/rhosus/rhosus/logging"
-	"github.com/parasource/rhosus/rhosus/registry"
-	"github.com/parasource/rhosus/rhosus/util"
+	"github.com/parasource/rhosus/rhosus/util/timers"
+	"github.com/sirupsen/logrus"
 	"net"
 	"strconv"
 	"sync"
@@ -20,38 +19,36 @@ const (
 )
 
 type RedisShardPool struct {
-	registry *registry.Registry
-	shards   []*RedisShard
+	Shards []*RedisShard
 
 	handler func(message redis.Message)
 }
 
-func NewRedisShardPool(registry *registry.Registry, conf []RedisShardConfig) (*RedisShardPool, error) {
+func NewRedisShardPool(conf []RedisShardConfig) (*RedisShardPool, error) {
 	var shards []*RedisShard
 
+	pool := &RedisShardPool{}
+
 	if conf == nil || len(conf) == 0 {
-		return nil, errors.New("redis shards are not specified. either use different driver, or specify redis shards")
+		return nil, errors.New("redis Shards are not specified. either use different driver, or specify redis Shards")
 	}
 
 	for _, conf := range conf {
-		shard, err := NewShard(registry, conf)
+		shard, err := NewShard(pool, conf)
 		if err != nil {
 			return nil, err
 		}
 		shards = append(shards, shard)
 	}
 
-	return &RedisShardPool{
-		registry: registry,
-		shards:   shards,
-	}, nil
+	pool.Shards = shards
+
+	return pool, nil
 }
 
 func (p *RedisShardPool) Run() {
-	for _, shard := range p.shards {
-		go util.RunForever(func() {
-			shard.Run()
-		})
+	for _, shard := range p.Shards {
+		shard.Run()
 	}
 }
 
@@ -73,8 +70,7 @@ type RedisShardConfig struct {
 type RedisShard struct {
 	mu sync.RWMutex
 
-	registry *registry.Registry
-	config   RedisShardConfig
+	config RedisShardConfig
 
 	shardsPool *RedisShardPool
 	pool       *redis.Pool
@@ -86,11 +82,11 @@ type RedisShard struct {
 	lastSeenAvailable time.Time
 }
 
-func NewShard(r *registry.Registry, conf RedisShardConfig) (*RedisShard, error) {
+func NewShard(pool *RedisShardPool, conf RedisShardConfig) (*RedisShard, error) {
 	shard := &RedisShard{
-		registry: r,
-		config:   conf,
-		pool: func(registry *registry.Registry, conf RedisShardConfig) *redis.Pool {
+		shardsPool: pool,
+		config:     conf,
+		pool: func(conf RedisShardConfig) *redis.Pool {
 			host := conf.Host
 			port := conf.Port
 			password := conf.Password
@@ -154,7 +150,7 @@ func NewShard(r *registry.Registry, conf RedisShardConfig) (*RedisShard, error) 
 					return err
 				},
 			}
-		}(r, conf),
+		}(conf),
 
 		pubCh: make(chan PubRequest),
 		recCh: make(chan redis.Message),
@@ -166,13 +162,13 @@ func (s *RedisShardPool) LoadScripts(scripts map[string]*redis.Script) error {
 
 	var err error
 
-	for _, shard := range s.shards {
+	for _, shard := range s.Shards {
 		conn := shard.pool.Get()
 
 		for name, script := range scripts {
 			err := script.Load(conn)
 			if err != nil {
-				s.registry.Log.Log(rlog.NewLogEntry(rlog.LogLevelError, "error loading script "+name, map[string]interface{}{"error": err.Error()}))
+				logrus.Errorf("error loading script %v: %v", name, err)
 			}
 		}
 
@@ -187,11 +183,27 @@ func (s *RedisShardPool) LoadScripts(scripts map[string]*redis.Script) error {
 
 func (s *RedisShard) Run() {
 
-	go s.RunReceivePipeline()
-	go s.RunPubPipeline()
+	go s.runPubPipeline()
+	go s.runReceivePipeline()
+	go s.runPingPipeline()
 
 }
 
 func (s *RedisShardPool) SetMessagesHandler(handler func(message redis.Message)) {
 	s.handler = handler
+}
+
+func (s *RedisShard) Publish(pubReq PubRequest) error {
+	select {
+	case s.pubCh <- pubReq:
+	default:
+		timer := timers.SetTimer(time.Second * 5)
+		select {
+		case s.pubCh <- pubReq:
+		case <-timer.C:
+			return RedisWriteTimeoutError
+		}
+	}
+
+	return pubReq.result()
 }

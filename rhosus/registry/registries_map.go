@@ -7,8 +7,6 @@ import (
 )
 
 type RegistriesMap struct {
-	registry *Registry
-
 	mu         sync.RWMutex
 	currentUID string
 	registries map[string]*registry_pb.RegistryInfo
@@ -17,7 +15,6 @@ type RegistriesMap struct {
 
 func NewRegistriesMap(registry *Registry) *RegistriesMap {
 	return &RegistriesMap{
-		registry:   registry,
 		registries: make(map[string]*registry_pb.RegistryInfo),
 		updates:    make(map[string]int64),
 	}
