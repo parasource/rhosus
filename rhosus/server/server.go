@@ -1,7 +1,7 @@
-package server
+package file_server
 
 import (
-	"github.com/parasource/rhosus/rhosus/storage"
+	"github.com/parasource/rhosus/rhosus/sys"
 	"net/http"
 	"strings"
 	"sync"
@@ -15,15 +15,15 @@ type ServerConfig struct {
 
 type Server struct {
 	mu     sync.RWMutex
-	config ServerConfig
+	Config ServerConfig
 
-	RegistryAddFunc    func(dir string, name string, owner string, group string, data []byte) (*storage.StoragePlacementInfo, error)
+	RegistryAddFunc    func(dir string, name string, owner string, group string, timestamp int64, size uint64, data []byte) (*sys.File, error)
 	RegistryDeleteFunc func(dir string, name string) error
 }
 
 func NewServer(conf ServerConfig) (*Server, error) {
 	s := &Server{
-		config: conf,
+		Config: conf,
 	}
 	return s, nil
 }
@@ -60,7 +60,7 @@ func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
 	// Returns file
 }
 
-func (s *Server) SetRegistryAddFunc(fun func(dir string, name string, owner string, group string, data []byte) (*storage.StoragePlacementInfo, error)) {
+func (s *Server) SetRegistryAddFunc(fun func(dir string, name string, owner string, group string, timestamp int64, size uint64, data []byte) (*sys.File, error)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

@@ -6,10 +6,12 @@ import (
 	node_pb "github.com/parasource/rhosus/rhosus/pb/node"
 	registry_pb "github.com/parasource/rhosus/rhosus/pb/registry"
 	rhosus_redis "github.com/parasource/rhosus/rhosus/registry/redis"
-	rhosus_server "github.com/parasource/rhosus/rhosus/server"
+	file_server "github.com/parasource/rhosus/rhosus/server"
 	"github.com/parasource/rhosus/rhosus/util/uuid"
 	"github.com/sirupsen/logrus"
+	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -18,13 +20,13 @@ type RegistryConfig struct {
 	RpcAddress  string
 	HttpAddress string
 
-	fileHttpServer *rhosus_server.Server
+	fileHttpServer *file_server.Server
 }
 
 type Registry struct {
 	Uid    string
 	mu     sync.RWMutex
-	config RegistryConfig
+	Config RegistryConfig
 
 	Storage RegistryStorage
 	Broker  RegistryBroker
@@ -45,7 +47,7 @@ func NewRegistry(config RegistryConfig) (*Registry, error) {
 	}
 	r := &Registry{
 		Uid:    uid.String(),
-		config: config,
+		Config: config,
 
 		shutdownCh: make(chan struct{}, 1),
 	}
@@ -63,15 +65,7 @@ func NewRegistry(config RegistryConfig) (*Registry, error) {
 	// Here we set a message handler for incoming messages.
 	// Basically this should be done inside shard pool,
 	// but since we have no other drivers yet - it's fine
-	shardsPool.SetMessagesHandler(func(message redis.Message) {
-		switch message.Channel {
-		case rhosus_redis.RegistryInfoChannel:
-			r.handleRegistryInfo(message.Data)
-		case rhosus_redis.PingChannel:
-		default:
-			logrus.Infof("message from unknown channel %v", message.Channel)
-		}
-	})
+	shardsPool.SetMessagesHandler(r.HandleBrokerMessages)
 	shardsPool.Run()
 
 	storage, err := NewRedisRegistryStorage(shardsPool)
@@ -98,6 +92,25 @@ func NewRegistry(config RegistryConfig) (*Registry, error) {
 
 func (r *Registry) NotifyShutdown() <-chan struct{} {
 	return r.shutdownCh
+}
+
+/////////////////////////////////////
+// Handlers
+//
+// Here I define some handlers, that I
+// can use only this way. It is because
+// of impossibility of importing
+// packages one into another
+
+// HandleBrokerMessages handles broker messages
+func (r *Registry) HandleBrokerMessages(message redis.Message) {
+	switch message.Channel {
+	case rhosus_redis.RegistryInfoChannel:
+		r.handleRegistryInfo(message.Data)
+	case rhosus_redis.PingChannel:
+	default:
+		logrus.Infof("message from unknown channel %v", message.Channel)
+	}
 }
 
 ///////////////////////////////////////////
@@ -128,9 +141,9 @@ func (r *Registry) Run() error {
 
 func (r *Registry) runHttpFileServer() {
 
-	server, err := rhosus_server.NewServer(rhosus_server.ServerConfig{
-		Host:      "127.0.0.1",
-		Port:      "8080",
+	server, err := file_server.NewServer(file_server.ServerConfig{
+		Host:      strings.Split(r.Config.HttpAddress, ":")[0],
+		Port:      strings.Split(r.Config.HttpAddress, ":")[1],
 		MaxSizeMb: 5000,
 	})
 	server.SetRegistryAddFunc(r.RegisterFile)
@@ -141,7 +154,7 @@ func (r *Registry) runHttpFileServer() {
 	}
 
 	httpServer := &http.Server{
-		Addr:              "127.0.0.1:8080",
+		Addr:              net.JoinHostPort(server.Config.Host, server.Config.Port),
 		Handler:           http.HandlerFunc(server.Handle),
 		TLSConfig:         nil,
 		ReadTimeout:       0,
@@ -189,8 +202,8 @@ func (r *Registry) pubRegistryInfo() {
 
 	info := registry_pb.RegistryInfo{
 		Uid:         r.Uid,
-		RpcAddress:  r.config.RpcAddress,
-		HttpAddress: r.config.HttpAddress,
+		RpcAddress:  r.Config.RpcAddress,
+		HttpAddress: r.Config.HttpAddress,
 	}
 
 	r.mu.RUnlock()
@@ -239,7 +252,6 @@ func (r *Registry) handleRegistryInfo(data []byte) {
 	}
 
 	r.RegistriesMap.Add(info.Uid, &info)
-	println(r.RegistriesMap.List())
 }
 
 ////////////////////////////

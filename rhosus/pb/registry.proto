@@ -21,3 +21,13 @@ message RegistryInfo {
   }
   RegistryRole role = 4;
 }
+
+message FileInfo {
+  string uid = 1;
+  string name = 2;
+  string dirID = 3;
+  string fullPath = 4;
+  int64 timestamp = 5;
+  uint64 size = 6;
+  int32 blocks = 7;
+}

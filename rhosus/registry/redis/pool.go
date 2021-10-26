@@ -3,6 +3,9 @@ package rhosus_redis
 import (
 	"errors"
 	"github.com/gomodule/redigo/redis"
+	node_pb "github.com/parasource/rhosus/rhosus/pb/node"
+	registry_pb "github.com/parasource/rhosus/rhosus/pb/registry"
+	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/parasource/rhosus/rhosus/util/timers"
 	"github.com/sirupsen/logrus"
 	"net"
@@ -75,8 +78,14 @@ type RedisShard struct {
 	shardsPool *RedisShardPool
 	pool       *redis.Pool
 
-	pubCh chan PubRequest
-	recCh chan redis.Message
+	pubCh  chan PubRequest
+	recCh  chan redis.Message
+	dataCh chan DataRequest
+
+	registerFileScript *redis.Script
+	removeFileScript   *redis.Script
+	addNodeScript      *redis.Script
+	removeNodeScript   *redis.Script
 
 	isAvailable       bool
 	lastSeenAvailable time.Time
@@ -185,6 +194,7 @@ func (s *RedisShard) Run() {
 
 	go s.runPubPipeline()
 	go s.runReceivePipeline()
+	go s.runDataPipeline()
 	go s.runPingPipeline()
 
 }
@@ -206,4 +216,102 @@ func (s *RedisShard) Publish(pubReq PubRequest) error {
 	}
 
 	return pubReq.result()
+}
+
+func (s *RedisShard) RegisterFile(id string, info *registry_pb.FileInfo) error {
+
+	bytes, err := info.Marshal()
+	if err != nil {
+		logrus.Errorf("error marshaling file info: %v", err)
+	}
+	dr := newDataRequest(DataOpRegisterFile, []interface{}{id, bytes})
+	res := s.getDataResponse(dr)
+
+	return res.err
+}
+
+func (s *RedisShard) RemoveFile(id string) error {
+	dr := newDataRequest(DataOpRemoveFile, []interface{}{id})
+	res := s.getDataResponse(dr)
+
+	return res.err
+}
+
+func (s *RedisShard) AddNode(uid string, info *node_pb.NodeInfo) error {
+	bytes, err := info.Marshal()
+	if err != nil {
+
+	}
+
+	dr := newDataRequest(DataOpAddNode, []interface{}{uid, bytes})
+	res := s.getDataResponse(dr)
+
+	return res.err
+
+}
+
+func (s *RedisShard) RemoveNode(uid string) error {
+	dr := newDataRequest(DataOpRemoveNode, []interface{}{})
+	res := s.getDataResponse(dr)
+
+	return res.err
+}
+
+func (s *RedisShard) getDataResponse(r DataRequest) *DataResponse {
+	select {
+	case s.dataCh <- r:
+	default:
+		timer := timers.SetTimer(time.Second * 5)
+		defer timers.ReleaseTimer(timer)
+		select {
+		case s.dataCh <- r:
+		case <-timer.C:
+			return &DataResponse{r.result(), errors.New("redis timeout")}
+		}
+	}
+	return r.result()
+}
+
+type dataOp int
+
+const (
+	DataOpRegisterFile dataOp = iota
+	DataOpRemoveFile
+	DataOpAddNode
+	DataOpRemoveNode
+	DataOpUpdateNodeStats
+)
+
+type DataResponse struct {
+	reply interface{}
+	err   error
+}
+
+type DataRequest struct {
+	op   dataOp
+	args []interface{}
+	resp chan *DataResponse
+}
+
+func newDataRequest(op dataOp, args []interface{}) DataRequest {
+	return DataRequest{op: op, args: args, resp: make(chan *DataResponse, 1)}
+}
+
+func (dr *DataRequest) done(reply interface{}, err error) {
+	if dr.resp == nil {
+		return
+	}
+	dr.resp <- &DataResponse{reply: reply, err: err}
+}
+
+func (dr *DataRequest) result() *DataResponse {
+	if dr.resp == nil {
+		// No waiting, as caller didn't care about response.
+		return &DataResponse{}
+	}
+	return <-dr.resp
+}
+
+func (p *RedisShardPool) GetShard(registryId string) *RedisShard {
+	return p.Shards[util.ConsistentIndex(registryId, len(p.Shards))]
 }

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/parasource/rhosus/rhosus/logging"
 	rhosusnode "github.com/parasource/rhosus/rhosus/node"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -37,7 +36,6 @@ func startupRhosusServer(cmd *cobra.Command, args []string) {
 		Name:    nodeName,
 		Address: nodeAddress,
 		Timeout: time.Second * time.Duration(nodeTimeout),
-		Log:     rlog.NewLogHandler(),
 	}
 
 	node := rhosusnode.NewNode(config)

@@ -2,11 +2,11 @@ package storage
 
 import (
 	"errors"
-	"github.com/parasource/rhosus/rhosus/logging"
 	"github.com/parasource/rhosus/rhosus/node"
 	"github.com/parasource/rhosus/rhosus/storage/stats"
-	"github.com/parasource/rhosus/rhosus/util/fs"
+	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/parasource/rhosus/rhosus/util/tickers"
+	"github.com/sirupsen/logrus"
 	"path/filepath"
 	"sync"
 	"time"
@@ -28,7 +28,7 @@ type DiskLocation struct {
 }
 
 func NewDiskLocation(dir string, maxVolumeCount int, minFreeSpace MinFreeSpace) (*DiskLocation, error) {
-	dir = fs.ResolvePath(dir)
+	dir = util.ResolvePath(dir)
 
 	location := &DiskLocation{
 		Directory:      dir,
@@ -96,14 +96,14 @@ func (l *DiskLocation) checkFreeSpace() {
 			if dir, err := filepath.Abs(l.Directory); err == nil {
 				s, err := stats.GetDiskStats(dir)
 				if err != nil {
-					l.Node.Logger.Log(rlog.NewLogEntry(rlog.LogLevelError, "error getting disk stats", map[string]interface{}{"error": err}))
+					logrus.Errorf("error getting disk stats: %v", err)
 				}
 
 				isLow := l.MinFreeSpace.IsLow(s.Free, s.PercentFree)
 				l.outOfSpace = isLow
 
 				if isLow {
-					l.Node.Logger.Log(rlog.NewLogEntry(rlog.LogLevelInfo, "disk space ran out", map[string]interface{}{"disk": l.Id, "used": s.PercentUsed}))
+					logrus.Errorf("disk ran out of space: %v", err)
 				}
 			}
 		case <-l.Node.NotifyShutdown():

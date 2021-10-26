@@ -2,6 +2,7 @@ package registry
 
 import (
 	registry_pb "github.com/parasource/rhosus/rhosus/pb/registry"
+	"github.com/sirupsen/logrus"
 	"sync"
 	"time"
 )
@@ -40,9 +41,7 @@ func (m *RegistriesMap) Get(uid string) *registry_pb.RegistryInfo {
 	m.mu.RLock()
 	node, ok := m.registries[uid]
 	if !ok {
-		// todo
-		// log something
-		// this can't happen in normal conditions
+		logrus.Errorf("couldn't get registry from registries map")
 	}
 
 	return node
@@ -100,5 +99,4 @@ func (m *RegistriesMap) clean(delay time.Duration) {
 		}
 	}
 
-	println("cleaned some stuff")
 }

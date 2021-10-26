@@ -4,6 +4,7 @@ import (
 	"github.com/gomodule/redigo/redis"
 	"github.com/parasource/rhosus/rhosus/util/tickers"
 	"github.com/sirupsen/logrus"
+	"strings"
 	"time"
 )
 
@@ -97,4 +98,114 @@ func (s *RedisShard) runPingPipeline() {
 			conn.Close()
 		}
 	}
+}
+
+func (s *RedisShard) runDataPipeline() {
+
+	var err error
+
+	conn := s.pool.Get()
+
+	err = s.registerFileScript.Load(conn)
+	if err != nil {
+		logrus.Errorf("error adding redis register file script; %v", err)
+		conn.Close()
+		return
+	}
+
+	err = s.removeFileScript.Load(conn)
+	if err != nil {
+		logrus.Errorf("error adding redis remove file script; %v", err)
+		conn.Close()
+		return
+	}
+
+	err = s.addNodeScript.Load(conn)
+	if err != nil {
+		logrus.Errorf("error adding redis add node script; %v", err)
+		conn.Close()
+		return
+	}
+
+	err = s.removeNodeScript.Load(conn)
+	if err != nil {
+		logrus.Errorf("error adding redis remove node script; %v", err)
+		conn.Close()
+		return
+	}
+
+	err = conn.Close()
+	if err != nil {
+
+	}
+
+	var drs []DataRequest
+
+	for dr := range s.dataCh {
+		drs = append(drs, dr)
+	loop:
+		for len(drs) < 512 {
+			select {
+			case dr := <-s.dataCh:
+				drs = append(drs, dr)
+			default:
+				break loop
+			}
+		}
+
+		conn := s.pool.Get()
+
+		for i := range drs {
+			switch drs[i].op {
+			case DataOpRegisterFile:
+				err := s.registerFileScript.SendHash(conn, drs[i].args...)
+				if err != nil {
+
+				}
+			case DataOpRemoveFile:
+				err := s.removeFileScript.SendHash(conn, drs[i].args...)
+				if err != nil {
+
+				}
+			case DataOpAddNode:
+				err := s.addNodeScript.SendHash(conn, drs[i].args...)
+				if err != nil {
+
+				}
+			case DataOpRemoveNode:
+				err := s.removeNodeScript.SendHash(conn, drs[i].args...)
+				if err != nil {
+
+				}
+			}
+		}
+
+		err := conn.Flush()
+
+		if err != nil {
+			for i := range drs {
+				drs[i].done(nil, err)
+			}
+			logrus.Errorf("error flushing data pipeline: %v", err)
+		}
+
+		var noScriptError bool
+		for i := range drs {
+			reply, err := conn.Receive()
+			if err != nil {
+				if e, ok := err.(redis.Error); ok && strings.HasPrefix(string(e), "NOSCRIPT ") {
+					noScriptError = true
+				}
+			}
+			drs[i].done(reply, err)
+		}
+		if noScriptError {
+			// Start this func from the beginning and LOAD missing script.
+			conn.Close()
+			return
+		}
+		conn.Close()
+		drs = nil
+	}
+
 }

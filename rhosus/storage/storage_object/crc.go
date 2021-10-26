@@ -2,7 +2,7 @@ package so
 
 import (
 	"fmt"
-	"github.com/parasource/rhosus/rhosus/util/bytes"
+	"github.com/parasource/rhosus/rhosus/util"
 	"hash/crc32"
 	"io"
 )
@@ -25,7 +25,7 @@ func (c CRC) Value() uint32 {
 
 func (o *StorageObject) Etag() string {
 	bits := make([]byte, 4)
-	bytes.Uint32toBytes(bits, uint32(o.Checksum))
+	util.Uint32toBytes(bits, uint32(o.Checksum))
 	return fmt.Sprintf("%x", bits)
 }
 
