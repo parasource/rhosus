@@ -28,8 +28,9 @@ type Registry struct {
 	mu     sync.RWMutex
 	Config RegistryConfig
 
-	Storage RegistryStorage
-	Broker  RegistryBroker
+	Storage  RegistryStorage
+	Broker   RegistryBroker
+	IsLeader bool
 
 	RegistriesMap *RegistriesMap
 	NodesMap      *NodesMap

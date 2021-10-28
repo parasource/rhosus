@@ -167,29 +167,6 @@ func NewShard(pool *RedisShardPool, conf RedisShardConfig) (*RedisShard, error) 
 	return shard, nil
 }
 
-func (s *RedisShardPool) LoadScripts(scripts map[string]*redis.Script) error {
-
-	var err error
-
-	for _, shard := range s.Shards {
-		conn := shard.pool.Get()
-
-		for name, script := range scripts {
-			err := script.Load(conn)
-			if err != nil {
-				logrus.Errorf("error loading script %v: %v", name, err)
-			}
-		}
-
-		err = conn.Close()
-		if err != nil {
-
-		}
-	}
-
-	return err
-}
-
 func (s *RedisShard) Run() {
 
 	go s.runPubPipeline()

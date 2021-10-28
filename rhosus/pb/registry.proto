@@ -16,8 +16,8 @@ message RegistryInfo {
   string rpcAddress = 2;
   string httpAddress = 3;
   enum RegistryRole {
-    REGISTRY = 0;
-    BACKUP = 1;
+    SLAVE = 0;
+    LEADER = 1;
   }
   RegistryRole role = 4;
 }
@@ -30,4 +30,27 @@ message FileInfo {
   int64 timestamp = 5;
   uint64 size = 6;
   int32 blocks = 7;
+}
+
+message Event {
+  enum EventType {
+    FILE_REGISTERED = 0;
+  }
+  EventType type = 1;
+  bytes data = 2;
+}
+
+message EventFileRegistered {
+  string uid = 1;
+  FileInfo file = 2;
+  BlockPlacementInfo blocks = 3;
+}
+
+message BlockPlacementInfo {
+  message Block {
+    string node_id = 1;
+    string file_id = 2;
+    bytes data = 3;
+  }
+  map<string, Block> blocks = 1;
 }
