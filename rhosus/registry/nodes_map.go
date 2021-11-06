@@ -5,14 +5,6 @@ import (
 	"sync"
 )
 
-var (
-	addNodeSource = `redis.call("HSET", KEYS[1], ARGV[1], ARGV[2])`
-
-	removeNodeSource = `redis.call("HDEL", KEYS[1], ARGV[1])`
-
-	getNodesSource = `return redis.call("HDELALL", KEYS[1])`
-)
-
 type NodesMap struct {
 	registry *Registry
 

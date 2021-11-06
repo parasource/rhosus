@@ -86,6 +86,7 @@ type RedisShard struct {
 	removeFileScript   *redis.Script
 	addNodeScript      *redis.Script
 	removeNodeScript   *redis.Script
+	getNodesScript     *redis.Script
 
 	isAvailable       bool
 	lastSeenAvailable time.Time
@@ -95,6 +96,13 @@ func NewShard(pool *RedisShardPool, conf RedisShardConfig) (*RedisShard, error) 
 	shard := &RedisShard{
 		shardsPool: pool,
 		config:     conf,
+
+		registerFileScript: redis.NewScript(1, registerFileSource),
+		removeFileScript:   redis.NewScript(1, removeFileSource),
+		addNodeScript:      redis.NewScript(1, addNodeSource),
+		removeNodeScript:   redis.NewScript(1, removeNodeSource),
+		getNodesScript:     redis.NewScript(1, getNodesSource),
+
 		pool: func(conf RedisShardConfig) *redis.Pool {
 			host := conf.Host
 			port := conf.Port

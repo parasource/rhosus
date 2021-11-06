@@ -35,12 +35,25 @@ message FileInfo {
 message Event {
   enum EventType {
     FILE_REGISTERED = 0;
+    FILE_DELETED = 1;
+    FILE_MODIFIED = 2;
   }
   EventType type = 1;
   bytes data = 2;
 }
 
 message EventFileRegistered {
+  string uid = 1;
+  FileInfo file = 2;
+  BlockPlacementInfo blocks = 3;
+}
+
+message EventFileDeleted {
+  string uid = 1;
+  FileInfo file = 2;
+}
+
+message EventFileModified {
   string uid = 1;
   FileInfo file = 2;
   BlockPlacementInfo blocks = 3;

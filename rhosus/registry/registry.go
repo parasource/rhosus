@@ -9,6 +9,7 @@ import (
 	file_server "github.com/parasource/rhosus/rhosus/server"
 	"github.com/parasource/rhosus/rhosus/util/uuid"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"net"
 	"net/http"
 	"strings"
@@ -42,6 +43,8 @@ type Registry struct {
 
 func NewRegistry(config RegistryConfig) (*Registry, error) {
 
+	v := viper.GetViper()
+
 	uid, err := uuid.NewV4()
 	if err != nil {
 		logrus.Fatalf("could not generate uid for registry instance: %v", err)
@@ -55,8 +58,8 @@ func NewRegistry(config RegistryConfig) (*Registry, error) {
 
 	shardsPool, err := rhosus_redis.NewRedisShardPool([]rhosus_redis.RedisShardConfig{
 		{
-			Host: "127.0.0.1",
-			Port: 6379,
+			Host: v.GetString("redis_host"),
+			Port: v.GetInt("redis_port"),
 		},
 	})
 	if err != nil {
@@ -232,7 +235,7 @@ func (r *Registry) pubRegistryInfo() {
 		Err:     make(chan error, 1),
 	}
 
-	err = r.Broker.PublishCommand(pubReq)
+	err = r.Broker.Publish(pubReq)
 	if err != nil {
 		logrus.Fatalf("error publishing registry command: %v", err)
 	}

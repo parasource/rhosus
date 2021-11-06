@@ -1,11 +1,8 @@
 package sys
 
 import (
-	"bazil.org/fuse"
 	"bytes"
-	"os"
 	"strings"
-	"time"
 )
 
 type Dir struct {
@@ -22,17 +19,17 @@ func (dir *Dir) Id() uint64 {
 	return dir.id
 }
 
-func (dir *Dir) SetAttributes(attr *fuse.Attr) error {
-
-	attr.Valid = time.Second
-	attr.Inode = dir.Id()
-	attr.Mode = os.ModeDir
-	attr.Mtime = time.Unix(dir.Timestamp, 0)
-	attr.Ctime = time.Unix(dir.Timestamp, 0)
-	attr.Atime = time.Unix(dir.Timestamp, 0)
-
-	return nil
-}
+//func (dir *Dir) SetAttributes(attr *fuse.Attr) error {
+//
+//	attr.Valid = time.Second
+//	attr.Inode = dir.Id()
+//	attr.Mode = os.ModeDir
+//	attr.Mtime = time.Unix(dir.Timestamp, 0)
+//	attr.Ctime = time.Unix(dir.Timestamp, 0)
+//	attr.Atime = time.Unix(dir.Timestamp, 0)
+//
+//	return nil
+//}
 
 func (dir *Dir) FullPath() string {
 	var parts []string
