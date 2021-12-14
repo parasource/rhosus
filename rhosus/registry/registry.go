@@ -128,19 +128,27 @@ func (r *Registry) RemoveRegistry(uid string) {
 	r.RegistriesMap.Remove(uid)
 }
 
-func (r *Registry) Run() error {
-	var err error
+func (r *Registry) Run() {
 
 	// Here will be grpc server. Probably.
 
 	// running cleaning process. It watches if other registries are still alive
 	go r.RegistriesMap.RunCleaning()
 
+	// http file server
 	go r.runHttpFileServer()
 
-	r.sendPing()
+	// ping process to show that registry is still alive
+	go r.sendPing()
 
-	return err
+	for {
+		select {
+		case <-r.NotifyShutdown():
+
+			return
+		}
+	}
+
 }
 
 func (r *Registry) runHttpFileServer() {

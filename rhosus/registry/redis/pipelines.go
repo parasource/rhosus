@@ -28,9 +28,11 @@ func (s *RedisShard) runReceivePipeline() {
 		case redis.Message:
 			if s.shardsPool.handler != nil {
 				s.shardsPool.handler(m)
+			} else {
+				logrus.Fatalf("broker message handler is not set")
 			}
 		case redis.Subscription:
-			logrus.Infof("subscription received to %v", m.Channel)
+			//logrus.Infof("subscription received to %v", m.Channel)
 		}
 	}
 }
