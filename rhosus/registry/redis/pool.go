@@ -22,7 +22,8 @@ const (
 )
 
 type RedisShardPool struct {
-	Shards []*RedisShard
+	Shards  []*RedisShard
+	readyCh chan struct{}
 
 	handler func(message redis.Message)
 }
@@ -30,7 +31,9 @@ type RedisShardPool struct {
 func NewRedisShardPool(conf []RedisShardConfig) (*RedisShardPool, error) {
 	var shards []*RedisShard
 
-	pool := &RedisShardPool{}
+	pool := &RedisShardPool{
+		readyCh: make(chan struct{}, 1),
+	}
 
 	if conf == nil || len(conf) == 0 {
 		return nil, errors.New("redis Shards are not specified. either use different driver, or specify redis Shards")
@@ -53,6 +56,13 @@ func (p *RedisShardPool) Run() {
 	for _, shard := range p.Shards {
 		shard.Run()
 	}
+
+	logrus.Infof("Successfully connected to redis shards")
+	p.readyCh <- struct{}{}
+}
+
+func (p *RedisShardPool) NotifyReady() <-chan struct{} {
+	return p.readyCh
 }
 
 type RedisShardConfig struct {
@@ -71,6 +81,7 @@ type RedisShardConfig struct {
 }
 
 type RedisShard struct {
+	id int
 	mu sync.RWMutex
 
 	config RedisShardConfig
@@ -181,6 +192,9 @@ func (s *RedisShard) Run() {
 	go s.runReceivePipeline()
 	go s.runDataPipeline()
 	go s.runPingPipeline()
+
+	port := strconv.Itoa(s.config.Port)
+	logrus.Infof("Connected to redis shard on %v", net.JoinHostPort(s.config.Host, port))
 
 }
 

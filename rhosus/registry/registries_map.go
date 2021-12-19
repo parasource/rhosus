@@ -69,6 +69,9 @@ func (m *RegistriesMap) Remove(uid string) {
 }
 
 func (r *RegistriesMap) RunCleaning() {
+
+	logrus.Infof("Registries cleaning proccess started")
+
 	ticker := time.NewTicker(r.cleaningInterval)
 	for {
 		select {

@@ -1,7 +1,6 @@
 package registry
 
 import (
-	"context"
 	"github.com/gomodule/redigo/redis"
 	node_pb "github.com/parasource/rhosus/rhosus/pb/node"
 	registry_pb "github.com/parasource/rhosus/rhosus/pb/registry"
@@ -10,10 +9,10 @@ import (
 	"github.com/parasource/rhosus/rhosus/util/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"net"
-	"net/http"
-	"strings"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -35,6 +34,10 @@ type Registry struct {
 
 	RegistriesMap *RegistriesMap
 	NodesMap      *NodesMap
+	FileServer    *file_server.Server
+
+	readyCh chan struct{}
+	readyWg sync.WaitGroup
 
 	shutdownCh chan struct{}
 
@@ -50,10 +53,12 @@ func NewRegistry(config RegistryConfig) (*Registry, error) {
 		logrus.Fatalf("could not generate uid for registry instance: %v", err)
 	}
 	r := &Registry{
-		Uid:    uid.String(),
-		Config: config,
+		Uid:     uid.String(),
+		Config:  config,
+		readyWg: sync.WaitGroup{},
 
 		shutdownCh: make(chan struct{}, 1),
+		readyCh:    make(chan struct{}, 1),
 	}
 
 	shardsPool, err := rhosus_redis.NewRedisShardPool([]rhosus_redis.RedisShardConfig{
@@ -71,6 +76,15 @@ func NewRegistry(config RegistryConfig) (*Registry, error) {
 	// but since we have no other drivers yet - it's fine
 	shardsPool.SetMessagesHandler(r.HandleBrokerMessages)
 	shardsPool.Run()
+	r.readyWg.Add(1)
+	go func() {
+		for {
+			select {
+			case <-shardsPool.NotifyReady():
+				r.readyWg.Done()
+			}
+		}
+	}()
 
 	storage, err := NewRedisRegistryStorage(shardsPool)
 	if err != nil {
@@ -91,11 +105,18 @@ func NewRegistry(config RegistryConfig) (*Registry, error) {
 	r.Storage = storage
 	r.Broker = broker
 
-	return r, nil
-}
+	fileServer, err := file_server.NewServer(file_server.ServerConfig{
+		Host:      "localhost",
+		Port:      "8011",
+		MaxSizeMb: 500,
+	})
+	if err != nil {
+		logrus.Fatalf("error starting file server: %v", err)
+	}
 
-func (r *Registry) NotifyShutdown() <-chan struct{} {
-	return r.shutdownCh
+	r.FileServer = fileServer
+
+	return r, nil
 }
 
 /////////////////////////////////////
@@ -136,61 +157,35 @@ func (r *Registry) Run() {
 	go r.RegistriesMap.RunCleaning()
 
 	// http file server
-	go r.runHttpFileServer()
+	go r.FileServer.RunHTTP()
+	r.readyWg.Add(1)
+	go func() {
+		for {
+			select {
+			case <-r.FileServer.NotifyReady():
+				r.readyWg.Done()
+			}
+		}
+	}()
 
 	// ping process to show that registry is still alive
 	go r.sendPing()
 
+	// handle signals for grace shutdown
+	go r.handleSignals()
+	go r.listenReady()
+
 	for {
 		select {
+		case <-r.NotifyReady():
+
+			logrus.Infof("Registry %v is ready", r.Uid)
+
 		case <-r.NotifyShutdown():
+
+			r.FileServer.SendShutdownSignal()
 
 			return
-		}
-	}
-
-}
-
-func (r *Registry) runHttpFileServer() {
-
-	server, err := file_server.NewServer(file_server.ServerConfig{
-		Host:      strings.Split(r.Config.HttpAddress, ":")[0],
-		Port:      strings.Split(r.Config.HttpAddress, ":")[1],
-		MaxSizeMb: 5000,
-	})
-	server.SetRegistryAddFunc(r.RegisterFile)
-	server.SetRegistryDeleteFunc(r.DeleteFile)
-
-	if err != nil {
-		return
-	}
-
-	httpServer := &http.Server{
-		Addr:              net.JoinHostPort(server.Config.Host, server.Config.Port),
-		Handler:           http.HandlerFunc(server.Handle),
-		TLSConfig:         nil,
-		ReadTimeout:       0,
-		ReadHeaderTimeout: 0,
-		WriteTimeout:      0,
-		IdleTimeout:       0,
-		MaxHeaderBytes:    0,
-		TLSNextProto:      nil,
-		ConnState:         nil,
-		ErrorLog:          nil,
-		BaseContext:       nil,
-		ConnContext:       nil,
-	}
-
-	if err := httpServer.ListenAndServe(); err != nil {
-		logrus.Fatalf("error starting file http server: %v", err)
-	}
-
-	logrus.Infof("http file server is up and running")
-
-	for {
-		select {
-		case <-r.NotifyShutdown():
-			httpServer.Shutdown(context.Background())
 		}
 	}
 
@@ -266,6 +261,58 @@ func (r *Registry) handleRegistryInfo(data []byte) {
 	r.RegistriesMap.Add(info.Uid, &info)
 }
 
+func (r *Registry) NotifyShutdown() <-chan struct{} {
+	return r.shutdownCh
+}
+
+func (r *Registry) NotifyReady() <-chan struct{} {
+	return r.readyCh
+}
+
+func (r *Registry) handleSignals() {
+	sigc := make(chan os.Signal, 1)
+	signal.Notify(sigc, syscall.SIGHUP, syscall.SIGINT, os.Interrupt, syscall.SIGTERM)
+	for {
+		sig := <-sigc
+		logrus.Infof("signal received: %v", sig)
+		switch sig {
+		case syscall.SIGHUP:
+
+		case syscall.SIGINT, os.Interrupt, syscall.SIGTERM:
+			logrus.Infof("shutting down registry")
+			pidFile := viper.GetString("pid_file")
+			shutdownTimeout := time.Duration(viper.GetInt("shutdown_timeout")) * time.Second
+			go time.AfterFunc(shutdownTimeout, func() {
+				if pidFile != "" {
+					os.Remove(pidFile)
+				}
+				os.Exit(1)
+			})
+
+			r.shutdownCh <- struct{}{}
+
+			if pidFile != "" {
+				err := os.Remove(pidFile)
+				if err != nil {
+					logrus.Errorf("error removing pid file: %v", err)
+				}
+			}
+			time.Sleep(time.Second)
+			os.Exit(0)
+		}
+	}
+
+}
+
+func (r *Registry) listenReady() {
+
+	// We are waiting til every service is running
+	r.readyWg.Wait()
+
+	r.readyCh <- struct{}{}
+
+}
+
 ////////////////////////////
 // Nodes management methods
 
@@ -275,11 +322,4 @@ func (r *Registry) AddNode(uid string, info *node_pb.NodeInfo) {
 
 func (r *Registry) RemoveNode(uid string) {
 	r.NodesMap.RemoveNode(uid)
-}
-
-func (r *Registry) Shutdown() error {
-
-	r.shutdownCh <- struct{}{}
-
-	return nil
 }
