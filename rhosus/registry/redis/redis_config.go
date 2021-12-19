@@ -4,7 +4,7 @@ import "time"
 
 type RedisConfig struct {
 	Hosts            []string
-	Ports            []int
+	Ports            []string
 	Password         string
 	DB               int
 	UseTLS           bool

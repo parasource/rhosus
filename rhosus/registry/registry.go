@@ -17,10 +17,13 @@ import (
 )
 
 type RegistryConfig struct {
-	RpcAddress  string
-	HttpAddress string
+	HttpHost string
+	HttpPort string
+	GrpcHost string
+	GrpcPort string
 
-	fileHttpServer *file_server.Server
+	RedisConfig  rhosus_redis.RedisConfig
+	ServerConfig file_server.ServerConfig
 }
 
 type Registry struct {
@@ -46,8 +49,6 @@ type Registry struct {
 
 func NewRegistry(config RegistryConfig) (*Registry, error) {
 
-	v := viper.GetViper()
-
 	uid, err := uuid.NewV4()
 	if err != nil {
 		logrus.Fatalf("could not generate uid for registry instance: %v", err)
@@ -61,12 +62,7 @@ func NewRegistry(config RegistryConfig) (*Registry, error) {
 		readyCh:    make(chan struct{}, 1),
 	}
 
-	shardsPool, err := rhosus_redis.NewRedisShardPool([]rhosus_redis.RedisShardConfig{
-		{
-			Host: v.GetString("redis_host"),
-			Port: v.GetInt("redis_port"),
-		},
-	})
+	shardsPool, err := rhosus_redis.NewRedisShardPool(config.RedisConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -106,8 +102,8 @@ func NewRegistry(config RegistryConfig) (*Registry, error) {
 	r.Broker = broker
 
 	fileServer, err := file_server.NewServer(file_server.ServerConfig{
-		Host:      "localhost",
-		Port:      "8011",
+		Host:      r.Config.HttpHost,
+		Port:      r.Config.HttpPort,
 		MaxSizeMb: 500,
 	})
 	if err != nil {
@@ -208,9 +204,15 @@ func (r *Registry) pubRegistryInfo() {
 	r.mu.RLock()
 
 	info := registry_pb.RegistryInfo{
-		Uid:         r.Uid,
-		RpcAddress:  r.Config.RpcAddress,
-		HttpAddress: r.Config.HttpAddress,
+		Uid: r.Uid,
+		GrpcAddress: &registry_pb.RegistryInfo_Address{
+			Host: r.Config.GrpcHost,
+			Port: r.Config.GrpcPort,
+		},
+		HttpAddress: &registry_pb.RegistryInfo_Address{
+			Host: r.Config.HttpHost,
+			Port: r.Config.HttpPort,
+		},
 	}
 
 	r.mu.RUnlock()

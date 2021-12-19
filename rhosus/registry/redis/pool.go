@@ -2,6 +2,7 @@ package rhosus_redis
 
 import (
 	"errors"
+	"fmt"
 	"github.com/gomodule/redigo/redis"
 	node_pb "github.com/parasource/rhosus/rhosus/pb/node"
 	registry_pb "github.com/parasource/rhosus/rhosus/pb/registry"
@@ -28,18 +29,49 @@ type RedisShardPool struct {
 	handler func(message redis.Message)
 }
 
-func NewRedisShardPool(conf []RedisShardConfig) (*RedisShardPool, error) {
+func NewRedisShardPool(config RedisConfig) (*RedisShardPool, error) {
+
+	var shardsConfig []RedisShardConfig
+
+	numShards := 0
+	if len(config.Hosts) > numShards {
+		numShards = len(config.Hosts)
+	}
+	if len(config.Ports) > numShards {
+		numShards = len(config.Ports)
+	}
+	for i := 0; i < numShards; i++ {
+		port, err := strconv.Atoi(config.Ports[i])
+		if err != nil {
+			return nil, fmt.Errorf("malformed port: %v", err)
+		}
+		conf := RedisShardConfig{
+			Host:          config.Hosts[i],
+			Port:          port,
+			Password:      config.Password,
+			DB:            config.DB,
+			UseTLS:        config.UseTLS,
+			TLSSkipVerify: config.TLSSkipVerify,
+			MasterName:    config.MasterName,
+			IdleTimeout:   config.IdleTimeout * time.Second,
+			//ConnectTimeout:   time.Duration(v.GetInt("redis_connect_timeout")) * time.Second,
+			//ReadTimeout:      time.Duration(v.GetInt("redis_read_timeout")) * time.Second,
+			//WriteTimeout:     time.Duration(v.GetInt("redis_write_timeout")) * time.Second,
+		}
+		shardsConfig = append(shardsConfig, conf)
+	}
+
 	var shards []*RedisShard
 
 	pool := &RedisShardPool{
 		readyCh: make(chan struct{}, 1),
 	}
 
-	if conf == nil || len(conf) == 0 {
+	if shardsConfig == nil || len(shardsConfig) == 0 {
 		return nil, errors.New("redis Shards are not specified. either use different driver, or specify redis Shards")
 	}
 
-	for _, conf := range conf {
+	for _, conf := range shardsConfig {
 		shard, err := NewShard(pool, conf)
 		if err != nil {
 			return nil, err
@@ -53,11 +85,28 @@ func NewRedisShardPool(conf []RedisShardConfig) (*RedisShardPool, error) {
 }
 
 func (p *RedisShardPool) Run() {
+	allOk := true
+
+	shardsOk := 0
 	for _, shard := range p.Shards {
-		shard.Run()
+		if err := shard.Run(); err != nil {
+			logrus.Errorf("error connecting to redis shard: %v", err)
+
+			allOk = false
+		} else {
+			shardsOk++
+		}
 	}
 
-	logrus.Infof("Successfully connected to redis shards")
+	if shardsOk < 1 {
+		logrus.Fatal("No alive redis shards. Check your config")
+	}
+
+	if !allOk {
+		logrus.Warnf("error occured while connecting to one of shards")
+	} else {
+		logrus.Infof("Successfully connected to redis shards")
+	}
 	p.readyCh <- struct{}{}
 }
 
@@ -186,7 +235,13 @@ func NewShard(pool *RedisShardPool, conf RedisShardConfig) (*RedisShard, error) 
 	return shard, nil
 }
 
-func (s *RedisShard) Run() {
+func (s *RedisShard) Run() error {
+
+	// Test the connection
+	err := s.testConnection()
+	if err != nil {
+		return err
+	}
 
 	go s.runPubPipeline()
 	go s.runReceivePipeline()
@@ -196,6 +251,15 @@ func (s *RedisShard) Run() {
 	port := strconv.Itoa(s.config.Port)
 	logrus.Infof("Connected to redis shard on %v", net.JoinHostPort(s.config.Host, port))
 
+	return nil
+}
+
+func (s *RedisShard) testConnection() error {
+	conn := s.pool.Get()
+	defer conn.Close()
+
+	_, err := conn.Do("PING")
+	return err
 }
 
 func (s *RedisShardPool) SetMessagesHandler(handler func(message redis.Message)) {
