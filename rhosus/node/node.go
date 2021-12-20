@@ -1,6 +1,10 @@
 package rhosus_node
 
 import (
+	"context"
+	node_pb "github.com/parasource/rhosus/rhosus/pb/node"
+	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 	"sync"
 	"time"
 )
@@ -37,7 +41,25 @@ func (n *Node) Start() error {
 			case <-n.shutdown:
 				return
 			case <-ticker.C:
+				conn, err := grpc.Dial("localhost:6435", grpc.WithInsecure())
+				if err != nil {
+					logrus.Errorf("error dialing node server: %v", err)
+					conn.Close()
+					continue
+				}
 
+				client := node_pb.NewNodeServiceClient(conn)
+
+				_, err = client.Ping(context.Background(), &node_pb.PingRequest{})
+				if err != nil {
+					logrus.Errorf("error sending ping commmand: %v", err)
+					conn.Close()
+					continue
+				}
+
+				logrus.Infof("PONG")
+
+				conn.Close()
 			}
 		}
 	}()

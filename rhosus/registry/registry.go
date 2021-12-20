@@ -4,8 +4,10 @@ import (
 	"github.com/gomodule/redigo/redis"
 	node_pb "github.com/parasource/rhosus/rhosus/pb/node"
 	registry_pb "github.com/parasource/rhosus/rhosus/pb/registry"
+	"github.com/parasource/rhosus/rhosus/registry/node_server"
 	rhosus_redis "github.com/parasource/rhosus/rhosus/registry/redis"
 	file_server "github.com/parasource/rhosus/rhosus/server"
+	"github.com/parasource/rhosus/rhosus/util/timers"
 	"github.com/parasource/rhosus/rhosus/util/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -38,6 +40,7 @@ type Registry struct {
 	RegistriesMap *RegistriesMap
 	NodesMap      *NodesMap
 	FileServer    *file_server.Server
+	NodeServer    *node_server.Server
 
 	readyCh chan struct{}
 	readyWg sync.WaitGroup
@@ -109,8 +112,16 @@ func NewRegistry(config RegistryConfig) (*Registry, error) {
 	if err != nil {
 		logrus.Fatalf("error starting file server: %v", err)
 	}
-
 	r.FileServer = fileServer
+
+	nodeServer, err := node_server.NewNodeServer(node_server.ServerConfig{
+		Host: "localhost",
+		Port: "6435",
+	})
+	if err != nil {
+		logrus.Fatalf("error creating grpc node server: %v", err)
+	}
+	r.NodeServer = nodeServer
 
 	return r, nil
 }
@@ -156,11 +167,30 @@ func (r *Registry) Run() {
 	go r.FileServer.RunHTTP()
 	r.readyWg.Add(1)
 	go func() {
-		for {
-			select {
-			case <-r.FileServer.NotifyReady():
-				r.readyWg.Done()
-			}
+		// todo: move to config
+		timer := timers.SetTimer(time.Second * 5)
+		defer timers.ReleaseTimer(timer)
+
+		select {
+		case <-r.FileServer.NotifyReady():
+			r.readyWg.Done()
+		case <-timer.C:
+			logrus.Fatalf("timeout reached when starting file server")
+		}
+	}()
+
+	go r.NodeServer.Run()
+	r.readyWg.Add(1)
+	go func() {
+		// todo: move to config
+		timer := timers.SetTimer(time.Second * 5)
+		defer timers.ReleaseTimer(timer)
+
+		select {
+		case <-r.NodeServer.NotifyReady():
+			r.readyWg.Done()
+		case <-timer.C:
+			logrus.Fatalf("timeout reached when starting file server")
 		}
 	}()
 

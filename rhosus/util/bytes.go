@@ -8,12 +8,25 @@
 package util
 
 import (
+	"bytes"
 	"crypto/md5"
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
 	"io"
 )
+
+type BytesReader struct {
+	Bytes []byte
+	*bytes.Reader
+}
+
+func NewBytesReader(b []byte) *BytesReader {
+	return &BytesReader{
+		Bytes:  b,
+		Reader: bytes.NewReader(b),
+	}
+}
 
 func BytesToUint64(b []byte) (v uint64) {
 	length := uint(len(b))

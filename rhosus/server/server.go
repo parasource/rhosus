@@ -1,14 +1,26 @@
 package file_server
 
 import (
+	"bytes"
 	"context"
+	"crypto/md5"
 	"github.com/parasource/rhosus/rhosus/sys"
+	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/sirupsen/logrus"
+	"io"
 	"net"
 	"net/http"
+	"path"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
+
+var bufPool = sync.Pool{
+	New: func() interface{} {
+		return new(bytes.Buffer)
+	},
+}
 
 type ServerConfig struct {
 	Host      string
@@ -94,7 +106,7 @@ func (s *Server) NotifyReady() <-chan struct{} {
 }
 
 func (s *Server) Handle(w http.ResponseWriter, r *http.Request) {
-	//w.Header().Set("Server", "Rhosus File Server "+util.VERSION)
+	w.Header().Set("Server", "Rhosus File Server "+util.VERSION)
 	//if r.Header.Get("Origin") != "" {
 	//	w.Header().Set("Access-Control-Allow-Origin", "*")
 	//	w.Header().Set("Access-Control-Allow-Credentials", "true")
@@ -104,7 +116,10 @@ func (s *Server) Handle(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		s.handleGet(w, r)
 	case http.MethodPost, http.MethodPut:
-		s.handlePostPut(w, r)
+		err := s.handlePostPut(w, r)
+		if err != nil {
+			logrus.Errorf("error uploading file: %v", err)
+		}
 	case http.MethodDelete:
 		s.handleDelete(w, r)
 	case http.MethodOptions:
@@ -141,7 +156,111 @@ func (s *Server) SetRegistryDeleteFunc(fun func(dir string, name string) error) 
 	s.RegistryDeleteFunc = fun
 }
 
-func (s *Server) handlePostPut(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handlePostPut(w http.ResponseWriter, r *http.Request) error {
+
+	var err error
+
+	logrus.Infof(r.URL.String())
+
+	multipartReader, err := r.MultipartReader()
+	if err != nil {
+		return err
+	}
+
+	part1, err := multipartReader.NextPart()
+	if err != nil {
+		return err
+	}
+
+	fileName := part1.FileName()
+	if fileName != "" {
+		fileName = path.Base(fileName)
+	}
+
+	contentType := part1.Header.Get("Content-Type")
+	if contentType == "application/octet-stream" {
+		contentType = ""
+	}
+
+	md5Hash := md5.New()
+	partReader := io.NopCloser(io.TeeReader(part1, md5Hash))
+
+	var wg sync.WaitGroup
+	var bytesBufferCounter int64
+	bytesBufferLimitCond := sync.NewCond(new(sync.Mutex))
+	//var fileChunksLock sync.Mutex
+
+	// todo: move to configuration
+	chunkSize := 1024 * 1024
+
+	for {
+		bytesBufferLimitCond.L.Lock()
+		for atomic.LoadInt64(&bytesBufferCounter) >= 4 {
+			logrus.Infof("waiting for byte buffer %d", bytesBufferCounter)
+			bytesBufferLimitCond.Wait()
+		}
+		atomic.AddInt64(&bytesBufferCounter, 1)
+		bytesBufferLimitCond.L.Unlock()
+
+		bytesBuffer := bufPool.Get().(*bytes.Buffer)
+
+		limitedReader := io.LimitReader(partReader, int64(chunkSize))
+		bytesBuffer.Reset()
+
+		dataSize, err := bytesBuffer.ReadFrom(limitedReader)
+		if err != nil || dataSize == 0 {
+			bufPool.Put(bytesBuffer)
+			atomic.AddInt64(&bytesBufferCounter, -1)
+			bytesBufferLimitCond.Signal()
+			break
+		}
+
+		var chunkOffset int64 = 0
+
+		if dataSize < 1024 {
+			chunkOffset += dataSize
+			smallContent := make([]byte, dataSize)
+			bytesBuffer.Read(smallContent)
+			bufPool.Put(bytesBuffer)
+			atomic.AddInt64(&bytesBufferCounter, -1)
+			bytesBufferLimitCond.Signal()
+			break
+		}
+
+		//logrus.Info(string(bytesBuffer.Bytes()))
+
+		wg.Add(1)
+		counter := 1
+		go func(offset int64) {
+			defer func() {
+				bufPool.Put(bytesBuffer)
+				atomic.AddInt64(&bytesBufferCounter, -1)
+				bytesBufferLimitCond.Signal()
+				wg.Done()
+			}()
+
+			dataReader := util.NewBytesReader(bytesBuffer.Bytes())
+
+			var data = dataReader.Bytes
+
+			logrus.Info(string(data))
+			logrus.Infof("------------- %v", counter)
+
+			counter++
+
+		}(chunkOffset)
+
+		chunkOffset = chunkOffset + dataSize
+
+		// if last chunk was not at full chunk size, but already exhausted the reader
+		if dataSize < int64(chunkSize) {
+			break
+		}
+	}
+
+	w.Write([]byte("OK"))
+
+	return err
 
 	// Stores or Updates file
 }

@@ -4,6 +4,15 @@ package node_proto;
 option go_package = "github.com/rhosus/rhosus/pb/node_pb";
 
 
+service NodeService {
+  rpc Ping (PingRequest) returns (PingResponse);
+}
+
+message PingRequest {}
+
+message PingResponse {}
+
+
 // Information about node
 message NodeInfo {
   string id = 1;
