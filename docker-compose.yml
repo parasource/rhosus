@@ -1,0 +1,13 @@
+web:
+  image: parasource/rhosus
+  working_dir: /go/src
+  ports:
+    - "8000:8000"
+  volumes:
+    - .:/go/src
+  links:
+    - db
+db:
+  image: redis
+  ports:
+    - "6379:6379"

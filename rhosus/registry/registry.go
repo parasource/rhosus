@@ -184,14 +184,10 @@ func (r *Registry) Start() {
 	// handle signals for grace shutdown
 	go r.handleSignals()
 
-	go func() {
-		r.readyWg.Wait()
-
-		close(r.readyCh)
-	}()
-
 	// Blocks goroutine until ready signal received
-	r.proceedOnReady()
+	r.readyWg.Wait()
+	logrus.Infof("Registry %v is ready", r.Uid)
+	close(r.readyCh)
 
 	for {
 		select {
@@ -203,14 +199,6 @@ func (r *Registry) Start() {
 		}
 	}
 
-}
-
-func (r *Registry) proceedOnReady() {
-	select {
-	case <-r.NotifyReady():
-
-		logrus.Infof("Registry %v is ready", r.Uid)
-	}
 }
 
 func (r *Registry) sendPing() {
