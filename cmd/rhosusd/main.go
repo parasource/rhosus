@@ -1,8 +1,10 @@
 package main
 
+import "github.com/sirupsen/logrus"
+
 func main() {
 	err := rootCmd.Execute()
 	if err != nil {
-		log.Fatalf("failed to execute root command: %v", err)
+		logrus.Fatalf("failed to execute root command: %v", err)
 	}
 }

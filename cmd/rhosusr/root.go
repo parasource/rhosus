@@ -120,7 +120,7 @@ var rootCmd = &cobra.Command{
 			logrus.Fatalf("error creating registry instance: %v", err)
 		}
 
-		r.Run()
+		r.Start()
 	},
 }
 

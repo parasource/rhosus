@@ -7,7 +7,6 @@ import (
 	"github.com/parasource/rhosus/rhosus/registry/node_server"
 	rhosus_redis "github.com/parasource/rhosus/rhosus/registry/redis"
 	file_server "github.com/parasource/rhosus/rhosus/server"
-	"github.com/parasource/rhosus/rhosus/util/timers"
 	"github.com/parasource/rhosus/rhosus/util/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -62,7 +61,7 @@ func NewRegistry(config RegistryConfig) (*Registry, error) {
 		readyWg: sync.WaitGroup{},
 
 		shutdownCh: make(chan struct{}, 1),
-		readyCh:    make(chan struct{}, 1),
+		readyCh:    make(chan struct{}),
 	}
 
 	shardsPool, err := rhosus_redis.NewRedisShardPool(config.RedisConfig)
@@ -75,14 +74,12 @@ func NewRegistry(config RegistryConfig) (*Registry, error) {
 	// but since we have no other drivers yet - it's fine
 	shardsPool.SetMessagesHandler(r.HandleBrokerMessages)
 	shardsPool.Run()
+
 	r.readyWg.Add(1)
 	go func() {
-		for {
-			select {
-			case <-shardsPool.NotifyReady():
-				r.readyWg.Done()
-			}
-		}
+		<-shardsPool.NotifyReady()
+
+		r.readyWg.Done()
 	}()
 
 	storage, err := NewRedisRegistryStorage(shardsPool)
@@ -114,6 +111,7 @@ func NewRegistry(config RegistryConfig) (*Registry, error) {
 	}
 	r.FileServer = fileServer
 
+	// todo: move to config
 	nodeServer, err := node_server.NewNodeServer(node_server.ServerConfig{
 		Host: "localhost",
 		Port: "6435",
@@ -156,7 +154,7 @@ func (r *Registry) RemoveRegistry(uid string) {
 	r.RegistriesMap.Remove(uid)
 }
 
-func (r *Registry) Run() {
+func (r *Registry) Start() {
 
 	// Here will be grpc server. Probably.
 
@@ -167,31 +165,17 @@ func (r *Registry) Run() {
 	go r.FileServer.RunHTTP()
 	r.readyWg.Add(1)
 	go func() {
-		// todo: move to config
-		timer := timers.SetTimer(time.Second * 5)
-		defer timers.ReleaseTimer(timer)
+		<-r.FileServer.NotifyReady()
 
-		select {
-		case <-r.FileServer.NotifyReady():
-			r.readyWg.Done()
-		case <-timer.C:
-			logrus.Fatalf("timeout reached when starting file server")
-		}
+		r.readyWg.Done()
 	}()
 
 	go r.NodeServer.Run()
 	r.readyWg.Add(1)
 	go func() {
-		// todo: move to config
-		timer := timers.SetTimer(time.Second * 5)
-		defer timers.ReleaseTimer(timer)
+		<-r.NodeServer.NotifyReady()
 
-		select {
-		case <-r.NodeServer.NotifyReady():
-			r.readyWg.Done()
-		case <-timer.C:
-			logrus.Fatalf("timeout reached when starting file server")
-		}
+		r.readyWg.Done()
 	}()
 
 	// ping process to show that registry is still alive
@@ -199,14 +183,18 @@ func (r *Registry) Run() {
 
 	// handle signals for grace shutdown
 	go r.handleSignals()
-	go r.listenReady()
+
+	go func() {
+		r.readyWg.Wait()
+
+		close(r.readyCh)
+	}()
+
+	// Blocks goroutine until ready signal received
+	r.proceedOnReady()
 
 	for {
 		select {
-		case <-r.NotifyReady():
-
-			logrus.Infof("Registry %v is ready", r.Uid)
-
 		case <-r.NotifyShutdown():
 
 			r.FileServer.SendShutdownSignal()
@@ -215,6 +203,14 @@ func (r *Registry) Run() {
 		}
 	}
 
+}
+
+func (r *Registry) proceedOnReady() {
+	select {
+	case <-r.NotifyReady():
+
+		logrus.Infof("Registry %v is ready", r.Uid)
+	}
 }
 
 func (r *Registry) sendPing() {
@@ -333,15 +329,6 @@ func (r *Registry) handleSignals() {
 			os.Exit(0)
 		}
 	}
-
-}
-
-func (r *Registry) listenReady() {
-
-	// We are waiting til every service is running
-	r.readyWg.Wait()
-
-	r.readyCh <- struct{}{}
 
 }
 

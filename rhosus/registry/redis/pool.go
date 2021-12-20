@@ -64,11 +64,11 @@ func NewRedisShardPool(config RedisConfig) (*RedisShardPool, error) {
 	var shards []*RedisShard
 
 	pool := &RedisShardPool{
-		readyCh: make(chan struct{}, 1),
+		readyCh: make(chan struct{}),
 	}
 
 	if shardsConfig == nil || len(shardsConfig) == 0 {
-		return nil, errors.New("redis Shards are not specified. either use different driver, or specify redis Shards")
+		return nil, errors.New("redis shards are not specified. either use different driver, or specify redis Shards")
 	}
 
 	for _, conf := range shardsConfig {
@@ -107,7 +107,8 @@ func (p *RedisShardPool) Run() {
 	} else {
 		logrus.Infof("Successfully connected to redis shards")
 	}
-	p.readyCh <- struct{}{}
+
+	close(p.readyCh)
 }
 
 func (p *RedisShardPool) NotifyReady() <-chan struct{} {

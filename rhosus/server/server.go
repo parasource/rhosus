@@ -43,8 +43,9 @@ type Server struct {
 
 func NewServer(conf ServerConfig) (*Server, error) {
 	s := &Server{
-		Config:  conf,
-		readyCh: make(chan struct{}, 1),
+		Config:     conf,
+		shutdownCh: make(chan struct{}, 1),
+		readyCh:    make(chan struct{}),
 	}
 
 	httpServer := &http.Server{
@@ -65,8 +66,6 @@ func NewServer(conf ServerConfig) (*Server, error) {
 
 	s.http = httpServer
 
-	//go s.RunHTTP()
-
 	return s, nil
 }
 
@@ -80,15 +79,13 @@ func (s *Server) RunHTTP() {
 	}()
 
 	logrus.Infof("HTTP file server is up and running on %v", net.JoinHostPort(s.Config.Host, s.Config.Port))
-	s.readyCh <- struct{}{}
+	close(s.readyCh)
 
-	for {
-		select {
-		case <-s.NotifyShutdown():
-			err := s.http.Shutdown(context.Background())
-			if err != nil {
-				logrus.Errorf("error occured while shutting down http server: %v", err)
-			}
+	select {
+	case <-s.NotifyShutdown():
+		err := s.http.Shutdown(context.Background())
+		if err != nil {
+			logrus.Errorf("error occured while shutting down http server: %v", err)
 		}
 	}
 }

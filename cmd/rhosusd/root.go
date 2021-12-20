@@ -1,50 +1,78 @@
 package main
 
 import (
+	"fmt"
 	rhosusnode "github.com/parasource/rhosus/rhosus/node"
+	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
-	"time"
 )
 
-var (
-	nodeName    string
-	nodeAddress string
-	nodeTimeout int
-	nodeFolders string
-
-	log = logrus.New()
-)
+var nodeConfigDefaults = map[string]interface{}{
+	"gomaxprocs":    0,
+	"registry_host": "127.0.0.1",
+	"registry_port": "6435",
+	"dir":           os.TempDir(),
+}
 
 func init() {
-	rootCmd.Flags().StringVarP(&nodeName, "name", "n", "default", "node name")
-	rootCmd.Flags().StringVarP(&nodeAddress, "address", "a", "127.0.0.1:3617", "node address")
-	rootCmd.Flags().IntVarP(&nodeTimeout, "timeout", "t", 30, "connection idle seconds")
-	rootCmd.Flags().StringVarP(&nodeFolders, "dir", "d", os.TempDir(), "directories to store storage_object files. dir[,dir]")
+	rootCmd.Flags().String("registry_host", "127.0.0.1", "registry grpc node server host")
+	rootCmd.Flags().String("registry_port", "6435", "registry grpc node server host")
+	rootCmd.Flags().String("dir", os.TempDir(), "node files directory")
+
+	viper.BindPFlag("registry_host", rootCmd.Flags().Lookup("registry_host"))
+	viper.BindPFlag("registry_port", rootCmd.Flags().Lookup("registry_port"))
+	viper.BindPFlag("dir", rootCmd.Flags().Lookup("dir"))
 }
 
 var rootCmd = &cobra.Command{
 	Use: "rhosusd",
-	Run: startupRhosusServer,
-}
+	Run: func(cmd *cobra.Command, args []string) {
 
-func startupRhosusServer(cmd *cobra.Command, args []string) {
-	config := rhosusnode.Config{
-		Name:    nodeName,
-		Address: nodeAddress,
-		Timeout: time.Second * time.Duration(nodeTimeout),
-	}
+		printWelcome()
 
-	node := rhosusnode.NewNode(config)
-	err := node.Start()
-	if err != nil {
-		log.Fatalf("error starting node: %v", err)
-	}
+		for k, v := range nodeConfigDefaults {
+			viper.SetDefault(k, v)
+		}
 
-	handleSignals(node)
+		bindEnvs := []string{
+			"registry_host", "registry_port", "dir",
+		}
+		for _, env := range bindEnvs {
+			err := viper.BindEnv(env)
+			if err != nil {
+				logrus.Fatalf("error binding env variable: %v", err)
+			}
+		}
+
+		if os.Getenv("GOMAXPROCS") == "" {
+			if viper.IsSet("gomaxprocs") && viper.GetInt("gomaxprocs") > 0 {
+				runtime.GOMAXPROCS(viper.GetInt("gomaxprocs"))
+			} else {
+				runtime.GOMAXPROCS(runtime.NumCPU())
+			}
+		}
+
+		v := viper.GetViper()
+
+		rHost := v.GetString("registry_host")
+		rPort := v.GetString("registry_port")
+
+		config := rhosusnode.Config{
+			RegistryHost: rHost,
+			RegistryPort: rPort,
+		}
+
+		node := rhosusnode.NewNode(config)
+		node.Start()
+
+		handleSignals(node)
+	},
 }
 
 func handleSignals(node *rhosusnode.Node) {
@@ -53,16 +81,24 @@ func handleSignals(node *rhosusnode.Node) {
 
 	for {
 		sig := <-sigc
-		log.Infof("signal received: %v", sig)
+		logrus.Infof("signal received: %v", sig)
 		switch sig {
 		case syscall.SIGHUP:
 
 		case syscall.SIGINT, os.Interrupt, syscall.SIGTERM:
-			log.Infof("shutting node down")
+			logrus.Infof("shutting node down")
 
 			node.Shutdown()
 
 			os.Exit(0)
 		}
 	}
+}
+
+func printWelcome() {
+	welcome := "    ____  __  ______  _____ __  _______\n   / __ \\/ / / / __ \\/ ___// / / / ___/\n  / /_/ / /_/ / / / /\\__ \\/ / / /\\__ \\ \n / _, _/ __  / /_/ /___/ / /_/ /___/ / \n/_/ |_/_/ /_/\\____//____/\\____//____/  \n                                       "
+	fmt.Println(welcome)
+
+	fmt.Println("\n|------ Rhosus node")
+	fmt.Println("|------ Version " + util.Version() + "\n")
 }
