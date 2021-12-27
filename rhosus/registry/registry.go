@@ -178,6 +178,8 @@ func (r *Registry) Start() {
 		r.readyWg.Done()
 	}()
 
+	go r.NodesMap.WatchNodes()
+
 	// ping process to show that registry is still alive
 	go r.sendPing()
 

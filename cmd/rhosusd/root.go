@@ -8,9 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"os"
-	"os/signal"
 	"runtime"
-	"syscall"
 )
 
 var nodeConfigDefaults = map[string]interface{}{
@@ -68,31 +66,9 @@ var rootCmd = &cobra.Command{
 			RegistryPort: rPort,
 		}
 
-		node := rhosusnode.NewNode(config)
+		node, _ := rhosusnode.NewNode(config)
 		node.Start()
-
-		handleSignals(node)
 	},
-}
-
-func handleSignals(node *rhosusnode.Node) {
-	sigc := make(chan os.Signal, 1)
-	signal.Notify(sigc, syscall.SIGHUP, syscall.SIGINT, os.Interrupt, syscall.SIGTERM)
-
-	for {
-		sig := <-sigc
-		logrus.Infof("signal received: %v", sig)
-		switch sig {
-		case syscall.SIGHUP:
-
-		case syscall.SIGINT, os.Interrupt, syscall.SIGTERM:
-			logrus.Infof("shutting node down")
-
-			node.Shutdown()
-
-			os.Exit(0)
-		}
-	}
 }
 
 func printWelcome() {

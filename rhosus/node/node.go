@@ -1,12 +1,8 @@
 package rhosus_node
 
 import (
-	"context"
-	node_pb "github.com/parasource/rhosus/rhosus/pb/node"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"google.golang.org/grpc"
-	"net"
 	"os"
 	"os/signal"
 	"sync"
@@ -25,55 +21,55 @@ type Config struct {
 type Node struct {
 	Config Config
 
-	mu         sync.RWMutex
+	mu sync.RWMutex
+
+	StatsManager *StatsManager
+
 	shutdownCh chan struct{}
 	readyCh    chan struct{}
 }
 
-func NewNode(config Config) *Node {
-	return &Node{
+func NewNode(config Config) (*Node, error) {
+
+	node := &Node{
 		Config: config,
 
 		shutdownCh: make(chan struct{}, 1),
 		readyCh:    make(chan struct{}),
 	}
+
+	statsManager := NewStatsManager(node)
+	node.StatsManager = statsManager
+
+	return node, nil
 }
+
+//func (n *Node) GetNodeServerClient() (node_pb.NodeServiceClient, *grpc.ClientConn, error) {
+//	address := net.JoinHostPort(n.Config.RegistryHost, n.Config.RegistryPort)
+//
+//	conn, err := grpc.Dial(address, grpc.WithInsecure())
+//	if err != nil {
+//		conn.Close()
+//		return nil, err
+//	}
+//
+//	client := node_pb.NewNodeServiceClient(conn)
+//
+//	return client, conn
+//}
 
 func (n *Node) Start() {
 
-	ticker := time.NewTicker(time.Second)
+	go n.StatsManager.Run()
 
-	go func() {
-		for {
-			select {
-			case <-n.shutdownCh:
-				return
-			case <-ticker.C:
+	go n.handleSignals()
 
-				address := net.JoinHostPort(n.Config.RegistryHost, n.Config.RegistryPort)
-
-				conn, err := grpc.Dial(address, grpc.WithInsecure())
-				if err != nil {
-					logrus.Errorf("error dialing node server: %v", err)
-					conn.Close()
-					continue
-				}
-
-				client := node_pb.NewNodeServiceClient(conn)
-
-				_, err = client.Ping(context.Background(), &node_pb.PingRequest{})
-				if err != nil {
-					logrus.Errorf("error sending ping commmand: %v", err)
-					conn.Close()
-					continue
-				}
-
-				logrus.Infof("PONG")
-
-				conn.Close()
-			}
+	for {
+		select {
+		case <-n.shutdownCh:
+			return
 		}
-	}()
+	}
 
 }
 
