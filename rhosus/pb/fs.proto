@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package fs_pb;
+option go_package = "github.com/parasource/rhosus/rhosus/pb/fs";
+
+////////////////////
+// FS base messages
+
+
+// Page is a set of blocks
+// Page has a fixed size. If it is full, another Page is being created
+// page can be transferred to another node for load balancing
+
+message Page {
+  string uid = 1;
+  repeated Block blocks = 2;
+  ChecksumType checksum_type = 3;
+  string checksum = 4;
+  int64 updated_at = 5;
+}
+
+message File {
+  string uid = 1;
+  string name = 2;
+  string dirID = 3;
+  string fullPath = 4;
+  int64 timestamp = 5;
+  uint64 size = 6;
+  int32 blocks = 7;
+}
+
+message Block {
+  string uid = 1;
+  string file_id = 2;
+  uint64 size = 3;
+  bytes data = 4;
+}
+
+enum ChecksumType {
+  CHECKSUM_NULL = 0;
+  CHECKSUM_CRC32 = 1;
+  CHECKSUM_CRC32C = 2;
+}
+

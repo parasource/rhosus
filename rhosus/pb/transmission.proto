@@ -1,0 +1,81 @@
+syntax = "proto3";
+
+package transmission_pb;
+option go_package = "github.com/rhosus/rhosus/pb/transmission_pb";
+
+import "fs.proto";
+
+service TransmissionService {
+  rpc ShutdownNode (ShutdownNodeRequest) returns (ShutdownNodeResponse);
+
+  rpc AssignBlocks (AssignBlocksRequest) returns (AssignBlocksResponse);
+  rpc RemoveBlocks (RemoveBlocksRequest) returns (RemoveBlocksResponse);
+  rpc PlacePages(PlacePagesRequest) returns (PlacePagesResponse);
+
+  rpc NodeMetrics(NodeMetricsRequest) returns (NodeMetricsResponse);
+}
+
+// In case we need to shutdown node by a registry
+
+message ShutdownNodeRequest {
+  enum ShutdownReason {
+    SHUTDOWN_NORMAL = 0;
+    SHUTDOWN_ERROR = 1;
+    SHUTDOWN_FORCE = 2;
+  }
+
+  string uid = 1;
+  ShutdownReason reason = 2;
+}
+
+message ShutdownNodeResponse {}
+
+message AssignBlocksRequest {
+  repeated fs_pb.Block blocks = 1;
+}
+
+message AssignBlocksResponse {}
+
+message RemoveBlocksRequest {
+  repeated string uids = 1;
+}
+
+message RemoveBlocksResponse {}
+
+message PlacePagesRequest {
+  repeated fs_pb.Page pages = 1;
+}
+
+message PlacePagesResponse {}
+
+
+
+message NodeMetricsRequest {}
+
+message NodeMetricsResponse {
+  string uid = 1;
+  NodeMetrics metrics = 2;
+}
+
+message NodeMetrics {
+  uint64 capacity = 1;
+  uint64 remaining = 2;
+  int64 lastUpdate = 3;
+  uint64 cacheCapacity = 4;
+  uint64 cacheUsed = 5;
+}
+
+// Information about node
+message NodeInfo {
+  string uid = 1;
+  string location = 2;
+  enum State {
+    NORMAL = 0;
+    DECOMMISSION_IN_PROGRESS = 1;
+    DECOMMISSIONED = 2;
+  }
+  State state = 3;
+  NodeMetrics metrics = 4;
+}
+
+

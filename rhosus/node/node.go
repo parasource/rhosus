@@ -1,6 +1,8 @@
 package rhosus_node
 
 import (
+	rhosus_etcd "github.com/parasource/rhosus/rhosus/etcd"
+	transmission_pb "github.com/parasource/rhosus/rhosus/pb/transmission"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"os"
@@ -24,6 +26,8 @@ type Node struct {
 	mu sync.RWMutex
 
 	StatsManager *StatsManager
+	GrpcServer   *GrpcServer
+	EtcdClient   *rhosus_etcd.EtcdClient
 
 	shutdownCh chan struct{}
 	readyCh    chan struct{}
@@ -40,6 +44,24 @@ func NewNode(config Config) (*Node, error) {
 
 	statsManager := NewStatsManager(node)
 	node.StatsManager = statsManager
+
+	etcdClient, err := rhosus_etcd.NewEtcdClient(rhosus_etcd.EtcdClientConfig{
+		Host: "localhost",
+		Port: "2379",
+	})
+	if err != nil {
+		logrus.Fatalf("error connecting to etcd: %v", err)
+	}
+	node.EtcdClient = etcdClient
+
+	grpcServer, err := NewGrpcServer(GrpcServerConfig{
+		Host: "localhost",
+		Port: "2232",
+	}, node)
+	if err != nil {
+		logrus.Errorf("error creating node grpc server: %v", err)
+	}
+	node.GrpcServer = grpcServer
 
 	return node, nil
 }
@@ -61,8 +83,14 @@ func NewNode(config Config) (*Node, error) {
 func (n *Node) Start() {
 
 	go n.StatsManager.Run()
+	go n.GrpcServer.Run()
 
 	go n.handleSignals()
+
+	err := n.Register()
+	if err != nil {
+		logrus.Fatalf("can't register node in etcd: %v", err)
+	}
 
 	for {
 		select {
@@ -71,6 +99,19 @@ func (n *Node) Start() {
 		}
 	}
 
+}
+
+func (n *Node) Register() error {
+	info := &transmission_pb.NodeInfo{
+		Uid: "node1",
+		Metrics: &transmission_pb.NodeMetrics{
+			Capacity:   10000,
+			Remaining:  5000,
+			LastUpdate: time.Now().Add(-time.Hour * 24 * 30).Unix(),
+		},
+		Location: "/dir/1",
+	}
+	return n.EtcdClient.RegisterNode("node1", info)
 }
 
 func (n *Node) NotifyShutdown() <-chan struct{} {

@@ -3,6 +3,8 @@ syntax = "proto3";
 package registry_pb;
 option go_package = "github.com/parasource/rhosus/rhosus/pb/registry_pb";
 
+import "fs.proto";
+
 message Command {
   enum CommandType {
     PING = 0;
@@ -26,15 +28,7 @@ message RegistryInfo {
   RegistryRole role = 4;
 }
 
-message FileInfo {
-  string uid = 1;
-  string name = 2;
-  string dirID = 3;
-  string fullPath = 4;
-  int64 timestamp = 5;
-  uint64 size = 6;
-  int32 blocks = 7;
-}
+
 
 message Event {
   enum EventType {
@@ -50,19 +44,17 @@ message Event {
 
 message EventFileRegistered {
   string uid = 1;
-  FileInfo file = 2;
-  BlockPlacementInfo blocks = 3;
+  fs_pb.File file = 2;
 }
 
 message EventFileDeleted {
   string uid = 1;
-  FileInfo file = 2;
+  fs_pb.File file = 2;
 }
 
 message EventFileModified {
   string uid = 1;
-  FileInfo file = 2;
-  BlockPlacementInfo blocks = 3;
+  fs_pb.File file = 2;
 }
 
 message EventRegistryShutdown {
@@ -74,11 +66,27 @@ message EventRegistryShutdown {
   ShutdownReason reason = 2;
 }
 
-message BlockPlacementInfo {
-  message Block {
-    string node_id = 1;
-    string file_id = 2;
-    bytes data = 3;
+message FileInfo {
+  enum FileType {
+    DIR = 0;
+    FILE = 1;
+    SYMLINK = 3;
   }
-  map<string, Block> blocks = 1;
+  FileType type = 1;
+  bytes path = 2;
+  uint64 length = 3;
+  message FsPermission {
+    uint32 perm = 1;
+  }
+  FsPermission permission = 4;
+  string owner = 5;
+  string group = 6;
+
+  bytes symlink = 7; // Optional. Used only for symlinks
 }
+
+message DirectoryListing {
+  repeated FileInfo listing = 1;
+  uint32 remainingPages = 2;
+}
+

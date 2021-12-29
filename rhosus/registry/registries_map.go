@@ -18,6 +18,7 @@ type RegistriesMap struct {
 
 func NewRegistriesMap() *RegistriesMap {
 	return &RegistriesMap{
+
 		registries: make(map[string]*registry_pb.RegistryInfo),
 		updates:    make(map[string]int64),
 
@@ -66,6 +67,14 @@ func (m *RegistriesMap) Remove(uid string) {
 		delete(m.registries, uid)
 		delete(m.updates, uid)
 	}
+}
+
+func (r *RegistriesMap) RegistryExists(uid string) bool {
+	r.mu.RLock()
+	_, ok := r.registries[uid]
+	r.mu.RUnlock()
+
+	return ok
 }
 
 func (r *RegistriesMap) RunCleaning() {

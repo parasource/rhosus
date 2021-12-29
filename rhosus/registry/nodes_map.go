@@ -2,7 +2,7 @@ package registry
 
 import (
 	"context"
-	node_pb "github.com/parasource/rhosus/rhosus/pb/node"
+	transmission_pb "github.com/parasource/rhosus/rhosus/pb/transmission"
 	"github.com/parasource/rhosus/rhosus/registry/recovery"
 	"github.com/parasource/rhosus/rhosus/util/tickers"
 	"github.com/sirupsen/logrus"
@@ -14,7 +14,7 @@ type NodesMap struct {
 	registry *Registry
 
 	mu              sync.RWMutex
-	nodes           map[string]*node_pb.NodeInfo
+	nodes           map[string]*transmission_pb.NodeInfo
 	nodesProbeTries map[string]int
 	onNodeDown      func(ctx context.Context)
 
@@ -27,7 +27,9 @@ func NewNodesMap(registry *Registry) *NodesMap {
 	return &NodesMap{
 		registry: registry,
 
-		noAliveNodesCh: make(chan struct{}, 1),
+		noAliveNodesCh:  make(chan struct{}, 1),
+		nodes:           make(map[string]*transmission_pb.NodeInfo),
+		nodesProbeTries: make(map[string]int),
 	}
 }
 
@@ -35,14 +37,21 @@ func (m *NodesMap) SetOnNodeDown(fun func(c context.Context)) {
 	m.onNodeDown = fun
 }
 
-func (m *NodesMap) AddNode(uid string, info *node_pb.NodeInfo) {
+func (m *NodesMap) AddNode(uid string, info *transmission_pb.NodeInfo) {
 	m.mu.Lock()
 	if _, ok := m.nodes[uid]; !ok {
 		m.nodes[uid] = info
 	}
 	m.mu.Unlock()
 
-	m.registry.Storage.GetNodes()
+}
+
+func (m *NodesMap) NodeExists(uid string) bool {
+	m.mu.RLock()
+	_, ok := m.nodes[uid]
+	m.mu.RUnlock()
+
+	return ok
 }
 
 func (m *NodesMap) RemoveNode(uid string) {
@@ -60,7 +69,7 @@ func (m *NodesMap) WatchNodes() {
 	for {
 		select {
 		case <-ticker.C:
-			nodes := make(map[string]*node_pb.NodeInfo, len(m.nodes))
+			nodes := make(map[string]*transmission_pb.NodeInfo, len(m.nodes))
 
 			m.mu.RLock()
 			for uid, info := range m.nodes {
@@ -73,7 +82,7 @@ func (m *NodesMap) WatchNodes() {
 
 			for uid, node := range nodes {
 				wg.Add(1)
-				go func(uid string, node *node_pb.NodeInfo) {
+				go func(uid string, node *transmission_pb.NodeInfo) {
 
 					err := m.ProbeNode(node)
 					if err != nil {
@@ -124,14 +133,14 @@ func (m *NodesMap) WatchNodes() {
 
 }
 
-func (m *NodesMap) ProbeNode(node *node_pb.NodeInfo) error {
+func (m *NodesMap) ProbeNode(node *transmission_pb.NodeInfo) error {
 
 	// todo
 
 	return nil
 }
 
-func (m *NodesMap) StartRecoveryProcess(node *node_pb.NodeInfo) error {
+func (m *NodesMap) StartRecoveryProcess(node *transmission_pb.NodeInfo) error {
 
 	// todo
 

@@ -1,7 +1,7 @@
 package registry
 
 import (
-	registry_pb "github.com/parasource/rhosus/rhosus/pb/registry"
+	fs_pb "github.com/parasource/rhosus/rhosus/pb/fs"
 	"github.com/parasource/rhosus/rhosus/sys"
 	"github.com/parasource/rhosus/rhosus/util/uuid"
 )
@@ -10,7 +10,7 @@ func (r *Registry) RegisterFile(dir string, name string, owner string, group str
 
 	uid, _ := uuid.NewV4()
 
-	info := registry_pb.FileInfo{
+	info := fs_pb.File{
 		Uid:       uid.String(),
 		Name:      name,
 		DirID:     "",
@@ -19,10 +19,11 @@ func (r *Registry) RegisterFile(dir string, name string, owner string, group str
 		Size_:     size,
 		Blocks:    int32(size / sys.BlockSizeMb),
 	}
-	err := r.Storage.RegisterFile(uid.String(), &info)
-	if err != nil {
-		return nil, err
-	}
+	_ = info.Blocks
+	//err := r.Storage.RegisterFile(uid.String(), &info)
+	//if err != nil {
+	//	return nil, err
+	//}
 
 	return &sys.File{}, nil
 }

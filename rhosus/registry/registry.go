@@ -1,17 +1,19 @@
 package registry
 
 import (
-	"github.com/gomodule/redigo/redis"
-	node_pb "github.com/parasource/rhosus/rhosus/pb/node"
+	"context"
+	rhosus_etcd "github.com/parasource/rhosus/rhosus/etcd"
 	registry_pb "github.com/parasource/rhosus/rhosus/pb/registry"
-	"github.com/parasource/rhosus/rhosus/registry/node_server"
-	rhosus_redis "github.com/parasource/rhosus/rhosus/registry/redis"
+	transmission_pb "github.com/parasource/rhosus/rhosus/pb/transmission"
 	file_server "github.com/parasource/rhosus/rhosus/server"
+	"github.com/parasource/rhosus/rhosus/util"
+	"github.com/parasource/rhosus/rhosus/util/tickers"
 	"github.com/parasource/rhosus/rhosus/util/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"os"
 	"os/signal"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -23,7 +25,6 @@ type RegistryConfig struct {
 	GrpcHost string
 	GrpcPort string
 
-	RedisConfig  rhosus_redis.RedisConfig
 	ServerConfig file_server.ServerConfig
 }
 
@@ -39,7 +40,7 @@ type Registry struct {
 	RegistriesMap *RegistriesMap
 	NodesMap      *NodesMap
 	FileServer    *file_server.Server
-	NodeServer    *node_server.Server
+	NodeServer    *NodeServer
 
 	readyCh chan struct{}
 	readyWg sync.WaitGroup
@@ -64,42 +65,22 @@ func NewRegistry(config RegistryConfig) (*Registry, error) {
 		readyCh:    make(chan struct{}),
 	}
 
-	shardsPool, err := rhosus_redis.NewRedisShardPool(config.RedisConfig)
+	//storage, err := NewRedisRegistryStorage(shardsPool)
+	//if err != nil {
+	//	return nil, err
+	//}
+
+	storage, err := NewEtcdStorage(EtcdStorageConfig{}, r)
 	if err != nil {
-		return nil, err
+		logrus.Fatalf("error creating etcd storage: %v", err)
 	}
-
-	// Here we set a message handler for incoming messages.
-	// Basically this should be done inside shard pool,
-	// but since we have no other drivers yet - it's fine
-	shardsPool.SetMessagesHandler(r.HandleBrokerMessages)
-	shardsPool.Run()
-
-	r.readyWg.Add(1)
-	go func() {
-		<-shardsPool.NotifyReady()
-
-		r.readyWg.Done()
-	}()
-
-	storage, err := NewRedisRegistryStorage(shardsPool)
-	if err != nil {
-		return nil, err
-	}
-
-	broker, err := NewRegistryRedisBroker(shardsPool)
-	if err != nil {
-		return nil, err
-	}
+	r.Storage = storage
 
 	rMap := NewRegistriesMap()
 	r.RegistriesMap = rMap
 
 	nMap := NewNodesMap(r)
 	r.NodesMap = nMap
-
-	r.Storage = storage
-	r.Broker = broker
 
 	fileServer, err := file_server.NewServer(file_server.ServerConfig{
 		Host:      r.Config.HttpHost,
@@ -112,35 +93,16 @@ func NewRegistry(config RegistryConfig) (*Registry, error) {
 	r.FileServer = fileServer
 
 	// todo: move to config
-	nodeServer, err := node_server.NewNodeServer(node_server.ServerConfig{
+	nodeServer, err := NewNodeServer(NodeServerConfig{
 		Host: "localhost",
 		Port: "6435",
-	})
+	}, r)
 	if err != nil {
 		logrus.Fatalf("error creating grpc node server: %v", err)
 	}
 	r.NodeServer = nodeServer
 
 	return r, nil
-}
-
-/////////////////////////////////////
-// Handlers
-//
-// Here I define some handlers, that I
-// can use only this way. It is because
-// of impossibility of importing
-// packages one into another
-
-// HandleBrokerMessages handles broker messages
-func (r *Registry) HandleBrokerMessages(message redis.Message) {
-	switch message.Channel {
-	case rhosus_redis.RegistryInfoChannel:
-		r.handleRegistryInfo(message.Data)
-	case rhosus_redis.PingChannel:
-	default:
-		logrus.Infof("message from unknown channel %v", message.Channel)
-	}
 }
 
 ///////////////////////////////////////////
@@ -180,11 +142,18 @@ func (r *Registry) Start() {
 
 	go r.NodesMap.WatchNodes()
 
-	// ping process to show that registry is still alive
-	go r.sendPing()
-
 	// handle signals for grace shutdown
 	go r.handleSignals()
+
+	etcdClient, err := rhosus_etcd.NewEtcdClient(rhosus_etcd.EtcdClientConfig{
+		Host: "localhost",
+		Port: "2379",
+	})
+	if err != nil {
+		logrus.Fatalf("error connecting to etcd: %v", err)
+	}
+
+	go r.RunServiceDiscovery(etcdClient)
 
 	// Blocks goroutine until ready signal received
 	r.readyWg.Wait()
@@ -201,82 +170,6 @@ func (r *Registry) Start() {
 		}
 	}
 
-}
-
-func (r *Registry) sendPing() {
-	ticker := time.NewTicker(time.Second * 5)
-
-	for {
-		select {
-		case <-r.NotifyShutdown():
-			return
-		case <-ticker.C:
-			r.pubRegistryInfo()
-		}
-	}
-}
-
-func (r *Registry) pubRegistryInfo() {
-	r.mu.RLock()
-
-	info := registry_pb.RegistryInfo{
-		Uid: r.Uid,
-		GrpcAddress: &registry_pb.RegistryInfo_Address{
-			Host: r.Config.GrpcHost,
-			Port: r.Config.GrpcPort,
-		},
-		HttpAddress: &registry_pb.RegistryInfo_Address{
-			Host: r.Config.HttpHost,
-			Port: r.Config.HttpPort,
-		},
-	}
-
-	r.mu.RUnlock()
-
-	bytes, err := info.Marshal()
-	if err != nil {
-		logrus.Fatalf("error marshaling registry info: %v", err)
-		return
-	}
-
-	command := &registry_pb.Command{
-		Type: registry_pb.Command_PING,
-		Data: bytes,
-	}
-
-	bytesCmd, err := command.Marshal()
-	if err != nil {
-		logrus.Fatalf("error marshaling registry command: %v", err)
-		return
-	}
-
-	pubReq := rhosus_redis.PubRequest{
-		Channel: rhosus_redis.RegistryInfoChannel,
-		Data:    bytesCmd,
-		Err:     make(chan error, 1),
-	}
-
-	err = r.Broker.Publish(pubReq)
-	if err != nil {
-		logrus.Fatalf("error publishing registry command: %v", err)
-	}
-
-}
-
-func (r *Registry) handleRegistryInfo(data []byte) {
-	var cmd registry_pb.Command
-	err := cmd.Unmarshal(data)
-	if err != nil {
-		logrus.Errorf("error unmarshaling command: %v", err)
-	}
-
-	var info registry_pb.RegistryInfo
-	err = info.Unmarshal(cmd.Data)
-	if err != nil {
-		logrus.Errorf("error unmarshaling info: %v", err)
-	}
-
-	r.RegistriesMap.Add(info.Uid, &info)
 }
 
 func (r *Registry) NotifyShutdown() <-chan struct{} {
@@ -325,10 +218,77 @@ func (r *Registry) handleSignals() {
 ////////////////////////////
 // Nodes management methods
 
-func (r *Registry) AddNode(uid string, info *node_pb.NodeInfo) {
-	r.NodesMap.AddNode(uid, info)
-}
+func (r *Registry) RunServiceDiscovery(etcdClient *rhosus_etcd.EtcdClient) {
 
-func (r *Registry) RemoveNode(uid string) {
-	r.NodesMap.RemoveNode(uid)
+	ticker := tickers.SetTicker(time.Second * 3)
+	counter := 0
+
+	for {
+		select {
+		case <-ticker.C:
+
+			value := strconv.Itoa(counter)
+			_, err := etcdClient.Put(context.Background(), "counter", value)
+			if err != nil {
+				logrus.Errorf("error putting value to etcd: %v", err)
+			}
+			counter++
+
+		case res := <-etcdClient.WatchForNodesUpdates():
+			// Here we handle nodes updates
+
+			for _, event := range res.Events {
+				uid := string(event.Kv.Key)
+				data := string(event.Kv.Value)
+
+				bytes, err := util.Base64Decode(data)
+				if err != nil {
+					logrus.Errorf("error decoding")
+				}
+
+				var info transmission_pb.NodeInfo
+				err = info.Unmarshal(bytes)
+				if err != nil {
+					logrus.Errorf("error unmarshaling node info: %v", err)
+				}
+
+				if r.NodesMap.NodeExists(uid) {
+
+				} else {
+					r.NodesMap.AddNode(uid, &info)
+
+					logrus.Infof("node %v added", info.Uid)
+				}
+			}
+
+		case res := <-etcdClient.WatchForRegistriesUpdates():
+			// Here we handle registries updates
+
+			for _, event := range res.Events {
+				uid := string(event.Kv.Key)
+				data := string(event.Kv.Value)
+
+				bytes, err := util.Base64Decode(data)
+				if err != nil {
+					logrus.Errorf("error decoding")
+				}
+
+				var info registry_pb.RegistryInfo
+				err = info.Unmarshal(bytes)
+				if err != nil {
+					logrus.Errorf("error unmarshaling registry info: %v", err)
+				}
+
+				if r.RegistriesMap.RegistryExists(uid) {
+
+				} else {
+					r.RegistriesMap.Add(uid, &info)
+				}
+			}
+
+		case <-r.NotifyShutdown():
+
+			return
+		}
+	}
 }

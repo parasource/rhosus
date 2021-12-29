@@ -117,6 +117,10 @@ func Base64Encode(data []byte) string {
 	return base64.StdEncoding.EncodeToString(data)
 }
 
+func Base64Decode(data string) ([]byte, error) {
+	return base64.StdEncoding.DecodeString(data)
+}
+
 func Base64Md5(data []byte) string {
 	return Base64Encode(Md5(data))
 }
