@@ -52,7 +52,7 @@ func (x ShutdownNodeRequest_ShutdownReason) String() string {
 }
 
 func (ShutdownNodeRequest_ShutdownReason) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_5e45df04459fa574, []int{0, 0}
+	return fileDescriptor_5e45df04459fa574, []int{2, 0}
 }
 
 type NodeInfo_State int32
@@ -80,8 +80,86 @@ func (x NodeInfo_State) String() string {
 }
 
 func (NodeInfo_State) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_5e45df04459fa574, []int{11, 0}
+	return fileDescriptor_5e45df04459fa574, []int{13, 0}
 }
+
+type PingRequest struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *PingRequest) Reset()         { *m = PingRequest{} }
+func (m *PingRequest) String() string { return proto.CompactTextString(m) }
+func (*PingRequest) ProtoMessage()    {}
+func (*PingRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5e45df04459fa574, []int{0}
+}
+func (m *PingRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *PingRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_PingRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *PingRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PingRequest.Merge(m, src)
+}
+func (m *PingRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *PingRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_PingRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_PingRequest proto.InternalMessageInfo
+
+type PingResponse struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *PingResponse) Reset()         { *m = PingResponse{} }
+func (m *PingResponse) String() string { return proto.CompactTextString(m) }
+func (*PingResponse) ProtoMessage()    {}
+func (*PingResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5e45df04459fa574, []int{1}
+}
+func (m *PingResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *PingResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_PingResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *PingResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PingResponse.Merge(m, src)
+}
+func (m *PingResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *PingResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_PingResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_PingResponse proto.InternalMessageInfo
 
 type ShutdownNodeRequest struct {
 	Uid                  string                             `protobuf:"bytes,1,opt,name=uid,proto3" json:"uid,omitempty"`
@@ -95,7 +173,7 @@ func (m *ShutdownNodeRequest) Reset()         { *m = ShutdownNodeRequest{} }
 func (m *ShutdownNodeRequest) String() string { return proto.CompactTextString(m) }
 func (*ShutdownNodeRequest) ProtoMessage()    {}
 func (*ShutdownNodeRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5e45df04459fa574, []int{0}
+	return fileDescriptor_5e45df04459fa574, []int{2}
 }
 func (m *ShutdownNodeRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -148,7 +226,7 @@ func (m *ShutdownNodeResponse) Reset()         { *m = ShutdownNodeResponse{} }
 func (m *ShutdownNodeResponse) String() string { return proto.CompactTextString(m) }
 func (*ShutdownNodeResponse) ProtoMessage()    {}
 func (*ShutdownNodeResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5e45df04459fa574, []int{1}
+	return fileDescriptor_5e45df04459fa574, []int{3}
 }
 func (m *ShutdownNodeResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -188,7 +266,7 @@ func (m *AssignBlocksRequest) Reset()         { *m = AssignBlocksRequest{} }
 func (m *AssignBlocksRequest) String() string { return proto.CompactTextString(m) }
 func (*AssignBlocksRequest) ProtoMessage()    {}
 func (*AssignBlocksRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5e45df04459fa574, []int{2}
+	return fileDescriptor_5e45df04459fa574, []int{4}
 }
 func (m *AssignBlocksRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -234,7 +312,7 @@ func (m *AssignBlocksResponse) Reset()         { *m = AssignBlocksResponse{} }
 func (m *AssignBlocksResponse) String() string { return proto.CompactTextString(m) }
 func (*AssignBlocksResponse) ProtoMessage()    {}
 func (*AssignBlocksResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5e45df04459fa574, []int{3}
+	return fileDescriptor_5e45df04459fa574, []int{5}
 }
 func (m *AssignBlocksResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -274,7 +352,7 @@ func (m *RemoveBlocksRequest) Reset()         { *m = RemoveBlocksRequest{} }
 func (m *RemoveBlocksRequest) String() string { return proto.CompactTextString(m) }
 func (*RemoveBlocksRequest) ProtoMessage()    {}
 func (*RemoveBlocksRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5e45df04459fa574, []int{4}
+	return fileDescriptor_5e45df04459fa574, []int{6}
 }
 func (m *RemoveBlocksRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -320,7 +398,7 @@ func (m *RemoveBlocksResponse) Reset()         { *m = RemoveBlocksResponse{} }
 func (m *RemoveBlocksResponse) String() string { return proto.CompactTextString(m) }
 func (*RemoveBlocksResponse) ProtoMessage()    {}
 func (*RemoveBlocksResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5e45df04459fa574, []int{5}
+	return fileDescriptor_5e45df04459fa574, []int{7}
 }
 func (m *RemoveBlocksResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -360,7 +438,7 @@ func (m *PlacePagesRequest) Reset()         { *m = PlacePagesRequest{} }
 func (m *PlacePagesRequest) String() string { return proto.CompactTextString(m) }
 func (*PlacePagesRequest) ProtoMessage()    {}
 func (*PlacePagesRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5e45df04459fa574, []int{6}
+	return fileDescriptor_5e45df04459fa574, []int{8}
 }
 func (m *PlacePagesRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -406,7 +484,7 @@ func (m *PlacePagesResponse) Reset()         { *m = PlacePagesResponse{} }
 func (m *PlacePagesResponse) String() string { return proto.CompactTextString(m) }
 func (*PlacePagesResponse) ProtoMessage()    {}
 func (*PlacePagesResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5e45df04459fa574, []int{7}
+	return fileDescriptor_5e45df04459fa574, []int{9}
 }
 func (m *PlacePagesResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -435,24 +513,24 @@ func (m *PlacePagesResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_PlacePagesResponse proto.InternalMessageInfo
 
-type NodeMetricsRequest struct {
+type FetchMetricsRequest struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *NodeMetricsRequest) Reset()         { *m = NodeMetricsRequest{} }
-func (m *NodeMetricsRequest) String() string { return proto.CompactTextString(m) }
-func (*NodeMetricsRequest) ProtoMessage()    {}
-func (*NodeMetricsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5e45df04459fa574, []int{8}
+func (m *FetchMetricsRequest) Reset()         { *m = FetchMetricsRequest{} }
+func (m *FetchMetricsRequest) String() string { return proto.CompactTextString(m) }
+func (*FetchMetricsRequest) ProtoMessage()    {}
+func (*FetchMetricsRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5e45df04459fa574, []int{10}
 }
-func (m *NodeMetricsRequest) XXX_Unmarshal(b []byte) error {
+func (m *FetchMetricsRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *NodeMetricsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *FetchMetricsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_NodeMetricsRequest.Marshal(b, m, deterministic)
+		return xxx_messageInfo_FetchMetricsRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -462,19 +540,19 @@ func (m *NodeMetricsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, 
 		return b[:n], nil
 	}
 }
-func (m *NodeMetricsRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_NodeMetricsRequest.Merge(m, src)
+func (m *FetchMetricsRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FetchMetricsRequest.Merge(m, src)
 }
-func (m *NodeMetricsRequest) XXX_Size() int {
+func (m *FetchMetricsRequest) XXX_Size() int {
 	return m.Size()
 }
-func (m *NodeMetricsRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_NodeMetricsRequest.DiscardUnknown(m)
+func (m *FetchMetricsRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_FetchMetricsRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_NodeMetricsRequest proto.InternalMessageInfo
+var xxx_messageInfo_FetchMetricsRequest proto.InternalMessageInfo
 
-type NodeMetricsResponse struct {
+type FetchMetricsResponse struct {
 	Uid                  string       `protobuf:"bytes,1,opt,name=uid,proto3" json:"uid,omitempty"`
 	Metrics              *NodeMetrics `protobuf:"bytes,2,opt,name=metrics,proto3" json:"metrics,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
@@ -482,18 +560,18 @@ type NodeMetricsResponse struct {
 	XXX_sizecache        int32        `json:"-"`
 }
 
-func (m *NodeMetricsResponse) Reset()         { *m = NodeMetricsResponse{} }
-func (m *NodeMetricsResponse) String() string { return proto.CompactTextString(m) }
-func (*NodeMetricsResponse) ProtoMessage()    {}
-func (*NodeMetricsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5e45df04459fa574, []int{9}
+func (m *FetchMetricsResponse) Reset()         { *m = FetchMetricsResponse{} }
+func (m *FetchMetricsResponse) String() string { return proto.CompactTextString(m) }
+func (*FetchMetricsResponse) ProtoMessage()    {}
+func (*FetchMetricsResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5e45df04459fa574, []int{11}
 }
-func (m *NodeMetricsResponse) XXX_Unmarshal(b []byte) error {
+func (m *FetchMetricsResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *NodeMetricsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *FetchMetricsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_NodeMetricsResponse.Marshal(b, m, deterministic)
+		return xxx_messageInfo_FetchMetricsResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -503,26 +581,26 @@ func (m *NodeMetricsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte,
 		return b[:n], nil
 	}
 }
-func (m *NodeMetricsResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_NodeMetricsResponse.Merge(m, src)
+func (m *FetchMetricsResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FetchMetricsResponse.Merge(m, src)
 }
-func (m *NodeMetricsResponse) XXX_Size() int {
+func (m *FetchMetricsResponse) XXX_Size() int {
 	return m.Size()
 }
-func (m *NodeMetricsResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_NodeMetricsResponse.DiscardUnknown(m)
+func (m *FetchMetricsResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_FetchMetricsResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_NodeMetricsResponse proto.InternalMessageInfo
+var xxx_messageInfo_FetchMetricsResponse proto.InternalMessageInfo
 
-func (m *NodeMetricsResponse) GetUid() string {
+func (m *FetchMetricsResponse) GetUid() string {
 	if m != nil {
 		return m.Uid
 	}
 	return ""
 }
 
-func (m *NodeMetricsResponse) GetMetrics() *NodeMetrics {
+func (m *FetchMetricsResponse) GetMetrics() *NodeMetrics {
 	if m != nil {
 		return m.Metrics
 	}
@@ -544,7 +622,7 @@ func (m *NodeMetrics) Reset()         { *m = NodeMetrics{} }
 func (m *NodeMetrics) String() string { return proto.CompactTextString(m) }
 func (*NodeMetrics) ProtoMessage()    {}
 func (*NodeMetrics) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5e45df04459fa574, []int{10}
+	return fileDescriptor_5e45df04459fa574, []int{12}
 }
 func (m *NodeMetrics) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -610,20 +688,21 @@ func (m *NodeMetrics) GetCacheUsed() uint64 {
 
 // Information about node
 type NodeInfo struct {
-	Uid                  string         `protobuf:"bytes,1,opt,name=uid,proto3" json:"uid,omitempty"`
-	Location             string         `protobuf:"bytes,2,opt,name=location,proto3" json:"location,omitempty"`
-	State                NodeInfo_State `protobuf:"varint,3,opt,name=state,proto3,enum=transmission_pb.NodeInfo_State" json:"state,omitempty"`
-	Metrics              *NodeMetrics   `protobuf:"bytes,4,opt,name=metrics,proto3" json:"metrics,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
-	XXX_unrecognized     []byte         `json:"-"`
-	XXX_sizecache        int32          `json:"-"`
+	Uid                  string            `protobuf:"bytes,1,opt,name=uid,proto3" json:"uid,omitempty"`
+	Address              *NodeInfo_Address `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
+	Location             string            `protobuf:"bytes,3,opt,name=location,proto3" json:"location,omitempty"`
+	State                NodeInfo_State    `protobuf:"varint,4,opt,name=state,proto3,enum=transmission_pb.NodeInfo_State" json:"state,omitempty"`
+	Metrics              *NodeMetrics      `protobuf:"bytes,5,opt,name=metrics,proto3" json:"metrics,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
+	XXX_unrecognized     []byte            `json:"-"`
+	XXX_sizecache        int32             `json:"-"`
 }
 
 func (m *NodeInfo) Reset()         { *m = NodeInfo{} }
 func (m *NodeInfo) String() string { return proto.CompactTextString(m) }
 func (*NodeInfo) ProtoMessage()    {}
 func (*NodeInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5e45df04459fa574, []int{11}
+	return fileDescriptor_5e45df04459fa574, []int{13}
 }
 func (m *NodeInfo) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -659,6 +738,13 @@ func (m *NodeInfo) GetUid() string {
 	return ""
 }
 
+func (m *NodeInfo) GetAddress() *NodeInfo_Address {
+	if m != nil {
+		return m.Address
+	}
+	return nil
+}
+
 func (m *NodeInfo) GetLocation() string {
 	if m != nil {
 		return m.Location
@@ -680,9 +766,66 @@ func (m *NodeInfo) GetMetrics() *NodeMetrics {
 	return nil
 }
 
+type NodeInfo_Address struct {
+	Host                 string   `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
+	Port                 string   `protobuf:"bytes,2,opt,name=port,proto3" json:"port,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *NodeInfo_Address) Reset()         { *m = NodeInfo_Address{} }
+func (m *NodeInfo_Address) String() string { return proto.CompactTextString(m) }
+func (*NodeInfo_Address) ProtoMessage()    {}
+func (*NodeInfo_Address) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5e45df04459fa574, []int{13, 0}
+}
+func (m *NodeInfo_Address) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *NodeInfo_Address) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_NodeInfo_Address.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *NodeInfo_Address) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_NodeInfo_Address.Merge(m, src)
+}
+func (m *NodeInfo_Address) XXX_Size() int {
+	return m.Size()
+}
+func (m *NodeInfo_Address) XXX_DiscardUnknown() {
+	xxx_messageInfo_NodeInfo_Address.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_NodeInfo_Address proto.InternalMessageInfo
+
+func (m *NodeInfo_Address) GetHost() string {
+	if m != nil {
+		return m.Host
+	}
+	return ""
+}
+
+func (m *NodeInfo_Address) GetPort() string {
+	if m != nil {
+		return m.Port
+	}
+	return ""
+}
+
 func init() {
 	proto.RegisterEnum("transmission_pb.ShutdownNodeRequest_ShutdownReason", ShutdownNodeRequest_ShutdownReason_name, ShutdownNodeRequest_ShutdownReason_value)
 	proto.RegisterEnum("transmission_pb.NodeInfo_State", NodeInfo_State_name, NodeInfo_State_value)
+	proto.RegisterType((*PingRequest)(nil), "transmission_pb.PingRequest")
+	proto.RegisterType((*PingResponse)(nil), "transmission_pb.PingResponse")
 	proto.RegisterType((*ShutdownNodeRequest)(nil), "transmission_pb.ShutdownNodeRequest")
 	proto.RegisterType((*ShutdownNodeResponse)(nil), "transmission_pb.ShutdownNodeResponse")
 	proto.RegisterType((*AssignBlocksRequest)(nil), "transmission_pb.AssignBlocksRequest")
@@ -691,58 +834,63 @@ func init() {
 	proto.RegisterType((*RemoveBlocksResponse)(nil), "transmission_pb.RemoveBlocksResponse")
 	proto.RegisterType((*PlacePagesRequest)(nil), "transmission_pb.PlacePagesRequest")
 	proto.RegisterType((*PlacePagesResponse)(nil), "transmission_pb.PlacePagesResponse")
-	proto.RegisterType((*NodeMetricsRequest)(nil), "transmission_pb.NodeMetricsRequest")
-	proto.RegisterType((*NodeMetricsResponse)(nil), "transmission_pb.NodeMetricsResponse")
+	proto.RegisterType((*FetchMetricsRequest)(nil), "transmission_pb.FetchMetricsRequest")
+	proto.RegisterType((*FetchMetricsResponse)(nil), "transmission_pb.FetchMetricsResponse")
 	proto.RegisterType((*NodeMetrics)(nil), "transmission_pb.NodeMetrics")
 	proto.RegisterType((*NodeInfo)(nil), "transmission_pb.NodeInfo")
+	proto.RegisterType((*NodeInfo_Address)(nil), "transmission_pb.NodeInfo.Address")
 }
 
 func init() { proto.RegisterFile("transmission.proto", fileDescriptor_5e45df04459fa574) }
 
 var fileDescriptor_5e45df04459fa574 = []byte{
-	// 657 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x94, 0xdd, 0x6e, 0x12, 0x4f,
-	0x18, 0xc6, 0x3b, 0xe5, 0xe3, 0x0f, 0x2f, 0xfd, 0x53, 0x1c, 0x1a, 0x43, 0x48, 0x83, 0xb8, 0xc5,
-	0x04, 0x63, 0x42, 0x13, 0x1a, 0x7b, 0x62, 0x3c, 0xe8, 0x07, 0x2a, 0x51, 0xd8, 0x66, 0xb6, 0x44,
-	0x63, 0x0f, 0xc8, 0xb2, 0x4c, 0x61, 0x22, 0xec, 0xac, 0x3b, 0x4b, 0x8d, 0x77, 0xe2, 0x3d, 0x78,
-	0x19, 0x9e, 0x78, 0xe8, 0x0d, 0x98, 0x98, 0x7a, 0xee, 0x35, 0x98, 0xd9, 0xaf, 0xee, 0xb6, 0x93,
-	0xaa, 0x47, 0xec, 0x3c, 0xef, 0x33, 0xbf, 0x77, 0xbe, 0x1e, 0x00, 0x7b, 0xae, 0x69, 0x8b, 0x25,
-	0x13, 0x82, 0x71, 0xbb, 0xe3, 0xb8, 0xdc, 0xe3, 0x78, 0x33, 0xa9, 0x8d, 0x9d, 0x49, 0xbd, 0x70,
-	0x2e, 0x82, 0x92, 0xf6, 0x05, 0x41, 0xd5, 0x98, 0xaf, 0xbc, 0x29, 0xff, 0x60, 0x0f, 0xf9, 0x94,
-	0x12, 0xfa, 0x7e, 0x45, 0x85, 0x87, 0x2b, 0x90, 0x59, 0xb1, 0x69, 0x0d, 0x35, 0x51, 0xbb, 0x48,
-	0xe4, 0x27, 0x7e, 0x09, 0x79, 0x97, 0x9a, 0x82, 0xdb, 0xb5, 0xf5, 0x26, 0x6a, 0x97, 0xbb, 0x7b,
-	0x9d, 0x6b, 0xd4, 0x8e, 0x82, 0x13, 0x6b, 0xc4, 0x9f, 0x4a, 0x42, 0x84, 0x36, 0x80, 0x72, 0xba,
-	0x82, 0xab, 0xb0, 0x69, 0xbc, 0x18, 0x9d, 0x1e, 0xeb, 0xaf, 0x87, 0xe3, 0xa1, 0x4e, 0x06, 0x07,
-	0xaf, 0x2a, 0x6b, 0x18, 0x43, 0x39, 0x16, 0x7b, 0x84, 0xe8, 0xa4, 0x82, 0x52, 0xda, 0x33, 0x9d,
-	0x1c, 0xf5, 0x2a, 0xeb, 0xda, 0x5d, 0xd8, 0x4a, 0x37, 0x17, 0x0e, 0xb7, 0x05, 0xd5, 0x9e, 0x40,
-	0xf5, 0x40, 0x08, 0x36, 0xb3, 0x0f, 0x17, 0xdc, 0x7a, 0x27, 0xa2, 0xcd, 0xb5, 0x20, 0x3f, 0xf1,
-	0x85, 0x1a, 0x6a, 0x66, 0xda, 0xa5, 0xee, 0x46, 0xe7, 0x5c, 0xc8, 0x0d, 0xf8, 0x2e, 0x12, 0xd6,
-	0x24, 0x34, 0x3d, 0x39, 0x84, 0x3e, 0x84, 0x2a, 0xa1, 0x4b, 0x7e, 0x41, 0xd3, 0x50, 0x0c, 0xd9,
-	0x15, 0x9b, 0x06, 0xc8, 0x22, 0xf1, 0xbf, 0x25, 0x22, 0x6d, 0x0d, 0x11, 0xfb, 0x70, 0xe7, 0x64,
-	0x61, 0x5a, 0xf4, 0xc4, 0x9c, 0xd1, 0x18, 0x70, 0x1f, 0x72, 0x8e, 0x1c, 0x87, 0x8b, 0x2a, 0x85,
-	0x8b, 0x92, 0x1e, 0x12, 0x54, 0xb4, 0x2d, 0xc0, 0xc9, 0x79, 0x21, 0x6d, 0x0b, 0xb0, 0xdc, 0xf5,
-	0x80, 0x7a, 0x2e, 0xb3, 0x22, 0x9c, 0x36, 0x86, 0x6a, 0x4a, 0x0d, 0xcc, 0x8a, 0x8b, 0xdd, 0x87,
-	0xff, 0x96, 0x81, 0xc9, 0xbf, 0xd9, 0x52, 0x77, 0xfb, 0xc6, 0xcd, 0x26, 0x41, 0x91, 0x59, 0xfb,
-	0x8c, 0xa0, 0x94, 0x28, 0xe0, 0x3a, 0x14, 0x2c, 0xd3, 0x31, 0x2d, 0xe6, 0x7d, 0xf4, 0xf1, 0x59,
-	0x12, 0x8f, 0xf1, 0x36, 0x14, 0x5d, 0xba, 0x34, 0x99, 0xcd, 0xec, 0x99, 0xdf, 0x25, 0x4b, 0xae,
-	0x04, 0xdc, 0x00, 0x58, 0x98, 0xc2, 0x1b, 0x39, 0x53, 0xd3, 0xa3, 0xb5, 0x4c, 0x13, 0xb5, 0x33,
-	0x24, 0xa1, 0xe0, 0x16, 0xfc, 0x6f, 0x99, 0xd6, 0x9c, 0x1e, 0x45, 0xf8, 0xac, 0x4f, 0x48, 0x8b,
-	0xb2, 0x87, 0x2f, 0x8c, 0x04, 0x9d, 0xd6, 0x72, 0x41, 0x8f, 0x58, 0xd0, 0x7e, 0x21, 0x28, 0xc8,
-	0xd5, 0xf6, 0xed, 0x73, 0xae, 0x38, 0x84, 0x3a, 0x14, 0x16, 0xdc, 0x32, 0x3d, 0x16, 0xbe, 0xef,
-	0x22, 0x89, 0xc7, 0xf8, 0x31, 0xe4, 0x84, 0x17, 0xad, 0xac, 0xdc, 0xbd, 0xa7, 0x3c, 0x1e, 0xc9,
-	0xed, 0x18, 0xd2, 0x46, 0x02, 0x77, 0xf2, 0x5c, 0xb3, 0xff, 0x72, 0xae, 0x3d, 0xc8, 0xf9, 0x1c,
-	0x0c, 0x90, 0x8f, 0x93, 0xb0, 0x0d, 0xb5, 0xe3, 0xde, 0x91, 0x3e, 0x18, 0xf4, 0x0d, 0xa3, 0xaf,
-	0x0f, 0xc7, 0xfd, 0xe1, 0xf8, 0x84, 0xe8, 0xcf, 0x49, 0xcf, 0x30, 0x82, 0x4c, 0x24, 0xab, 0xbd,
-	0xe3, 0xca, 0x7a, 0xf7, 0x7b, 0x06, 0xaa, 0xa7, 0x89, 0x7e, 0x06, 0x75, 0x2f, 0x98, 0x45, 0xf1,
-	0x19, 0x6c, 0x24, 0xb3, 0x82, 0x5b, 0x7f, 0x93, 0xe3, 0xfa, 0x83, 0x3f, 0xb8, 0xc2, 0xd7, 0x75,
-	0x06, 0x1b, 0xc9, 0xcc, 0x28, 0xe0, 0x8a, 0x3c, 0x2a, 0xe0, 0xaa, 0xe0, 0x49, 0x78, 0x32, 0x4d,
-	0x0a, 0xb8, 0x22, 0x97, 0x0a, 0xb8, 0x2a, 0x92, 0x78, 0x04, 0x70, 0x15, 0x2d, 0xac, 0xdd, 0x98,
-	0x74, 0x23, 0xaf, 0xf5, 0x9d, 0x5b, 0x3d, 0x21, 0xf6, 0x4d, 0x3a, 0x23, 0x3b, 0xb7, 0x3e, 0x81,
-	0x10, 0xdc, 0xba, 0xdd, 0x14, 0x90, 0x0f, 0x9f, 0x7e, 0xbd, 0x6c, 0xa0, 0x6f, 0x97, 0x0d, 0xf4,
-	0xe3, 0xb2, 0x81, 0x3e, 0xfd, 0x6c, 0xac, 0xbd, 0x7d, 0x34, 0x63, 0xde, 0x7c, 0x35, 0xe9, 0x58,
-	0x7c, 0xb9, 0xeb, 0xce, 0xb9, 0x58, 0x89, 0xe8, 0xc7, 0x99, 0xec, 0x5e, 0x43, 0x4e, 0xf2, 0xfe,
-	0xff, 0xff, 0xde, 0xef, 0x00, 0x00, 0x00, 0xff, 0xff, 0x1a, 0xa9, 0x4a, 0x42, 0x30, 0x06, 0x00,
-	0x00,
+	// 736 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x95, 0xdd, 0x6e, 0xd3, 0x30,
+	0x14, 0xc7, 0x97, 0x7e, 0x6d, 0x3d, 0xdd, 0xba, 0xe2, 0x0e, 0x54, 0x55, 0xa3, 0x74, 0x61, 0x48,
+	0x45, 0x48, 0x9d, 0xe8, 0xc4, 0x6e, 0x26, 0x2e, 0xb6, 0xae, 0x83, 0x0a, 0xfa, 0x21, 0x67, 0x15,
+	0x12, 0x5c, 0x94, 0x34, 0xf1, 0xda, 0x88, 0x36, 0x0e, 0x71, 0x3a, 0xc4, 0x9b, 0xf0, 0x02, 0x5c,
+	0xf1, 0x18, 0xdc, 0x70, 0xc9, 0x13, 0x20, 0x34, 0x5e, 0x04, 0xd9, 0x49, 0xda, 0x64, 0xf3, 0xf8,
+	0xb8, 0xaa, 0x7d, 0xce, 0xdf, 0x3f, 0x9f, 0x63, 0xc7, 0xff, 0x02, 0xf2, 0x5c, 0xdd, 0x66, 0x33,
+	0x8b, 0x31, 0x8b, 0xda, 0x75, 0xc7, 0xa5, 0x1e, 0x45, 0x9b, 0xd1, 0xd8, 0xd0, 0x19, 0x95, 0xd7,
+	0xce, 0x99, 0x9f, 0x52, 0x37, 0x20, 0xd7, 0xb7, 0xec, 0x31, 0x26, 0xef, 0xe7, 0x84, 0x79, 0x6a,
+	0x1e, 0xd6, 0xfd, 0x29, 0x73, 0xa8, 0xcd, 0x88, 0xfa, 0x55, 0x81, 0xa2, 0x36, 0x99, 0x7b, 0x26,
+	0xfd, 0x60, 0x77, 0xa9, 0x49, 0x02, 0x1d, 0x2a, 0x40, 0x72, 0x6e, 0x99, 0x25, 0xa5, 0xaa, 0xd4,
+	0xb2, 0x98, 0x0f, 0xd1, 0x0b, 0xc8, 0xb8, 0x44, 0x67, 0xd4, 0x2e, 0x25, 0xaa, 0x4a, 0x2d, 0xdf,
+	0xd8, 0xaf, 0x5f, 0xd9, 0xb4, 0x2e, 0xe1, 0x2c, 0x62, 0x58, 0x2c, 0xc5, 0x01, 0x42, 0xed, 0x40,
+	0x3e, 0x9e, 0x41, 0x45, 0xd8, 0xd4, 0x9e, 0x0f, 0xce, 0x4e, 0x7a, 0xaf, 0xba, 0xc3, 0x6e, 0x0f,
+	0x77, 0x8e, 0x5e, 0x16, 0x56, 0x10, 0x82, 0xfc, 0x22, 0xd8, 0xc2, 0xb8, 0x87, 0x0b, 0x4a, 0x2c,
+	0x76, 0xda, 0xc3, 0xcd, 0x56, 0x21, 0xa1, 0xde, 0x81, 0xad, 0xf8, 0xe6, 0x41, 0x77, 0x87, 0x50,
+	0x3c, 0x62, 0xcc, 0x1a, 0xdb, 0xc7, 0x53, 0x6a, 0xbc, 0x63, 0x61, 0x73, 0xbb, 0x90, 0x19, 0x89,
+	0x40, 0x49, 0xa9, 0x26, 0x6b, 0xb9, 0xc6, 0x7a, 0xfd, 0x9c, 0xf1, 0x06, 0x84, 0x0a, 0x07, 0x39,
+	0x0e, 0x8d, 0x2f, 0x0e, 0xa0, 0x0f, 0xa1, 0x88, 0xc9, 0x8c, 0x5e, 0x90, 0x38, 0x14, 0x41, 0x6a,
+	0x6e, 0x99, 0x3e, 0x32, 0x8b, 0xc5, 0x98, 0x23, 0xe2, 0xd2, 0x00, 0x71, 0x00, 0xb7, 0xfa, 0x53,
+	0xdd, 0x20, 0x7d, 0x7d, 0x4c, 0x16, 0x80, 0x1d, 0x48, 0x3b, 0x7c, 0x1e, 0x14, 0x95, 0x0b, 0x8a,
+	0xe2, 0x1a, 0xec, 0x67, 0xd4, 0x2d, 0x40, 0xd1, 0x75, 0x01, 0xed, 0x36, 0x14, 0x4f, 0x89, 0x67,
+	0x4c, 0x3a, 0xc4, 0x73, 0x2d, 0x23, 0xe4, 0xa9, 0x6f, 0x61, 0x2b, 0x1e, 0xf6, 0xe5, 0x92, 0xab,
+	0x3d, 0x80, 0xd5, 0x99, 0x2f, 0x12, 0x77, 0x9b, 0x6b, 0x6c, 0x5f, 0xbb, 0x5b, 0x7e, 0xac, 0x21,
+	0x28, 0x14, 0xab, 0x5f, 0x14, 0xc8, 0x45, 0x12, 0xa8, 0x0c, 0x6b, 0x86, 0xee, 0xe8, 0x86, 0xe5,
+	0x7d, 0x14, 0xf8, 0x14, 0x5e, 0xcc, 0xd1, 0x36, 0x64, 0x5d, 0x32, 0xd3, 0x2d, 0xdb, 0xb2, 0xc7,
+	0x62, 0x97, 0x14, 0x5e, 0x06, 0x50, 0x05, 0x60, 0xaa, 0x33, 0x6f, 0xe0, 0x98, 0xba, 0x47, 0x4a,
+	0xc9, 0xaa, 0x52, 0x4b, 0xe2, 0x48, 0x04, 0xed, 0xc2, 0x86, 0xa1, 0x1b, 0x13, 0xd2, 0x0c, 0xf1,
+	0x29, 0x41, 0x88, 0x07, 0xf9, 0x1e, 0x22, 0x30, 0x60, 0xc4, 0x2c, 0xa5, 0xfd, 0x3d, 0x16, 0x01,
+	0xf5, 0x47, 0x02, 0xd6, 0x78, 0xb5, 0x6d, 0xfb, 0x9c, 0x4a, 0x0e, 0xe1, 0x10, 0x56, 0x75, 0xd3,
+	0x74, 0x09, 0x0b, 0x0f, 0x61, 0x47, 0x7a, 0x08, 0x7c, 0x75, 0xfd, 0xc8, 0x17, 0xe2, 0x70, 0x05,
+	0xef, 0x7c, 0x4a, 0x0d, 0xdd, 0xb3, 0xa8, 0x2d, 0xaa, 0xcf, 0xe2, 0xc5, 0x1c, 0x3d, 0x81, 0x34,
+	0xf3, 0x78, 0x5b, 0x29, 0xf1, 0x6e, 0xee, 0xdd, 0x8c, 0xd5, 0xb8, 0x0c, 0xfb, 0xea, 0xe8, 0xa5,
+	0xa4, 0xff, 0xe3, 0x52, 0xca, 0x8f, 0x61, 0x35, 0x28, 0x8f, 0x7f, 0x92, 0x13, 0xca, 0xbc, 0xa0,
+	0x4b, 0x31, 0xe6, 0x31, 0x87, 0xba, 0x9e, 0xe8, 0x31, 0x8b, 0xc5, 0x58, 0x6d, 0x41, 0x5a, 0x6c,
+	0x8d, 0x00, 0x32, 0x8b, 0xb7, 0xb7, 0x0d, 0xa5, 0x93, 0x56, 0xb3, 0xd7, 0xe9, 0xb4, 0x35, 0xad,
+	0xdd, 0xeb, 0x0e, 0xdb, 0xdd, 0x61, 0x1f, 0xf7, 0x9e, 0xe1, 0x96, 0xa6, 0xf9, 0xaf, 0x30, 0x9a,
+	0x6d, 0x9d, 0x14, 0x12, 0x8d, 0xcf, 0x29, 0x28, 0x9e, 0x45, 0x4a, 0xd4, 0x88, 0x7b, 0x61, 0x19,
+	0x04, 0x35, 0x21, 0xc5, 0x3d, 0x07, 0x5d, 0x6f, 0x20, 0xe2, 0x4c, 0xe5, 0xbb, 0x37, 0x64, 0x83,
+	0xaf, 0xf6, 0x0d, 0xac, 0x47, 0x9f, 0x38, 0xda, 0xfd, 0x17, 0xfb, 0x29, 0x3f, 0xf8, 0x8b, 0x6a,
+	0x09, 0x8f, 0x3e, 0x75, 0x09, 0x5c, 0x62, 0x23, 0x12, 0xb8, 0xcc, 0x2f, 0x38, 0x3c, 0x6a, 0x02,
+	0x12, 0xb8, 0xc4, 0x4e, 0x24, 0x70, 0x99, 0x93, 0xa0, 0x01, 0xc0, 0xd2, 0x11, 0x90, 0x7a, 0xfd,
+	0x0c, 0xaf, 0xda, 0x4c, 0xf9, 0xfe, 0x1f, 0x35, 0xcb, 0x9a, 0xa3, 0xde, 0x21, 0xa9, 0x59, 0xe2,
+	0x38, 0x92, 0x9a, 0x65, 0x06, 0x74, 0xfc, 0xf4, 0xdb, 0x65, 0x45, 0xf9, 0x7e, 0x59, 0x51, 0x7e,
+	0x5e, 0x56, 0x94, 0x4f, 0xbf, 0x2a, 0x2b, 0xaf, 0x1f, 0x8d, 0x2d, 0x6f, 0x32, 0x1f, 0xd5, 0x0d,
+	0x3a, 0xdb, 0x73, 0x27, 0x94, 0xcd, 0x59, 0xf8, 0xe3, 0x8c, 0xf6, 0xae, 0x30, 0x47, 0x19, 0xf1,
+	0xc7, 0xb6, 0xff, 0x3b, 0x00, 0x00, 0xff, 0xff, 0xc9, 0x51, 0xd4, 0x0c, 0x09, 0x07, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -757,11 +905,12 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type TransmissionServiceClient interface {
+	Ping(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (*PingResponse, error)
 	ShutdownNode(ctx context.Context, in *ShutdownNodeRequest, opts ...grpc.CallOption) (*ShutdownNodeResponse, error)
 	AssignBlocks(ctx context.Context, in *AssignBlocksRequest, opts ...grpc.CallOption) (*AssignBlocksResponse, error)
 	RemoveBlocks(ctx context.Context, in *RemoveBlocksRequest, opts ...grpc.CallOption) (*RemoveBlocksResponse, error)
 	PlacePages(ctx context.Context, in *PlacePagesRequest, opts ...grpc.CallOption) (*PlacePagesResponse, error)
-	NodeMetrics(ctx context.Context, in *NodeMetricsRequest, opts ...grpc.CallOption) (*NodeMetricsResponse, error)
+	FetchMetrics(ctx context.Context, in *FetchMetricsRequest, opts ...grpc.CallOption) (*FetchMetricsResponse, error)
 }
 
 type transmissionServiceClient struct {
@@ -770,6 +919,15 @@ type transmissionServiceClient struct {
 
 func NewTransmissionServiceClient(cc *grpc.ClientConn) TransmissionServiceClient {
 	return &transmissionServiceClient{cc}
+}
+
+func (c *transmissionServiceClient) Ping(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (*PingResponse, error) {
+	out := new(PingResponse)
+	err := c.cc.Invoke(ctx, "/transmission_pb.TransmissionService/Ping", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *transmissionServiceClient) ShutdownNode(ctx context.Context, in *ShutdownNodeRequest, opts ...grpc.CallOption) (*ShutdownNodeResponse, error) {
@@ -808,9 +966,9 @@ func (c *transmissionServiceClient) PlacePages(ctx context.Context, in *PlacePag
 	return out, nil
 }
 
-func (c *transmissionServiceClient) NodeMetrics(ctx context.Context, in *NodeMetricsRequest, opts ...grpc.CallOption) (*NodeMetricsResponse, error) {
-	out := new(NodeMetricsResponse)
-	err := c.cc.Invoke(ctx, "/transmission_pb.TransmissionService/NodeMetrics", in, out, opts...)
+func (c *transmissionServiceClient) FetchMetrics(ctx context.Context, in *FetchMetricsRequest, opts ...grpc.CallOption) (*FetchMetricsResponse, error) {
+	out := new(FetchMetricsResponse)
+	err := c.cc.Invoke(ctx, "/transmission_pb.TransmissionService/FetchMetrics", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -819,17 +977,21 @@ func (c *transmissionServiceClient) NodeMetrics(ctx context.Context, in *NodeMet
 
 // TransmissionServiceServer is the server API for TransmissionService service.
 type TransmissionServiceServer interface {
+	Ping(context.Context, *PingRequest) (*PingResponse, error)
 	ShutdownNode(context.Context, *ShutdownNodeRequest) (*ShutdownNodeResponse, error)
 	AssignBlocks(context.Context, *AssignBlocksRequest) (*AssignBlocksResponse, error)
 	RemoveBlocks(context.Context, *RemoveBlocksRequest) (*RemoveBlocksResponse, error)
 	PlacePages(context.Context, *PlacePagesRequest) (*PlacePagesResponse, error)
-	NodeMetrics(context.Context, *NodeMetricsRequest) (*NodeMetricsResponse, error)
+	FetchMetrics(context.Context, *FetchMetricsRequest) (*FetchMetricsResponse, error)
 }
 
 // UnimplementedTransmissionServiceServer can be embedded to have forward compatible implementations.
 type UnimplementedTransmissionServiceServer struct {
 }
 
+func (*UnimplementedTransmissionServiceServer) Ping(ctx context.Context, req *PingRequest) (*PingResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Ping not implemented")
+}
 func (*UnimplementedTransmissionServiceServer) ShutdownNode(ctx context.Context, req *ShutdownNodeRequest) (*ShutdownNodeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ShutdownNode not implemented")
 }
@@ -842,12 +1004,30 @@ func (*UnimplementedTransmissionServiceServer) RemoveBlocks(ctx context.Context,
 func (*UnimplementedTransmissionServiceServer) PlacePages(ctx context.Context, req *PlacePagesRequest) (*PlacePagesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PlacePages not implemented")
 }
-func (*UnimplementedTransmissionServiceServer) NodeMetrics(ctx context.Context, req *NodeMetricsRequest) (*NodeMetricsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method NodeMetrics not implemented")
+func (*UnimplementedTransmissionServiceServer) FetchMetrics(ctx context.Context, req *FetchMetricsRequest) (*FetchMetricsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FetchMetrics not implemented")
 }
 
 func RegisterTransmissionServiceServer(s *grpc.Server, srv TransmissionServiceServer) {
 	s.RegisterService(&_TransmissionService_serviceDesc, srv)
+}
+
+func _TransmissionService_Ping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TransmissionServiceServer).Ping(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/transmission_pb.TransmissionService/Ping",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TransmissionServiceServer).Ping(ctx, req.(*PingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _TransmissionService_ShutdownNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -922,20 +1102,20 @@ func _TransmissionService_PlacePages_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
-func _TransmissionService_NodeMetrics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(NodeMetricsRequest)
+func _TransmissionService_FetchMetrics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FetchMetricsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(TransmissionServiceServer).NodeMetrics(ctx, in)
+		return srv.(TransmissionServiceServer).FetchMetrics(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/transmission_pb.TransmissionService/NodeMetrics",
+		FullMethod: "/transmission_pb.TransmissionService/FetchMetrics",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(TransmissionServiceServer).NodeMetrics(ctx, req.(*NodeMetricsRequest))
+		return srv.(TransmissionServiceServer).FetchMetrics(ctx, req.(*FetchMetricsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -944,6 +1124,10 @@ var _TransmissionService_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "transmission_pb.TransmissionService",
 	HandlerType: (*TransmissionServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Ping",
+			Handler:    _TransmissionService_Ping_Handler,
+		},
 		{
 			MethodName: "ShutdownNode",
 			Handler:    _TransmissionService_ShutdownNode_Handler,
@@ -961,12 +1145,66 @@ var _TransmissionService_serviceDesc = grpc.ServiceDesc{
 			Handler:    _TransmissionService_PlacePages_Handler,
 		},
 		{
-			MethodName: "NodeMetrics",
-			Handler:    _TransmissionService_NodeMetrics_Handler,
+			MethodName: "FetchMetrics",
+			Handler:    _TransmissionService_FetchMetrics_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "transmission.proto",
+}
+
+func (m *PingRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *PingRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *PingRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *PingResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *PingResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *PingResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *ShutdownNodeRequest) Marshal() (dAtA []byte, err error) {
@@ -1234,7 +1472,7 @@ func (m *PlacePagesResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *NodeMetricsRequest) Marshal() (dAtA []byte, err error) {
+func (m *FetchMetricsRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1244,12 +1482,12 @@ func (m *NodeMetricsRequest) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *NodeMetricsRequest) MarshalTo(dAtA []byte) (int, error) {
+func (m *FetchMetricsRequest) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *NodeMetricsRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *FetchMetricsRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1261,7 +1499,7 @@ func (m *NodeMetricsRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *NodeMetricsResponse) Marshal() (dAtA []byte, err error) {
+func (m *FetchMetricsResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1271,12 +1509,12 @@ func (m *NodeMetricsResponse) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *NodeMetricsResponse) MarshalTo(dAtA []byte) (int, error) {
+func (m *FetchMetricsResponse) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *NodeMetricsResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *FetchMetricsResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1393,17 +1631,29 @@ func (m *NodeInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			i = encodeVarintTransmission(dAtA, i, uint64(size))
 		}
 		i--
-		dAtA[i] = 0x22
+		dAtA[i] = 0x2a
 	}
 	if m.State != 0 {
 		i = encodeVarintTransmission(dAtA, i, uint64(m.State))
 		i--
-		dAtA[i] = 0x18
+		dAtA[i] = 0x20
 	}
 	if len(m.Location) > 0 {
 		i -= len(m.Location)
 		copy(dAtA[i:], m.Location)
 		i = encodeVarintTransmission(dAtA, i, uint64(len(m.Location)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.Address != nil {
+		{
+			size, err := m.Address.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTransmission(dAtA, i, uint64(size))
+		}
 		i--
 		dAtA[i] = 0x12
 	}
@@ -1411,6 +1661,47 @@ func (m *NodeInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.Uid)
 		copy(dAtA[i:], m.Uid)
 		i = encodeVarintTransmission(dAtA, i, uint64(len(m.Uid)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *NodeInfo_Address) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *NodeInfo_Address) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NodeInfo_Address) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Port) > 0 {
+		i -= len(m.Port)
+		copy(dAtA[i:], m.Port)
+		i = encodeVarintTransmission(dAtA, i, uint64(len(m.Port)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Host) > 0 {
+		i -= len(m.Host)
+		copy(dAtA[i:], m.Host)
+		i = encodeVarintTransmission(dAtA, i, uint64(len(m.Host)))
 		i--
 		dAtA[i] = 0xa
 	}
@@ -1428,6 +1719,30 @@ func encodeVarintTransmission(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return base
 }
+func (m *PingRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *PingResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
 func (m *ShutdownNodeRequest) Size() (n int) {
 	if m == nil {
 		return 0
@@ -1549,7 +1864,7 @@ func (m *PlacePagesResponse) Size() (n int) {
 	return n
 }
 
-func (m *NodeMetricsRequest) Size() (n int) {
+func (m *FetchMetricsRequest) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -1561,7 +1876,7 @@ func (m *NodeMetricsRequest) Size() (n int) {
 	return n
 }
 
-func (m *NodeMetricsResponse) Size() (n int) {
+func (m *FetchMetricsResponse) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -1618,6 +1933,10 @@ func (m *NodeInfo) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovTransmission(uint64(l))
 	}
+	if m.Address != nil {
+		l = m.Address.Size()
+		n += 1 + l + sovTransmission(uint64(l))
+	}
 	l = len(m.Location)
 	if l > 0 {
 		n += 1 + l + sovTransmission(uint64(l))
@@ -1635,11 +1954,133 @@ func (m *NodeInfo) Size() (n int) {
 	return n
 }
 
+func (m *NodeInfo_Address) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Host)
+	if l > 0 {
+		n += 1 + l + sovTransmission(uint64(l))
+	}
+	l = len(m.Port)
+	if l > 0 {
+		n += 1 + l + sovTransmission(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
 func sovTransmission(x uint64) (n int) {
 	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozTransmission(x uint64) (n int) {
 	return sovTransmission(uint64((x << 1) ^ uint64((int64(x) >> 63))))
+}
+func (m *PingRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTransmission
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: PingRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: PingRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTransmission(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTransmission
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *PingResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTransmission
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: PingResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: PingResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTransmission(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTransmission
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
 }
 func (m *ShutdownNodeRequest) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
@@ -2200,7 +2641,7 @@ func (m *PlacePagesResponse) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *NodeMetricsRequest) Unmarshal(dAtA []byte) error {
+func (m *FetchMetricsRequest) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -2223,10 +2664,10 @@ func (m *NodeMetricsRequest) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: NodeMetricsRequest: wiretype end group for non-group")
+			return fmt.Errorf("proto: FetchMetricsRequest: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: NodeMetricsRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: FetchMetricsRequest: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		default:
@@ -2251,7 +2692,7 @@ func (m *NodeMetricsRequest) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *NodeMetricsResponse) Unmarshal(dAtA []byte) error {
+func (m *FetchMetricsResponse) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -2274,10 +2715,10 @@ func (m *NodeMetricsResponse) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: NodeMetricsResponse: wiretype end group for non-group")
+			return fmt.Errorf("proto: FetchMetricsResponse: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: NodeMetricsResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: FetchMetricsResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -2579,6 +3020,42 @@ func (m *NodeInfo) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Address", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTransmission
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTransmission
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTransmission
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Address == nil {
+				m.Address = &NodeInfo_Address{}
+			}
+			if err := m.Address.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Location", wireType)
 			}
 			var stringLen uint64
@@ -2609,7 +3086,7 @@ func (m *NodeInfo) Unmarshal(dAtA []byte) error {
 			}
 			m.Location = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
-		case 3:
+		case 4:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field State", wireType)
 			}
@@ -2628,7 +3105,7 @@ func (m *NodeInfo) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
-		case 4:
+		case 5:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Metrics", wireType)
 			}
@@ -2663,6 +3140,121 @@ func (m *NodeInfo) Unmarshal(dAtA []byte) error {
 			if err := m.Metrics.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTransmission(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTransmission
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *NodeInfo_Address) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTransmission
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Address: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Address: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Host", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTransmission
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTransmission
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTransmission
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Host = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Port", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTransmission
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTransmission
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTransmission
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Port = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex

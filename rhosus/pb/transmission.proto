@@ -6,14 +6,20 @@ option go_package = "github.com/rhosus/rhosus/pb/transmission_pb";
 import "fs.proto";
 
 service TransmissionService {
+
+  rpc Ping (PingRequest) returns (PingResponse);
   rpc ShutdownNode (ShutdownNodeRequest) returns (ShutdownNodeResponse);
 
   rpc AssignBlocks (AssignBlocksRequest) returns (AssignBlocksResponse);
   rpc RemoveBlocks (RemoveBlocksRequest) returns (RemoveBlocksResponse);
   rpc PlacePages(PlacePagesRequest) returns (PlacePagesResponse);
 
-  rpc NodeMetrics(NodeMetricsRequest) returns (NodeMetricsResponse);
+  rpc FetchMetrics(FetchMetricsRequest) returns (FetchMetricsResponse);
 }
+
+message PingRequest {}
+
+message PingResponse{}
 
 // In case we need to shutdown node by a registry
 
@@ -50,9 +56,9 @@ message PlacePagesResponse {}
 
 
 
-message NodeMetricsRequest {}
+message FetchMetricsRequest {}
 
-message NodeMetricsResponse {
+message FetchMetricsResponse {
   string uid = 1;
   NodeMetrics metrics = 2;
 }
@@ -68,14 +74,19 @@ message NodeMetrics {
 // Information about node
 message NodeInfo {
   string uid = 1;
-  string location = 2;
+  message Address {
+    string host = 1;
+    string port = 2;
+  }
+  Address address = 2;
+  string location = 3;
   enum State {
     NORMAL = 0;
     DECOMMISSION_IN_PROGRESS = 1;
     DECOMMISSIONED = 2;
   }
-  State state = 3;
-  NodeMetrics metrics = 4;
+  State state = 4;
+  NodeMetrics metrics = 5;
 }
 
 

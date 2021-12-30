@@ -2,11 +2,11 @@ package rhosus_node
 
 import (
 	"context"
-	rhosus_etcd "github.com/parasource/rhosus/rhosus/etcd"
 	transmission_pb "github.com/parasource/rhosus/rhosus/pb/transmission"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"net"
+	"time"
 )
 
 type GrpcServerConfig struct {
@@ -20,9 +20,8 @@ type GrpcServer struct {
 
 	node *Node
 
-	Config     GrpcServerConfig
-	server     *grpc.Server
-	etcdClient *rhosus_etcd.EtcdClient
+	Config GrpcServerConfig
+	server *grpc.Server
 
 	shutdownCh chan struct{}
 	readyCh    chan struct{}
@@ -41,12 +40,11 @@ func NewGrpcServer(config GrpcServerConfig, node *Node) (*GrpcServer, error) {
 		readyCh:    make(chan struct{}, 1),
 	}
 
-	grpcServer := grpc.NewServer()
-	transmission_pb.RegisterTransmissionServiceServer(grpcServer, server)
-
-	server.server = grpcServer
-
 	return server, err
+}
+
+func (s *GrpcServer) Ping(c context.Context, r *transmission_pb.PingRequest) (*transmission_pb.PingResponse, error) {
+	return &transmission_pb.PingResponse{}, nil
 }
 
 func (s *GrpcServer) ShutdownNode(c context.Context, r *transmission_pb.ShutdownNodeRequest) (*transmission_pb.ShutdownNodeResponse, error) {
@@ -65,16 +63,30 @@ func (s *GrpcServer) PlacePages(c context.Context, r *transmission_pb.PlacePages
 	panic("implement me")
 }
 
+func (s *GrpcServer) FetchMetrics(c context.Context, r *transmission_pb.FetchMetricsRequest) (*transmission_pb.FetchMetricsResponse, error) {
+	return &transmission_pb.FetchMetricsResponse{
+		Uid: "node1",
+		Metrics: &transmission_pb.NodeMetrics{
+			Capacity:   10000,
+			Remaining:  5000,
+			LastUpdate: time.Now().Unix(),
+		},
+	}, nil
+}
+
 func (s *GrpcServer) Run() {
 
 	address := net.JoinHostPort(s.Config.Host, s.Config.Port)
 	lis, err := net.Listen("tcp", address)
 	if err != nil {
-		logrus.Fatalf("error listening tcp")
+		logrus.Fatalf("error listening tcp: %v", err)
 	}
 
+	grpcServer := grpc.NewServer()
+	transmission_pb.RegisterTransmissionServiceServer(grpcServer, s)
+
 	go func() {
-		if err := s.server.Serve(lis); err != nil {
+		if err := grpcServer.Serve(lis); err != nil {
 			logrus.Fatalf("error starting grpc node server: %v", err)
 		}
 	}()

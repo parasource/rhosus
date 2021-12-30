@@ -37,10 +37,10 @@ type Registry struct {
 	Broker   RegistryBroker
 	IsLeader bool
 
-	RegistriesMap *RegistriesMap
-	NodesMap      *NodesMap
-	FileServer    *file_server.Server
-	NodeServer    *NodeServer
+	RegistriesMap  *RegistriesMap
+	NodesMap       *NodesMap
+	FileServer     *file_server.Server
+	StatsCollector *StatsCollector
 
 	readyCh chan struct{}
 	readyWg sync.WaitGroup
@@ -82,6 +82,9 @@ func NewRegistry(config RegistryConfig) (*Registry, error) {
 	nMap := NewNodesMap(r)
 	r.NodesMap = nMap
 
+	statsCollector := NewStatsCollector(r, 5)
+	r.StatsCollector = statsCollector
+
 	fileServer, err := file_server.NewServer(file_server.ServerConfig{
 		Host:      r.Config.HttpHost,
 		Port:      r.Config.HttpPort,
@@ -91,16 +94,6 @@ func NewRegistry(config RegistryConfig) (*Registry, error) {
 		logrus.Fatalf("error starting file server: %v", err)
 	}
 	r.FileServer = fileServer
-
-	// todo: move to config
-	nodeServer, err := NewNodeServer(NodeServerConfig{
-		Host: "localhost",
-		Port: "6435",
-	}, r)
-	if err != nil {
-		logrus.Fatalf("error creating grpc node server: %v", err)
-	}
-	r.NodeServer = nodeServer
 
 	return r, nil
 }
@@ -132,15 +125,8 @@ func (r *Registry) Start() {
 		r.readyWg.Done()
 	}()
 
-	go r.NodeServer.Run()
-	r.readyWg.Add(1)
-	go func() {
-		<-r.NodeServer.NotifyReady()
-
-		r.readyWg.Done()
-	}()
-
 	go r.NodesMap.WatchNodes()
+	go r.StatsCollector.Run()
 
 	// handle signals for grace shutdown
 	go r.handleSignals()
@@ -255,7 +241,11 @@ func (r *Registry) RunServiceDiscovery(etcdClient *rhosus_etcd.EtcdClient) {
 				if r.NodesMap.NodeExists(uid) {
 
 				} else {
-					r.NodesMap.AddNode(uid, &info)
+					err := r.NodesMap.AddNode(uid, &info)
+					if err != nil {
+						logrus.Errorf("error adding node: %v", err)
+						continue
+					}
 
 					logrus.Infof("node %v added", info.Uid)
 				}

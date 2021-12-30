@@ -2,10 +2,13 @@ package registry
 
 import (
 	"context"
+	"errors"
 	transmission_pb "github.com/parasource/rhosus/rhosus/pb/transmission"
 	"github.com/parasource/rhosus/rhosus/registry/recovery"
 	"github.com/parasource/rhosus/rhosus/util/tickers"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
+	"net"
 	"sync"
 	"time"
 )
@@ -14,7 +17,8 @@ type NodesMap struct {
 	registry *Registry
 
 	mu              sync.RWMutex
-	nodes           map[string]*transmission_pb.NodeInfo
+	nodes           map[string]*NodeInfo
+	nodesConns      map[string]*NodeGrpcConn
 	nodesProbeTries map[string]int
 	onNodeDown      func(ctx context.Context)
 
@@ -23,13 +27,17 @@ type NodesMap struct {
 	RecoveryManager *recovery.Manager
 }
 
+type NodeInfo transmission_pb.NodeInfo
+type NodeGrpcConn grpc.ClientConn
+
 func NewNodesMap(registry *Registry) *NodesMap {
 	return &NodesMap{
 		registry: registry,
 
 		noAliveNodesCh:  make(chan struct{}, 1),
-		nodes:           make(map[string]*transmission_pb.NodeInfo),
+		nodes:           make(map[string]*NodeInfo),
 		nodesProbeTries: make(map[string]int),
+		nodesConns:      make(map[string]*NodeGrpcConn),
 	}
 }
 
@@ -37,13 +45,43 @@ func (m *NodesMap) SetOnNodeDown(fun func(c context.Context)) {
 	m.onNodeDown = fun
 }
 
-func (m *NodesMap) AddNode(uid string, info *transmission_pb.NodeInfo) {
+func (m *NodesMap) AddNode(uid string, info *transmission_pb.NodeInfo) error {
+
+	address := net.JoinHostPort(info.Address.Host, info.Address.Port)
+	logrus.Infof("connecting to grpc: %v", address)
+	conn, err := grpc.Dial(address, grpc.WithInsecure())
+	if err != nil {
+		return err
+	}
+
+	// ping new node
+	client := transmission_pb.NewTransmissionServiceClient(conn)
+	_, err = client.Ping(context.Background(), &transmission_pb.PingRequest{})
+	if err != nil {
+		return err
+	}
+
 	m.mu.Lock()
 	if _, ok := m.nodes[uid]; !ok {
-		m.nodes[uid] = info
+		m.nodes[uid] = (*NodeInfo)(info)
 	}
+	if _, ok := m.nodesConns[uid]; !ok {
+		m.nodesConns[uid] = (*NodeGrpcConn)(conn)
+	}
+	m.nodesProbeTries[uid] = 0
 	m.mu.Unlock()
 
+	return nil
+}
+
+func (m *NodesMap) RemoveNode(uid string) {
+	m.mu.Lock()
+	delete(m.nodes, uid)
+	delete(m.nodesProbeTries, uid)
+	if _, ok := m.nodesConns[uid]; ok {
+		delete(m.nodesProbeTries, uid)
+	}
+	m.mu.Unlock()
 }
 
 func (m *NodesMap) NodeExists(uid string) bool {
@@ -54,12 +92,17 @@ func (m *NodesMap) NodeExists(uid string) bool {
 	return ok
 }
 
-func (m *NodesMap) RemoveNode(uid string) {
-	m.mu.Lock()
-	if _, ok := m.nodes[uid]; ok {
-		delete(m.nodes, uid)
+func (m *NodesMap) GetGrpcClient(uid string) (transmission_pb.TransmissionServiceClient, error) {
+	m.mu.RLock()
+	conn, ok := m.nodesConns[uid]
+	m.mu.RUnlock()
+
+	if !ok {
+		return nil, errors.New("undefined uid. node does not persist in node map")
 	}
-	m.mu.Unlock()
+
+	client := transmission_pb.NewTransmissionServiceClient((*grpc.ClientConn)(conn))
+	return client, nil
 }
 
 func (m *NodesMap) WatchNodes() {
@@ -73,7 +116,7 @@ func (m *NodesMap) WatchNodes() {
 
 			m.mu.RLock()
 			for uid, info := range m.nodes {
-				nodes[uid] = info
+				nodes[uid] = (*transmission_pb.NodeInfo)(info)
 			}
 			m.mu.RUnlock()
 

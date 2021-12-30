@@ -66,23 +66,8 @@ func NewNode(config Config) (*Node, error) {
 	return node, nil
 }
 
-//func (n *Node) GetNodeServerClient() (node_pb.NodeServiceClient, *grpc.ClientConn, error) {
-//	address := net.JoinHostPort(n.Config.RegistryHost, n.Config.RegistryPort)
-//
-//	conn, err := grpc.Dial(address, grpc.WithInsecure())
-//	if err != nil {
-//		conn.Close()
-//		return nil, err
-//	}
-//
-//	client := node_pb.NewNodeServiceClient(conn)
-//
-//	return client, conn
-//}
-
 func (n *Node) Start() {
 
-	go n.StatsManager.Run()
 	go n.GrpcServer.Run()
 
 	go n.handleSignals()
@@ -104,6 +89,10 @@ func (n *Node) Start() {
 func (n *Node) Register() error {
 	info := &transmission_pb.NodeInfo{
 		Uid: "node1",
+		Address: &transmission_pb.NodeInfo_Address{
+			Host: "localhost",
+			Port: "2232",
+		},
 		Metrics: &transmission_pb.NodeMetrics{
 			Capacity:   10000,
 			Remaining:  5000,
