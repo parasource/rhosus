@@ -5,30 +5,14 @@ option go_package = "github.com/parasource/rhosus/rhosus/pb/registry_pb";
 
 import "fs.proto";
 
-message Command {
-  enum CommandType {
-    PING = 0;
-  }
-  CommandType type = 1;
-  bytes data = 2;
-}
-
 message RegistryInfo {
   message Address {
     string host = 1;
     string port = 2;
   }
-  string uid = 1;
-  Address grpcAddress = 2;
-  Address httpAddress = 3;
-  enum RegistryRole {
-    SLAVE = 0;
-    LEADER = 1;
-  }
-  RegistryRole role = 4;
+  string name = 1;
+  Address httpAddress = 2;
 }
-
-
 
 message Event {
   enum EventType {

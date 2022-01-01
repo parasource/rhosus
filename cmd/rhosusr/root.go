@@ -39,14 +39,10 @@ var checker *DefaultChecker
 func init() {
 	rootCmd.Flags().String("http_host", "127.0.0.1", "file server http host")
 	rootCmd.Flags().String("http_port", "8000", "file server http port")
-	rootCmd.Flags().String("grpc_host", "127.0.0.1", "file server rpc host")
-	rootCmd.Flags().String("grpc_port", "8080", "file server rpc port")
 	rootCmd.Flags().Int("shutdown_timeout", 30, "node graceful shutdown timeout")
 
 	viper.BindPFlag("http_host", rootCmd.Flags().Lookup("http_host"))
 	viper.BindPFlag("http_port", rootCmd.Flags().Lookup("http_port"))
-	viper.BindPFlag("grpc_host", rootCmd.Flags().Lookup("grpc_host"))
-	viper.BindPFlag("grpc_port", rootCmd.Flags().Lookup("grpc_port"))
 	viper.BindPFlag("shutdown_timeout", rootCmd.Flags().Lookup("shutdown_timeout"))
 
 	checker = &DefaultChecker{
@@ -95,14 +91,9 @@ var rootCmd = &cobra.Command{
 		httpHost := v.GetString("http_host")
 		httpPort := v.GetString("http_port")
 
-		grpcHost := v.GetString("http_host")
-		grpcPort := v.GetString("http_port")
-
 		conf := registry.RegistryConfig{
 			HttpHost: httpHost,
 			HttpPort: httpPort,
-			GrpcHost: grpcHost,
-			GrpcPort: grpcPort,
 		}
 		r, err := registry.NewRegistry(conf)
 		if err != nil {

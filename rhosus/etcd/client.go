@@ -49,6 +49,16 @@ func NewEtcdClient(conf EtcdClientConfig) (*EtcdClient, error) {
 	return client, nil
 }
 
+func (c *EtcdClient) Ping() error {
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	_, err := c.cli.Put(ctx, "ping", "pong")
+	return err
+
+}
+
 func (c *EtcdClient) GetExistingNodes() (map[string][]byte, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
@@ -74,8 +84,32 @@ func (c *EtcdClient) GetExistingNodes() (map[string][]byte, error) {
 	return nodes, nil
 }
 
-func (c *EtcdClient) RegisterRegistry(uid string, info *registry_pb.RegistryInfo) error {
-	path := serviceDiscoveryRegistriesPath + uid
+func (c *EtcdClient) GetExistingRegistries() (map[string][]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	res, err := c.cli.Get(ctx, serviceDiscoveryRegistriesPath, etcd.WithPrefix())
+	if err != nil {
+		return nil, err
+	}
+
+	nodes := make(map[string][]byte)
+	for _, kv := range res.Kvs {
+		key := string(kv.Key)
+		value := string(kv.Value)
+
+		data, err := util.Base64Decode(value)
+		if err != nil {
+
+		}
+		nodes[key] = data
+	}
+
+	return nodes, nil
+}
+
+func (c *EtcdClient) RegisterRegistry(name string, info *registry_pb.RegistryInfo) error {
+	path := serviceDiscoveryRegistriesPath + name
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()

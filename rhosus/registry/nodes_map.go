@@ -48,12 +48,13 @@ func (m *NodesMap) SetOnNodeDown(fun func(c context.Context)) {
 func (m *NodesMap) AddNode(name string, info *transmission_pb.NodeInfo) error {
 
 	address := net.JoinHostPort(info.Address.Host, info.Address.Port)
-	logrus.Infof("connecting to grpc: %v", address)
+
+	logrus.Infof("establishing grpc connection with a new node on: %v", address)
+
 	conn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
 		return err
 	}
-
 	// ping new node
 	client := transmission_pb.NewTransmissionServiceClient(conn)
 	_, err = client.Ping(context.Background(), &transmission_pb.PingRequest{})

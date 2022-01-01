@@ -2,7 +2,6 @@ package registry
 
 import (
 	registry_pb "github.com/parasource/rhosus/rhosus/pb/registry"
-	"github.com/sirupsen/logrus"
 	"sync"
 	"time"
 )
@@ -38,54 +37,43 @@ func (m *RegistriesMap) List() map[string]*registry_pb.RegistryInfo {
 	return nodes
 }
 
-func (m *RegistriesMap) Get(uid string) *registry_pb.RegistryInfo {
+func (m *RegistriesMap) Add(name string, info *registry_pb.RegistryInfo) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if _, ok := m.registries[name]; !ok {
+		m.registries[name] = info
+	}
+
+	m.updates[name] = time.Now().Unix()
+
+	return nil
+}
+
+func (m *RegistriesMap) Remove(name string) error {
+	m.mu.Lock()
+	delete(m.registries, name)
+	delete(m.updates, name)
+	m.mu.Unlock()
+
+	return nil
+}
+
+func (m *RegistriesMap) RegistryExists(uid string) bool {
 	m.mu.RLock()
-	node, ok := m.registries[uid]
-	if !ok {
-		logrus.Errorf("couldn't get registry from registries map")
-	}
-
-	return node
-}
-
-func (m *RegistriesMap) Add(uid string, info *registry_pb.RegistryInfo) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if _, ok := m.registries[uid]; !ok {
-		m.registries[uid] = info
-	}
-
-	m.updates[uid] = time.Now().Unix()
-}
-
-func (m *RegistriesMap) Remove(uid string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if _, ok := m.registries[uid]; ok {
-		delete(m.registries, uid)
-		delete(m.updates, uid)
-	}
-}
-
-func (r *RegistriesMap) RegistryExists(uid string) bool {
-	r.mu.RLock()
-	_, ok := r.registries[uid]
-	r.mu.RUnlock()
+	_, ok := m.registries[uid]
+	m.mu.RUnlock()
 
 	return ok
 }
 
-func (r *RegistriesMap) RunCleaning() {
+func (m *RegistriesMap) RunCleaning() {
 
-	logrus.Infof("Registries cleaning proccess started")
-
-	ticker := time.NewTicker(r.cleaningInterval)
+	ticker := time.NewTicker(m.cleaningInterval)
 	for {
 		select {
 		case <-ticker.C:
-			r.clean(time.Minute)
+			m.clean(time.Minute)
 		}
 	}
 }
@@ -94,20 +82,20 @@ func (m *RegistriesMap) clean(delay time.Duration) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	for uid := range m.registries {
-		if uid == m.currentUID {
+	for name := range m.registries {
+		if name == m.currentUID {
 			// no need to clean info for current registry instance
 			continue
 		}
-		lastUpdated, ok := m.updates[uid]
+		lastUpdated, ok := m.updates[name]
 		if !ok {
 			// As we do all operations with nodes under lock this should never happen.
-			delete(m.registries, uid)
+			delete(m.registries, name)
 		}
 
 		if time.Now().Unix()-lastUpdated > int64(delay.Seconds()) {
-			delete(m.registries, uid)
-			delete(m.updates, uid)
+			delete(m.registries, name)
+			delete(m.updates, name)
 		}
 	}
 
