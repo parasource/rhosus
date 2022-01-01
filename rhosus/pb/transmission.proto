@@ -65,9 +65,11 @@ message FetchMetricsResponse {
 message NodeMetrics {
   uint64 capacity = 1;
   uint64 remaining = 2;
-  int64 lastUpdate = 3;
-  uint64 cacheCapacity = 4;
-  uint64 cacheUsed = 5;
+  float usedPercent = 3;
+  int64 lastUpdate = 4;
+  uint64 cacheCapacity = 5;
+  uint64 cacheUsed = 6;
+  float memUsedPercent = 7;
 }
 
 // Information about node

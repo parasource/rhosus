@@ -6,7 +6,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"net"
-	"time"
 )
 
 type GrpcServerConfig struct {
@@ -64,13 +63,15 @@ func (s *GrpcServer) PlacePages(c context.Context, r *transmission_pb.PlacePages
 }
 
 func (s *GrpcServer) FetchMetrics(c context.Context, r *transmission_pb.FetchMetricsRequest) (*transmission_pb.FetchMetricsResponse, error) {
+	metrics, err := s.node.CollectMetrics()
+	if err != nil {
+		logrus.Errorf("error fetching metrics: %v", err)
+		return nil, err
+	}
+
 	return &transmission_pb.FetchMetricsResponse{
-		Name: s.node.Name,
-		Metrics: &transmission_pb.NodeMetrics{
-			Capacity:   10000,
-			Remaining:  5000,
-			LastUpdate: time.Now().Unix(),
-		},
+		Name:    s.node.Name,
+		Metrics: metrics,
 	}, nil
 }
 

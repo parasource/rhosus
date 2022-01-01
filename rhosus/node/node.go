@@ -3,6 +3,7 @@ package rhosus_node
 import (
 	"fmt"
 	rhosus_etcd "github.com/parasource/rhosus/rhosus/etcd"
+	"github.com/parasource/rhosus/rhosus/node/profiler"
 	transmission_pb "github.com/parasource/rhosus/rhosus/pb/transmission"
 	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/sirupsen/logrus"
@@ -29,6 +30,7 @@ type Node struct {
 	mu sync.RWMutex
 
 	StatsManager *StatsManager
+	Profiler     *profiler.Profiler
 	GrpcServer   *GrpcServer
 	EtcdClient   *rhosus_etcd.EtcdClient
 
@@ -48,6 +50,12 @@ func NewNode(config Config) (*Node, error) {
 
 	statsManager := NewStatsManager(node)
 	node.StatsManager = statsManager
+
+	nodeProfiler, err := profiler.NewProfiler()
+	if err != nil {
+		logrus.Fatalf("error creating profiler: %v", err)
+	}
+	node.Profiler = nodeProfiler
 
 	etcdClient, err := rhosus_etcd.NewEtcdClient(rhosus_etcd.EtcdClientConfig{
 		Host: "localhost",
@@ -74,6 +82,26 @@ func NewNode(config Config) (*Node, error) {
 	return node, nil
 }
 
+func (n *Node) CollectMetrics() (*transmission_pb.NodeMetrics, error) {
+
+	v, err := n.Profiler.GetMem()
+	if err != nil {
+		logrus.Errorf("error getting memory stats: %v", err)
+	}
+
+	usage := n.Profiler.GetPathDiskUsage("/")
+
+	metrics := &transmission_pb.NodeMetrics{
+		Capacity:       usage.Total,
+		Remaining:      usage.Free,
+		UsedPercent:    float32(usage.UsedPercent),
+		LastUpdate:     time.Now().Unix(),
+		MemUsedPercent: float32(v.UsedPercent),
+	}
+
+	return metrics, nil
+}
+
 func (n *Node) Start() {
 
 	go n.GrpcServer.Run()
@@ -84,6 +112,8 @@ func (n *Node) Start() {
 	if err != nil {
 		logrus.Fatalf("can't register node in etcd: %v", err)
 	}
+
+	logrus.Infof("Node %v is ready", n.Name)
 
 	for {
 		select {

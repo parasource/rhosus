@@ -30,7 +30,6 @@ type Registry struct {
 	Config RegistryConfig
 
 	Storage  RegistryStorage
-	Broker   RegistryBroker
 	IsLeader bool
 
 	RegistriesMap  *RegistriesMap
@@ -124,12 +123,12 @@ func (r *Registry) Start() {
 		select {
 		case <-r.NotifyShutdown():
 
-			//r.FileServer.SendShutdownSignal()
-			//
-			//err := r.unregister()
-			//if err != nil {
-			//	logrus.Errorf("error unregistering in etcd: %v", err)
-			//}
+			r.FileServer.SendShutdownSignal()
+
+			err := r.unregister()
+			if err != nil {
+				logrus.Errorf("error unregistering: %v", err)
+			}
 
 			return
 		}
@@ -182,12 +181,7 @@ func (r *Registry) handleSignals() {
 				os.Exit(1)
 			})
 
-			//r.shutdownCh <- struct{}{}
-
-			err := r.unregister()
-			if err != nil {
-				logrus.Errorf("error unregistering: %v", err)
-			}
+			r.shutdownCh <- struct{}{}
 
 			if pidFile != "" {
 				err := os.Remove(pidFile)

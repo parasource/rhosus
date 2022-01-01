@@ -57,6 +57,8 @@ func (s *StatsCollector) Run() {
 					continue
 				}
 
+				logrus.Infof("%v stats: %v", res.Name, res.Metrics)
+
 				s.mu.Lock()
 				if res.Name == name {
 					s.metrics[name] = res.Metrics
