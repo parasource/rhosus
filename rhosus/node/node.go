@@ -1,8 +1,10 @@
 package rhosus_node
 
 import (
+	"fmt"
 	rhosus_etcd "github.com/parasource/rhosus/rhosus/etcd"
 	transmission_pb "github.com/parasource/rhosus/rhosus/pb/transmission"
+	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"os"
@@ -21,6 +23,7 @@ type Config struct {
 }
 
 type Node struct {
+	Name   string
 	Config Config
 
 	mu sync.RWMutex
@@ -36,6 +39,7 @@ type Node struct {
 func NewNode(config Config) (*Node, error) {
 
 	node := &Node{
+		Name:   util.GenerateRandomName(3),
 		Config: config,
 
 		shutdownCh: make(chan struct{}, 1),
@@ -54,9 +58,13 @@ func NewNode(config Config) (*Node, error) {
 	}
 	node.EtcdClient = etcdClient
 
+	freePortForGrpc, err := util.GetFreePort()
+	if err != nil {
+		logrus.Fatalf("could not resolve free random port for grpc: %v", err)
+	}
 	grpcServer, err := NewGrpcServer(GrpcServerConfig{
 		Host: "localhost",
-		Port: "2232",
+		Port: fmt.Sprintf("%v", freePortForGrpc),
 	}, node)
 	if err != nil {
 		logrus.Errorf("error creating node grpc server: %v", err)
@@ -79,8 +87,14 @@ func (n *Node) Start() {
 
 	for {
 		select {
-		case <-n.shutdownCh:
-			return
+		case <-n.NotifyShutdown():
+
+			//err := n.Unregister()
+			//if err != nil {
+			//	logrus.Errorf("error unregistering node: %v", err)
+			//}
+			//return
+
 		}
 	}
 
@@ -88,10 +102,10 @@ func (n *Node) Start() {
 
 func (n *Node) Register() error {
 	info := &transmission_pb.NodeInfo{
-		Uid: "node1",
+		Name: n.Name,
 		Address: &transmission_pb.NodeInfo_Address{
-			Host: "localhost",
-			Port: "2232",
+			Host: n.GrpcServer.Config.Host,
+			Port: n.GrpcServer.Config.Port,
 		},
 		Metrics: &transmission_pb.NodeMetrics{
 			Capacity:   10000,
@@ -100,15 +114,15 @@ func (n *Node) Register() error {
 		},
 		Location: "/dir/1",
 	}
-	return n.EtcdClient.RegisterNode("node1", info)
+	return n.EtcdClient.RegisterNode(n.Name, info)
+}
+
+func (n *Node) Unregister() error {
+	return n.EtcdClient.UnregisterNode(n.Name)
 }
 
 func (n *Node) NotifyShutdown() <-chan struct{} {
 	return n.shutdownCh
-}
-
-func (n *Node) Shutdown() {
-	n.shutdownCh <- struct{}{}
 }
 
 func (n *Node) handleSignals() {
@@ -131,6 +145,11 @@ func (n *Node) handleSignals() {
 				os.Exit(1)
 			})
 
+			err := n.Unregister()
+			if err != nil {
+				logrus.Errorf("error unregistering node: %v", err)
+			}
+
 			n.shutdownCh <- struct{}{}
 
 			if pidFile != "" {
@@ -139,7 +158,6 @@ func (n *Node) handleSignals() {
 					logrus.Errorf("error removing pid file: %v", err)
 				}
 			}
-			time.Sleep(time.Second)
 			os.Exit(0)
 		}
 	}

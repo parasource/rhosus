@@ -13,11 +13,12 @@ import (
 )
 
 var configDefaults = map[string]interface{}{
-	"gomaxprocs": 0,
-	"http_host":  "127.0.0.1",
-	"http_port":  "8000",
-	"grpc_host":  "127.0.0.1",
-	"grpc_port":  "8080",
+	"gomaxprocs":       0,
+	"http_host":        "127.0.0.1",
+	"http_port":        "8000",
+	"grpc_host":        "127.0.0.1",
+	"grpc_port":        "8080",
+	"shutdown_timeout": 30,
 }
 
 type DefaultChecker struct {
@@ -40,11 +41,13 @@ func init() {
 	rootCmd.Flags().String("http_port", "8000", "file server http port")
 	rootCmd.Flags().String("grpc_host", "127.0.0.1", "file server rpc host")
 	rootCmd.Flags().String("grpc_port", "8080", "file server rpc port")
+	rootCmd.Flags().Int("shutdown_timeout", 30, "node graceful shutdown timeout")
 
 	viper.BindPFlag("http_host", rootCmd.Flags().Lookup("http_host"))
 	viper.BindPFlag("http_port", rootCmd.Flags().Lookup("http_port"))
 	viper.BindPFlag("grpc_host", rootCmd.Flags().Lookup("grpc_host"))
 	viper.BindPFlag("grpc_port", rootCmd.Flags().Lookup("grpc_port"))
+	viper.BindPFlag("shutdown_timeout", rootCmd.Flags().Lookup("shutdown_timeout"))
 
 	checker = &DefaultChecker{
 		flags: rootCmd.Flags(),
@@ -63,6 +66,7 @@ var rootCmd = &cobra.Command{
 
 		bindEnvs := []string{
 			"http_host", "http_port", "grpc_host", "grpc_port", "redis_host", "redis_port",
+			"shutdown_timeout",
 		}
 		for _, env := range bindEnvs {
 			err := viper.BindEnv(env)

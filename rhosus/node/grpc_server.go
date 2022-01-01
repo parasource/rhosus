@@ -65,7 +65,7 @@ func (s *GrpcServer) PlacePages(c context.Context, r *transmission_pb.PlacePages
 
 func (s *GrpcServer) FetchMetrics(c context.Context, r *transmission_pb.FetchMetricsRequest) (*transmission_pb.FetchMetricsResponse, error) {
 	return &transmission_pb.FetchMetricsResponse{
-		Uid: "node1",
+		Name: s.node.Name,
 		Metrics: &transmission_pb.NodeMetrics{
 			Capacity:   10000,
 			Remaining:  5000,
@@ -92,7 +92,7 @@ func (s *GrpcServer) Run() {
 	}()
 
 	s.readyCh <- struct{}{}
-	logrus.Infof("node service server successfully started on localhost:6435")
+	logrus.Infof("node service server successfully started on %v", address)
 
 	for {
 		select {

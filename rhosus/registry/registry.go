@@ -11,6 +11,7 @@ import (
 	"github.com/parasource/rhosus/rhosus/util/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	clientv3 "go.etcd.io/etcd/client/v3"
 	"os"
 	"os/signal"
 	"strconv"
@@ -176,6 +177,7 @@ func (r *Registry) handleSignals() {
 		case syscall.SIGHUP:
 
 		case syscall.SIGINT, os.Interrupt, syscall.SIGTERM:
+
 			logrus.Infof("shutting down registry")
 			pidFile := viper.GetString("pid_file")
 			shutdownTimeout := time.Duration(viper.GetInt("shutdown_timeout")) * time.Second
@@ -206,6 +208,31 @@ func (r *Registry) handleSignals() {
 
 func (r *Registry) RunServiceDiscovery(etcdClient *rhosus_etcd.EtcdClient) {
 
+	// Load existing nodes
+
+	nodes, err := etcdClient.GetExistingNodes()
+	if err != nil {
+		logrus.Fatalf("error getting existing nodes: %v", err)
+	}
+	for name, bytes := range nodes {
+		var info transmission_pb.NodeInfo
+		err := info.Unmarshal(bytes)
+		if err != nil {
+			logrus.Errorf("error unmarshaling node info: %v", err)
+			continue
+		}
+
+		err = r.NodesMap.AddNode(name, &info)
+		if err != nil {
+			logrus.Errorf("error adding node to map: %v", err)
+			continue
+		}
+
+		logrus.Infof("node %v added from existing map", info.Name)
+	}
+
+	// Waiting for new nodes to connect
+
 	ticker := tickers.SetTicker(time.Second * 3)
 	counter := 0
 
@@ -224,30 +251,52 @@ func (r *Registry) RunServiceDiscovery(etcdClient *rhosus_etcd.EtcdClient) {
 			// Here we handle nodes updates
 
 			for _, event := range res.Events {
-				uid := string(event.Kv.Key)
-				data := string(event.Kv.Value)
 
-				bytes, err := util.Base64Decode(data)
-				if err != nil {
-					logrus.Errorf("error decoding")
-				}
+				switch event.Type {
 
-				var info transmission_pb.NodeInfo
-				err = info.Unmarshal(bytes)
-				if err != nil {
-					logrus.Errorf("error unmarshaling node info: %v", err)
-				}
+				// Node added or updated
+				case clientv3.EventTypePut:
 
-				if r.NodesMap.NodeExists(uid) {
+					name := rhosus_etcd.ParseNodeName(string(event.Kv.Key))
+					data := string(event.Kv.Value)
 
-				} else {
-					err := r.NodesMap.AddNode(uid, &info)
+					bytes, err := util.Base64Decode(data)
 					if err != nil {
-						logrus.Errorf("error adding node: %v", err)
-						continue
+						logrus.Errorf("error decoding")
 					}
 
-					logrus.Infof("node %v added", info.Uid)
+					var info transmission_pb.NodeInfo
+					err = info.Unmarshal(bytes)
+					if err != nil {
+						logrus.Errorf("error unmarshaling node info: %v", err)
+					}
+
+					if r.NodesMap.NodeExists(name) {
+						// If node already exists in a node map => updating node info
+
+						r.NodesMap.UpdateNodeInfo(name, &info)
+					} else {
+						err := r.NodesMap.AddNode(name, &info)
+						if err != nil {
+							logrus.Errorf("error adding node: %v", err)
+							continue
+						}
+
+						logrus.Infof("node %v added", info.Name)
+					}
+
+				// Node shut down or errored
+				case clientv3.EventTypeDelete:
+
+					name := rhosus_etcd.ParseNodeName(string(event.Kv.Key))
+					if r.NodesMap.NodeExists(name) {
+						r.NodesMap.RemoveNode(name)
+
+						logrus.Infof("node %v shut down", name)
+					} else {
+						logrus.Warnf("undefined node deletion signal")
+					}
+
 				}
 			}
 

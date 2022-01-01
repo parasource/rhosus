@@ -45,7 +45,7 @@ func (m *NodesMap) SetOnNodeDown(fun func(c context.Context)) {
 	m.onNodeDown = fun
 }
 
-func (m *NodesMap) AddNode(uid string, info *transmission_pb.NodeInfo) error {
+func (m *NodesMap) AddNode(name string, info *transmission_pb.NodeInfo) error {
 
 	address := net.JoinHostPort(info.Address.Host, info.Address.Port)
 	logrus.Infof("connecting to grpc: %v", address)
@@ -62,43 +62,51 @@ func (m *NodesMap) AddNode(uid string, info *transmission_pb.NodeInfo) error {
 	}
 
 	m.mu.Lock()
-	if _, ok := m.nodes[uid]; !ok {
-		m.nodes[uid] = (*NodeInfo)(info)
-	}
-	if _, ok := m.nodesConns[uid]; !ok {
-		m.nodesConns[uid] = (*NodeGrpcConn)(conn)
-	}
-	m.nodesProbeTries[uid] = 0
+	//if _, ok := m.nodes[name]; !ok {
+	m.nodes[name] = (*NodeInfo)(info)
+	//}
+	//if _, ok := m.nodesConns[name]; !ok {
+	m.nodesConns[name] = (*NodeGrpcConn)(conn)
+	//}
+	m.nodesProbeTries[name] = 0
 	m.mu.Unlock()
 
 	return nil
 }
 
-func (m *NodesMap) RemoveNode(uid string) {
+func (m *NodesMap) RemoveNode(name string) {
 	m.mu.Lock()
-	delete(m.nodes, uid)
-	delete(m.nodesProbeTries, uid)
-	if _, ok := m.nodesConns[uid]; ok {
-		delete(m.nodesProbeTries, uid)
+	delete(m.nodes, name)
+	delete(m.nodesProbeTries, name)
+	if _, ok := m.nodesConns[name]; ok {
+		delete(m.nodesProbeTries, name)
 	}
 	m.mu.Unlock()
 }
 
-func (m *NodesMap) NodeExists(uid string) bool {
+func (m *NodesMap) UpdateNodeInfo(name string, info *transmission_pb.NodeInfo) {
+	m.mu.Lock()
+	if _, ok := m.nodes[name]; ok {
+		m.nodes[name] = (*NodeInfo)(info)
+	}
+	m.mu.Unlock()
+}
+
+func (m *NodesMap) NodeExists(name string) bool {
 	m.mu.RLock()
-	_, ok := m.nodes[uid]
+	_, ok := m.nodes[name]
 	m.mu.RUnlock()
 
 	return ok
 }
 
-func (m *NodesMap) GetGrpcClient(uid string) (transmission_pb.TransmissionServiceClient, error) {
+func (m *NodesMap) GetGrpcClient(name string) (transmission_pb.TransmissionServiceClient, error) {
 	m.mu.RLock()
-	conn, ok := m.nodesConns[uid]
+	conn, ok := m.nodesConns[name]
 	m.mu.RUnlock()
 
 	if !ok {
-		return nil, errors.New("undefined uid. node does not persist in node map")
+		return nil, errors.New("undefined name. node does not persist in node map")
 	}
 
 	client := transmission_pb.NewTransmissionServiceClient((*grpc.ClientConn)(conn))

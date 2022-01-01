@@ -24,13 +24,12 @@ message PingResponse{}
 // In case we need to shutdown node by a registry
 
 message ShutdownNodeRequest {
+  string name = 1;
   enum ShutdownReason {
     SHUTDOWN_NORMAL = 0;
     SHUTDOWN_ERROR = 1;
     SHUTDOWN_FORCE = 2;
   }
-
-  string uid = 1;
   ShutdownReason reason = 2;
 }
 
@@ -59,7 +58,7 @@ message PlacePagesResponse {}
 message FetchMetricsRequest {}
 
 message FetchMetricsResponse {
-  string uid = 1;
+  string name = 1;
   NodeMetrics metrics = 2;
 }
 
@@ -73,7 +72,7 @@ message NodeMetrics {
 
 // Information about node
 message NodeInfo {
-  string uid = 1;
+  string name = 1;
   message Address {
     string host = 1;
     string port = 2;

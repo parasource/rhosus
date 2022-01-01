@@ -44,8 +44,8 @@ func (s *StatsCollector) Run() {
 			}
 			s.mu.RUnlock()
 
-			for uid := range nodes {
-				client, err := s.registry.NodesMap.GetGrpcClient(uid)
+			for name := range nodes {
+				client, err := s.registry.NodesMap.GetGrpcClient(name)
 				if err != nil {
 					logrus.Errorf("error getting node grpc conn: %v", err)
 					continue
@@ -54,16 +54,17 @@ func (s *StatsCollector) Run() {
 				res, err := client.FetchMetrics(context.Background(), &transmission_pb.FetchMetricsRequest{})
 				if err != nil {
 					logrus.Errorf("error fetching node metrics: %v", err)
+					continue
 				}
 
 				s.mu.Lock()
-				if res.Uid == uid {
-					s.metrics[uid] = res.Metrics
-					s.metricsUpdatedAt[uid] = time.Unix(res.Metrics.LastUpdate, 0)
+				if res.Name == name {
+					s.metrics[name] = res.Metrics
+					s.metricsUpdatedAt[name] = time.Unix(res.Metrics.LastUpdate, 0)
 				}
 				s.mu.Unlock()
 
-				logrus.Infof("metrics has been updated for node %v", res.Uid)
+				logrus.Debugf("metrics has been updated for node %v", res.Name)
 			}
 		}
 	}

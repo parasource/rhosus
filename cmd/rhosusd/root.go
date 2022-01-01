@@ -12,20 +12,23 @@ import (
 )
 
 var nodeConfigDefaults = map[string]interface{}{
-	"gomaxprocs":    0,
-	"registry_host": "127.0.0.1",
-	"registry_port": "6435",
-	"dir":           os.TempDir(),
+	"gomaxprocs":       0,
+	"registry_host":    "127.0.0.1",
+	"registry_port":    "6435",
+	"dir":              os.TempDir(),
+	"shutdown_timeout": 30,
 }
 
 func init() {
 	rootCmd.Flags().String("registry_host", "127.0.0.1", "registry grpc node server host")
 	rootCmd.Flags().String("registry_port", "6435", "registry grpc node server host")
 	rootCmd.Flags().String("dir", os.TempDir(), "node files directory")
+	rootCmd.Flags().Int("shutdown_timeout", 30, "node shutdown timeout")
 
 	viper.BindPFlag("registry_host", rootCmd.Flags().Lookup("registry_host"))
 	viper.BindPFlag("registry_port", rootCmd.Flags().Lookup("registry_port"))
 	viper.BindPFlag("dir", rootCmd.Flags().Lookup("dir"))
+	viper.BindPFlag("shutdown_timeout", rootCmd.Flags().Lookup("shutdown_timeout"))
 }
 
 var rootCmd = &cobra.Command{
@@ -39,7 +42,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		bindEnvs := []string{
-			"registry_host", "registry_port", "dir",
+			"registry_host", "registry_port", "dir", "shutdown_timeout",
 		}
 		for _, env := range bindEnvs {
 			err := viper.BindEnv(env)
