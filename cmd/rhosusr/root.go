@@ -13,12 +13,20 @@ import (
 )
 
 var configDefaults = map[string]interface{}{
-	"gomaxprocs":       0,
-	"http_host":        "127.0.0.1",
-	"http_port":        "8000",
-	"grpc_host":        "127.0.0.1",
-	"grpc_port":        "8080",
+	"gomaxprocs": 0,
+	// http file server host and port
+	"http_host": "127.0.0.1",
+	"http_port": "8000",
+	// seconds to wait til force shutdown
 	"shutdown_timeout": 30,
+	// how many times a file should be replicated
+	"replication_factor": 1,
+	// block size in bytes
+	"block_size": 4096,
+	// page is a group of data blocks
+	// Almost all operations like backup, transferring and recovering are conducted with pages
+	// by default page can contain 250 data blocks, which is around 1mb
+	"page_size": 4096 * 250,
 }
 
 type DefaultChecker struct {
@@ -40,10 +48,16 @@ func init() {
 	rootCmd.Flags().String("http_host", "127.0.0.1", "file server http host")
 	rootCmd.Flags().String("http_port", "8000", "file server http port")
 	rootCmd.Flags().Int("shutdown_timeout", 30, "node graceful shutdown timeout")
+	rootCmd.Flags().Int("replication_factor", 30, "replication factor")
+	rootCmd.Flags().Int("block_size", 4096, "block size in bytes")
+	rootCmd.Flags().Int("page_size", 4096*250, "page size in bytes")
 
 	viper.BindPFlag("http_host", rootCmd.Flags().Lookup("http_host"))
 	viper.BindPFlag("http_port", rootCmd.Flags().Lookup("http_port"))
 	viper.BindPFlag("shutdown_timeout", rootCmd.Flags().Lookup("shutdown_timeout"))
+	viper.BindPFlag("replication_factor", rootCmd.Flags().Lookup("replication_factor"))
+	viper.BindPFlag("block_size", rootCmd.Flags().Lookup("block size in bytes"))
+	viper.BindPFlag("page_size", rootCmd.Flags().Lookup("page size in bytes"))
 
 	checker = &DefaultChecker{
 		flags: rootCmd.Flags(),
@@ -63,6 +77,7 @@ var rootCmd = &cobra.Command{
 		bindEnvs := []string{
 			"http_host", "http_port", "grpc_host", "grpc_port", "redis_host", "redis_port",
 			"shutdown_timeout",
+			"replication_factor", "block_size",
 		}
 		for _, env := range bindEnvs {
 			err := viper.BindEnv(env)

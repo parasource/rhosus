@@ -26,6 +26,8 @@ type ServerConfig struct {
 	Host      string
 	Port      string
 	MaxSizeMb int32
+	BlockSize int64
+	PageSize  int64
 }
 
 type Server struct {
@@ -37,8 +39,8 @@ type Server struct {
 	shutdownCh chan struct{}
 	readyCh    chan struct{}
 
-	RegistryAddFunc    func(dir string, name string, owner string, group string, timestamp int64, size uint64, data []byte) (*sys.File, error)
-	RegistryDeleteFunc func(dir string, name string) error
+	RegistryAdd    func(dir string, name string, owner string, group string, timestamp int64, size uint64, data []byte) (*sys.File, error)
+	RegistryDelete func(dir string, name string) error
 }
 
 func NewServer(conf ServerConfig) (*Server, error) {
@@ -73,7 +75,7 @@ func (s *Server) RunHTTP() {
 
 	go func() {
 		err := s.http.ListenAndServe()
-		if err != nil {
+		if err != nil && err != http.ErrServerClosed {
 			logrus.Errorf("error listening: %v", err)
 		}
 	}()
@@ -141,16 +143,14 @@ func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) SetRegistryAddFunc(fun func(dir string, name string, owner string, group string, timestamp int64, size uint64, data []byte) (*sys.File, error)) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.RegistryAddFunc = fun
+	s.RegistryAdd = fun
+	s.mu.Unlock()
 }
 
 func (s *Server) SetRegistryDeleteFunc(fun func(dir string, name string) error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.RegistryDeleteFunc = fun
+	s.RegistryDelete = fun
+	s.mu.Unlock()
 }
 
 func (s *Server) handlePostPut(w http.ResponseWriter, r *http.Request) error {
@@ -187,8 +187,7 @@ func (s *Server) handlePostPut(w http.ResponseWriter, r *http.Request) error {
 	bytesBufferLimitCond := sync.NewCond(new(sync.Mutex))
 	//var fileChunksLock sync.Mutex
 
-	// todo: move to configuration
-	chunkSize := 1024 * 1024
+	blockSize := s.Config.BlockSize
 
 	for {
 		bytesBufferLimitCond.L.Lock()
@@ -201,7 +200,7 @@ func (s *Server) handlePostPut(w http.ResponseWriter, r *http.Request) error {
 
 		bytesBuffer := bufPool.Get().(*bytes.Buffer)
 
-		limitedReader := io.LimitReader(partReader, int64(chunkSize))
+		limitedReader := io.LimitReader(partReader, blockSize)
 		bytesBuffer.Reset()
 
 		dataSize, err := bytesBuffer.ReadFrom(limitedReader)
@@ -214,7 +213,7 @@ func (s *Server) handlePostPut(w http.ResponseWriter, r *http.Request) error {
 
 		var chunkOffset int64 = 0
 
-		if dataSize < 1024 {
+		if dataSize < blockSize {
 			chunkOffset += dataSize
 			smallContent := make([]byte, dataSize)
 			bytesBuffer.Read(smallContent)
@@ -250,7 +249,7 @@ func (s *Server) handlePostPut(w http.ResponseWriter, r *http.Request) error {
 		chunkOffset = chunkOffset + dataSize
 
 		// if last chunk was not at full chunk size, but already exhausted the reader
-		if dataSize < int64(chunkSize) {
+		if dataSize < blockSize {
 			break
 		}
 	}

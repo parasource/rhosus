@@ -1,4 +1,4 @@
-package recovery
+package registry
 
 type Manager struct {
 }

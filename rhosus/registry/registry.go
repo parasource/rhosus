@@ -4,6 +4,7 @@ import (
 	rhosus_etcd "github.com/parasource/rhosus/rhosus/etcd"
 	registry_pb "github.com/parasource/rhosus/rhosus/pb/registry"
 	transmission_pb "github.com/parasource/rhosus/rhosus/pb/transmission"
+	"github.com/parasource/rhosus/rhosus/registry/journal"
 	file_server "github.com/parasource/rhosus/rhosus/server"
 	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/parasource/rhosus/rhosus/util/tickers"
@@ -37,6 +38,7 @@ type Registry struct {
 	FileServer     *file_server.Server
 	StatsCollector *StatsCollector
 	etcdClient     *rhosus_etcd.EtcdClient
+	journal        *journal.Journal
 
 	readyCh chan struct{}
 	readyWg sync.WaitGroup
@@ -123,12 +125,12 @@ func (r *Registry) Start() {
 		select {
 		case <-r.NotifyShutdown():
 
-			r.FileServer.SendShutdownSignal()
-
-			err := r.unregister()
-			if err != nil {
-				logrus.Errorf("error unregistering: %v", err)
-			}
+			//r.FileServer.SendShutdownSignal()
+			//
+			//err := r.unregister()
+			//if err != nil {
+			//	logrus.Errorf("error unregistering: %v", err)
+			//}
 
 			return
 		}
@@ -180,6 +182,13 @@ func (r *Registry) handleSignals() {
 				}
 				os.Exit(1)
 			})
+
+			r.FileServer.SendShutdownSignal()
+
+			err := r.unregister()
+			if err != nil {
+				logrus.Errorf("error unregistering: %v", err)
+			}
 
 			r.shutdownCh <- struct{}{}
 
@@ -376,10 +385,6 @@ func (r *Registry) RunServiceDiscovery() {
 
 				}
 			}
-
-		case <-r.NotifyShutdown():
-
-			return
 		}
 	}
 }

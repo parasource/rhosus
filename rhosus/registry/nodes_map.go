@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	transmission_pb "github.com/parasource/rhosus/rhosus/pb/transmission"
-	"github.com/parasource/rhosus/rhosus/registry/recovery"
 	"github.com/parasource/rhosus/rhosus/util/tickers"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -24,7 +23,7 @@ type NodesMap struct {
 
 	noAliveNodesCh chan struct{}
 
-	RecoveryManager *recovery.Manager
+	RecoveryManager *Manager
 }
 
 type NodeInfo transmission_pb.NodeInfo
