@@ -6,7 +6,7 @@ package registry_pb
 import (
 	fmt "fmt"
 	proto "github.com/golang/protobuf/proto"
-	fs "github.com/parasource/rhosus/rhosus/pb/fs"
+	fs_pb "github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	io "io"
 	math "math"
 	math_bits "math/bits"
@@ -273,11 +273,11 @@ func (m *Event) GetData() []byte {
 }
 
 type EventFileRegistered struct {
-	Uid                  string   `protobuf:"bytes,1,opt,name=uid,proto3" json:"uid,omitempty"`
-	File                 *fs.File `protobuf:"bytes,2,opt,name=file,proto3" json:"file,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	Uid                  string      `protobuf:"bytes,1,opt,name=uid,proto3" json:"uid,omitempty"`
+	File                 *fs_pb.File `protobuf:"bytes,2,opt,name=file,proto3" json:"file,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
+	XXX_unrecognized     []byte      `json:"-"`
+	XXX_sizecache        int32       `json:"-"`
 }
 
 func (m *EventFileRegistered) Reset()         { *m = EventFileRegistered{} }
@@ -320,7 +320,7 @@ func (m *EventFileRegistered) GetUid() string {
 	return ""
 }
 
-func (m *EventFileRegistered) GetFile() *fs.File {
+func (m *EventFileRegistered) GetFile() *fs_pb.File {
 	if m != nil {
 		return m.File
 	}
@@ -328,11 +328,11 @@ func (m *EventFileRegistered) GetFile() *fs.File {
 }
 
 type EventFileDeleted struct {
-	Uid                  string   `protobuf:"bytes,1,opt,name=uid,proto3" json:"uid,omitempty"`
-	File                 *fs.File `protobuf:"bytes,2,opt,name=file,proto3" json:"file,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	Uid                  string      `protobuf:"bytes,1,opt,name=uid,proto3" json:"uid,omitempty"`
+	File                 *fs_pb.File `protobuf:"bytes,2,opt,name=file,proto3" json:"file,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
+	XXX_unrecognized     []byte      `json:"-"`
+	XXX_sizecache        int32       `json:"-"`
 }
 
 func (m *EventFileDeleted) Reset()         { *m = EventFileDeleted{} }
@@ -375,7 +375,7 @@ func (m *EventFileDeleted) GetUid() string {
 	return ""
 }
 
-func (m *EventFileDeleted) GetFile() *fs.File {
+func (m *EventFileDeleted) GetFile() *fs_pb.File {
 	if m != nil {
 		return m.File
 	}
@@ -383,11 +383,11 @@ func (m *EventFileDeleted) GetFile() *fs.File {
 }
 
 type EventFileModified struct {
-	Uid                  string   `protobuf:"bytes,1,opt,name=uid,proto3" json:"uid,omitempty"`
-	File                 *fs.File `protobuf:"bytes,2,opt,name=file,proto3" json:"file,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	Uid                  string      `protobuf:"bytes,1,opt,name=uid,proto3" json:"uid,omitempty"`
+	File                 *fs_pb.File `protobuf:"bytes,2,opt,name=file,proto3" json:"file,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
+	XXX_unrecognized     []byte      `json:"-"`
+	XXX_sizecache        int32       `json:"-"`
 }
 
 func (m *EventFileModified) Reset()         { *m = EventFileModified{} }
@@ -430,7 +430,7 @@ func (m *EventFileModified) GetUid() string {
 	return ""
 }
 
-func (m *EventFileModified) GetFile() *fs.File {
+func (m *EventFileModified) GetFile() *fs_pb.File {
 	if m != nil {
 		return m.File
 	}
@@ -1869,7 +1869,7 @@ func (m *EventFileRegistered) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.File == nil {
-				m.File = &fs.File{}
+				m.File = &fs_pb.File{}
 			}
 			if err := m.File.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1988,7 +1988,7 @@ func (m *EventFileDeleted) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.File == nil {
-				m.File = &fs.File{}
+				m.File = &fs_pb.File{}
 			}
 			if err := m.File.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -2107,7 +2107,7 @@ func (m *EventFileModified) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.File == nil {
-				m.File = &fs.File{}
+				m.File = &fs_pb.File{}
 			}
 			if err := m.File.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err

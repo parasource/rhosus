@@ -8,7 +8,7 @@ import (
 	encoding_binary "encoding/binary"
 	fmt "fmt"
 	proto "github.com/golang/protobuf/proto"
-	fs "github.com/parasource/rhosus/rhosus/pb/fs"
+	fs_pb "github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -257,10 +257,10 @@ func (m *ShutdownNodeResponse) XXX_DiscardUnknown() {
 var xxx_messageInfo_ShutdownNodeResponse proto.InternalMessageInfo
 
 type AssignBlocksRequest struct {
-	Blocks               []*fs.Block `protobuf:"bytes,1,rep,name=blocks,proto3" json:"blocks,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
-	XXX_unrecognized     []byte      `json:"-"`
-	XXX_sizecache        int32       `json:"-"`
+	Blocks               []*fs_pb.Block `protobuf:"bytes,1,rep,name=blocks,proto3" json:"blocks,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
+	XXX_unrecognized     []byte         `json:"-"`
+	XXX_sizecache        int32          `json:"-"`
 }
 
 func (m *AssignBlocksRequest) Reset()         { *m = AssignBlocksRequest{} }
@@ -296,7 +296,7 @@ func (m *AssignBlocksRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_AssignBlocksRequest proto.InternalMessageInfo
 
-func (m *AssignBlocksRequest) GetBlocks() []*fs.Block {
+func (m *AssignBlocksRequest) GetBlocks() []*fs_pb.Block {
 	if m != nil {
 		return m.Blocks
 	}
@@ -429,10 +429,10 @@ func (m *RemoveBlocksResponse) XXX_DiscardUnknown() {
 var xxx_messageInfo_RemoveBlocksResponse proto.InternalMessageInfo
 
 type PlacePagesRequest struct {
-	Pages                []*fs.Page `protobuf:"bytes,1,rep,name=pages,proto3" json:"pages,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
-	XXX_unrecognized     []byte     `json:"-"`
-	XXX_sizecache        int32      `json:"-"`
+	Pages                []*fs_pb.Page `protobuf:"bytes,1,rep,name=pages,proto3" json:"pages,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
+	XXX_unrecognized     []byte        `json:"-"`
+	XXX_sizecache        int32         `json:"-"`
 }
 
 func (m *PlacePagesRequest) Reset()         { *m = PlacePagesRequest{} }
@@ -468,7 +468,7 @@ func (m *PlacePagesRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_PlacePagesRequest proto.InternalMessageInfo
 
-func (m *PlacePagesRequest) GetPages() []*fs.Page {
+func (m *PlacePagesRequest) GetPages() []*fs_pb.Page {
 	if m != nil {
 		return m.Pages
 	}
@@ -2330,7 +2330,7 @@ func (m *AssignBlocksRequest) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Blocks = append(m.Blocks, &fs.Block{})
+			m.Blocks = append(m.Blocks, &fs_pb.Block{})
 			if err := m.Blocks[len(m.Blocks)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -2600,7 +2600,7 @@ func (m *PlacePagesRequest) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Pages = append(m.Pages, &fs.Page{})
+			m.Pages = append(m.Pages, &fs_pb.Page{})
 			if err := m.Pages[len(m.Pages)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
