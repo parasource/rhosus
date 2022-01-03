@@ -57,7 +57,7 @@ func NewRegistry(config RegistryConfig) (*Registry, error) {
 		readyCh:    make(chan struct{}),
 	}
 
-	storage, err := NewEtcdStorage(EtcdStorageConfig{}, r)
+	storage, err := NewStorage(StorageConfig{}, r)
 	if err != nil {
 		logrus.Fatalf("error creating etcd storage: %v", err)
 	}
@@ -99,6 +99,8 @@ func NewRegistry(config RegistryConfig) (*Registry, error) {
 
 func (r *Registry) Start() {
 
+	var err error
+
 	go r.RegistriesMap.RunCleaning()
 
 	go r.FileServer.RunHTTP()
@@ -106,13 +108,38 @@ func (r *Registry) Start() {
 	go r.NodesMap.WatchNodes()
 	go r.StatsCollector.Run()
 
-	go r.handleSignals()
+	// Here we load all the existing nodes and registries from etcd
+	// Error occurs only in non-usual conditions, so we kill process
+	err = r.loadExistingRegistries()
+	if err != nil {
+		logrus.Fatalf("error loading existing registries from etcd: %v", err)
+	}
+
+	err = r.loadExistingNodes()
+	if err != nil {
+		logrus.Fatalf("error loading existing nodes from etcd: %v", err)
+	}
+
+	err = r.setupStorage()
+	if err != nil {
+		logrus.Fatalf("error setting up storage: %v", err)
+	}
+
+	err = r.Storage.PutBlocks("node_1", map[string][]uint64{
+		"uu_block_1": {0, 1024},
+		"uu_block_2": {1025, 1024 * 1024},
+	})
+	if err != nil {
+		logrus.Errorf("error putting blocks in storage: %v", err)
+	}
+
 	go r.RunServiceDiscovery()
 
-	// Blocks goroutine until ready signal received
+	go r.handleSignals()
+
 	close(r.readyCh)
 
-	err := r.register()
+	err = r.registerItself()
 	if err != nil {
 		logrus.Errorf("error registering in etcd: %v", err)
 	}
@@ -125,7 +152,7 @@ func (r *Registry) Start() {
 
 			//r.FileServer.SendShutdownSignal()
 			//
-			//err := r.unregister()
+			//err := r.unregisterItself()
 			//if err != nil {
 			//	logrus.Errorf("error unregistering: %v", err)
 			//}
@@ -136,7 +163,18 @@ func (r *Registry) Start() {
 
 }
 
-func (r *Registry) register() error {
+func (r *Registry) setupStorage() error {
+	r.mu.RLock()
+	existingNodes := make([]string, len(r.NodesMap.nodes))
+	for uid := range r.NodesMap.nodes {
+		existingNodes = append(existingNodes, uid)
+	}
+	r.mu.RUnlock()
+
+	return r.Storage.Setup(existingNodes)
+}
+
+func (r *Registry) registerItself() error {
 	info := &registry_pb.RegistryInfo{
 		Name: r.Name,
 		HttpAddress: &registry_pb.RegistryInfo_Address{
@@ -148,7 +186,7 @@ func (r *Registry) register() error {
 	return r.etcdClient.RegisterRegistry(r.Name, info)
 }
 
-func (r *Registry) unregister() error {
+func (r *Registry) unregisterItself() error {
 	return r.etcdClient.UnregisterRegistry(r.Name)
 }
 
@@ -182,8 +220,12 @@ func (r *Registry) handleSignals() {
 			})
 
 			r.FileServer.SendShutdownSignal()
+			err := r.Storage.Close()
+			if err != nil {
+				logrus.Errorf("error closing db: %v", err)
+			}
 
-			err := r.unregister()
+			err = r.unregisterItself()
 			if err != nil {
 				logrus.Errorf("error unregistering: %v", err)
 			}
@@ -202,16 +244,11 @@ func (r *Registry) handleSignals() {
 
 }
 
-////////////////////////////
-// Nodes and registries management methods
-
-func (r *Registry) RunServiceDiscovery() {
-
-	// Load existing nodes
+func (r *Registry) loadExistingNodes() error {
 
 	nodes, err := r.etcdClient.GetExistingNodes()
 	if err != nil {
-		logrus.Fatalf("error getting existing nodes: %v", err)
+		return err
 	}
 	for path, bytes := range nodes {
 
@@ -232,6 +269,11 @@ func (r *Registry) RunServiceDiscovery() {
 
 		logrus.Infof("node %v added from existing map", info.Name)
 	}
+
+	return nil
+}
+
+func (r *Registry) loadExistingRegistries() error {
 
 	registries, err := r.etcdClient.GetExistingRegistries()
 	if err != nil {
@@ -260,6 +302,14 @@ func (r *Registry) RunServiceDiscovery() {
 
 		logrus.Infof("registry %v added from existing map", info.Name)
 	}
+
+	return nil
+}
+
+////////////////////////////
+// Nodes and registries management methods
+
+func (r *Registry) RunServiceDiscovery() {
 
 	// Waiting for new nodes to connect
 
