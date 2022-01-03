@@ -44,8 +44,6 @@ type Registry struct {
 	readyWg sync.WaitGroup
 
 	shutdownCh chan struct{}
-
-	lastUpdate uint64
 }
 
 func NewRegistry(config RegistryConfig) (*Registry, error) {
@@ -266,6 +264,7 @@ func (r *Registry) RunServiceDiscovery() {
 	// Waiting for new nodes to connect
 
 	ticker := tickers.SetTicker(time.Second * 3)
+	defer ticker.Stop()
 
 	for {
 		select {
@@ -273,7 +272,7 @@ func (r *Registry) RunServiceDiscovery() {
 
 			err := r.etcdClient.Ping()
 			if err != nil {
-				// todo
+				logrus.Errorf("error pinging etcd: %v", err)
 			}
 
 		case res := <-r.etcdClient.WatchForNodesUpdates():

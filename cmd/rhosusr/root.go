@@ -77,7 +77,7 @@ var rootCmd = &cobra.Command{
 		bindEnvs := []string{
 			"http_host", "http_port", "grpc_host", "grpc_port", "redis_host", "redis_port",
 			"shutdown_timeout",
-			"replication_factor", "block_size",
+			"replication_factor", "block_size", "page_size",
 		}
 		for _, env := range bindEnvs {
 			err := viper.BindEnv(env)
@@ -98,9 +98,6 @@ var rootCmd = &cobra.Command{
 
 		if checker.checkIfUsingDefault("http_host") || checker.checkIfUsingDefault("http_port") {
 			logrus.Warn("file server http address is not set explicitly")
-		}
-		if checker.checkIfUsingDefault("grpc_host") || checker.checkIfUsingDefault("grpc_port") {
-			logrus.Warn("file server grpc address is not set explicitly")
 		}
 
 		httpHost := v.GetString("http_host")

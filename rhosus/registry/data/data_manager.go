@@ -4,16 +4,15 @@ import (
 	"github.com/parasource/rhosus/rhosus/node/profiler"
 	"github.com/parasource/rhosus/rhosus/pb/fs"
 	"github.com/parasource/rhosus/rhosus/registry"
-	"github.com/parasource/rhosus/rhosus/util/uuid"
+	"github.com/sirupsen/logrus"
 	"sync"
-	"time"
 )
 
 type DataManager struct {
 	Registry *registry.Registry
 
 	mu       sync.RWMutex
-	pages    map[string]*fs.Page
+	pages    map[string]*Page
 	profiler *profiler.Profiler
 }
 
@@ -21,7 +20,7 @@ func NewDataManager(registry *registry.Registry) *DataManager {
 	return &DataManager{
 		Registry: registry,
 
-		pages: make(map[string]*fs.Page),
+		pages: make(map[string]*Page),
 	}
 }
 
@@ -33,34 +32,26 @@ func (m *DataManager) Setup() error {
 
 // CreatePage creates a new page and returns it's uid
 func (m *DataManager) CreatePage() (string, error) {
+
 	if !m.canCreateNewPage() {
 		return "", errorOutOfSpace
 	}
 
-	uid, err := uuid.NewV4()
+	page, err := NewPage()
 	if err != nil {
-		return "", err
-	}
-
-	page := &fs.Page{
-		Uid:          uid.String(),
-		UsedSpace:    0,
-		Blocks:       make(map[string]*fs.Block),
-		ChecksumType: fs.ChecksumType_CHECKSUM_CRC32,
-		Checksum:     "",
-		UpdatedAt:    time.Now().Unix(),
+		logrus.Errorf("cannot create new page: %v", err)
 	}
 
 	m.mu.Lock()
-	m.pages[uid.String()] = page
+	m.pages[page.Uid] = page
 	m.mu.Unlock()
 
-	return uid.String(), nil
+	return page.Uid, nil
 }
 
 func (m *DataManager) AssignBlocks(blocks map[string]*fs.Block) (err error) {
 
-	pages := make(map[string]*fs.Page, len(m.pages))
+	pages := make(map[string]*Page, len(m.pages))
 	m.mu.RLock()
 	for uid, page := range m.pages {
 		pages[uid] = page
@@ -93,14 +84,6 @@ func (m *DataManager) AssignBlocks(blocks map[string]*fs.Block) (err error) {
 	}
 
 	return err
-}
-
-func (m *DataManager) GetPage(uid string) *fs.Page {
-	m.mu.RLock()
-	page := m.pages[uid]
-	m.mu.RUnlock()
-
-	return page
 }
 
 func (m *DataManager) canCreateNewPage() bool {
