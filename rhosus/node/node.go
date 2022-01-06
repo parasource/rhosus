@@ -4,7 +4,7 @@ import (
 	"fmt"
 	rhosus_etcd "github.com/parasource/rhosus/rhosus/etcd"
 	"github.com/parasource/rhosus/rhosus/node/profiler"
-	transmission_pb "github.com/parasource/rhosus/rhosus/pb/transmission"
+	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -82,7 +82,7 @@ func NewNode(config Config) (*Node, error) {
 	return node, nil
 }
 
-func (n *Node) CollectMetrics() (*transmission_pb.NodeMetrics, error) {
+func (n *Node) CollectMetrics() (*transport_pb.NodeMetrics, error) {
 
 	v, err := n.Profiler.GetMem()
 	if err != nil {
@@ -91,7 +91,7 @@ func (n *Node) CollectMetrics() (*transmission_pb.NodeMetrics, error) {
 
 	usage := n.Profiler.GetPathDiskUsage("/")
 
-	metrics := &transmission_pb.NodeMetrics{
+	metrics := &transport_pb.NodeMetrics{
 		Capacity:       usage.Total,
 		Remaining:      usage.Free,
 		UsedPercent:    float32(usage.UsedPercent),
@@ -131,13 +131,13 @@ func (n *Node) Start() {
 }
 
 func (n *Node) Register() error {
-	info := &transmission_pb.NodeInfo{
+	info := &transport_pb.NodeInfo{
 		Name: n.Name,
-		Address: &transmission_pb.NodeInfo_Address{
+		Address: &transport_pb.NodeInfo_Address{
 			Host: n.GrpcServer.Config.Host,
 			Port: n.GrpcServer.Config.Port,
 		},
-		Metrics: &transmission_pb.NodeMetrics{
+		Metrics: &transport_pb.NodeMetrics{
 			Capacity:   10000,
 			Remaining:  5000,
 			LastUpdate: time.Now().Add(-time.Hour * 24 * 30).Unix(),

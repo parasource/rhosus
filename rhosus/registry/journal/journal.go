@@ -1,6 +1,16 @@
 package journal
 
+import (
+	master_pb "github.com/parasource/rhosus/rhosus/pb/control"
+	"github.com/parasource/rhosus/rhosus/util/queue"
+)
+
+type Journalist interface {
+}
+
 type Journal struct {
+	recordsQueue    *queue.Queue
+	dispatchRecords func([]*master_pb.Entry)
 }
 
 func (j *Journal) WriteToJournal(t string, data []byte) error {

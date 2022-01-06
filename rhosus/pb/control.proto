@@ -10,7 +10,8 @@ option go_package = "github.com/parasource/rhosus/rhosus/pb/control_pb";
 
 service Control {
   rpc RequestVote (RequestVoteRequest) returns (RequestVoteResponse);
-  rpc AppendEntries (AppendEntriesRequest) returns (Void);
+  rpc AppendEntries (AppendEntriesRequest) returns (AppendEntriesResponse);
+  rpc EntryCommitted (EntryCommittedRequest) returns (EntryCommittedResponse);
   rpc Shutdown (Void) returns (Void) {}
   rpc Alive (Void) returns (Void) {}
   rpc Offline (Void) returns (Void) {}
@@ -40,7 +41,7 @@ message AppendEntriesRequest {
   int64 prevLogIndex = 3;
   uint32 prevLogTerm = 4;
   repeated uint32 entriesTerm = 5;
-  repeated bytes entries = 6;
+  repeated Entry entries = 6;
   int64 leaderCommit = 7;
 }
 
@@ -49,6 +50,14 @@ message AppendEntriesResponse {
   uint32 term = 2;
   uint32 success = 3;
   int64 lastAgreedIndex = 4;
+}
+
+message EntryCommittedRequest {
+  uint32 term = 1;
+}
+
+message EntryCommittedResponse {
+
 }
 
 // <--------------------------------->

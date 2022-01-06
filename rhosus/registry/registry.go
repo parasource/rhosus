@@ -3,7 +3,7 @@ package registry
 import (
 	rhosus_etcd "github.com/parasource/rhosus/rhosus/etcd"
 	registry_pb "github.com/parasource/rhosus/rhosus/pb/registry"
-	transmission_pb "github.com/parasource/rhosus/rhosus/pb/transmission"
+	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/parasource/rhosus/rhosus/registry/journal"
 	file_server "github.com/parasource/rhosus/rhosus/server"
 	"github.com/parasource/rhosus/rhosus/util"
@@ -16,6 +16,10 @@ import (
 	"sync"
 	"syscall"
 	"time"
+)
+
+const (
+	etcdPingInterval = 3
 )
 
 type RegistryConfig struct {
@@ -37,8 +41,11 @@ type Registry struct {
 	NodesMap       *NodesMap
 	FileServer     *file_server.Server
 	StatsCollector *StatsCollector
-	etcdClient     *rhosus_etcd.EtcdClient
-	journal        *journal.Journal
+	Journal        *journal.Journal
+	ControlClient  *ControlClient
+	ControlServer  *ControlServer
+
+	etcdClient *rhosus_etcd.EtcdClient
 
 	readyCh chan struct{}
 	readyWg sync.WaitGroup
@@ -254,7 +261,7 @@ func (r *Registry) loadExistingNodes() error {
 
 		name := rhosus_etcd.ParseNodeName(path)
 
-		var info transmission_pb.NodeInfo
+		var info transport_pb.NodeInfo
 		err := info.Unmarshal(bytes)
 		if err != nil {
 			logrus.Errorf("error unmarshaling node info: %v", err)
@@ -306,14 +313,15 @@ func (r *Registry) loadExistingRegistries() error {
 	return nil
 }
 
-////////////////////////////
+// <------------------------------------->
 // Nodes and registries management methods
+// <------------------------------------->
 
 func (r *Registry) RunServiceDiscovery() {
 
 	// Waiting for new nodes to connect
 
-	ticker := tickers.SetTicker(time.Second * 3)
+	ticker := tickers.SetTicker(time.Second * time.Duration(etcdPingInterval))
 	defer ticker.Stop()
 
 	for {
@@ -343,7 +351,7 @@ func (r *Registry) RunServiceDiscovery() {
 						logrus.Errorf("error decoding")
 					}
 
-					var info transmission_pb.NodeInfo
+					var info transport_pb.NodeInfo
 					err = info.Unmarshal(bytes)
 					if err != nil {
 						logrus.Errorf("error unmarshaling node info: %v", err)

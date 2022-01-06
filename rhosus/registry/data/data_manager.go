@@ -2,7 +2,7 @@ package data
 
 import (
 	"github.com/parasource/rhosus/rhosus/node/profiler"
-	"github.com/parasource/rhosus/rhosus/pb/fs"
+	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	"github.com/parasource/rhosus/rhosus/registry"
 	"github.com/sirupsen/logrus"
 	"sync"
@@ -49,7 +49,7 @@ func (m *DataManager) CreatePage() (string, error) {
 	return page.Uid, nil
 }
 
-func (m *DataManager) AssignBlocks(blocks map[string]*fs.Block) (err error) {
+func (m *DataManager) AssignBlocks(blocks map[string]*fs_pb.Block) (err error) {
 
 	pages := make(map[string]*Page, len(m.pages))
 	m.mu.RLock()

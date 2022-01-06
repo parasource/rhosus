@@ -2,7 +2,7 @@ package data
 
 import (
 	"fmt"
-	"github.com/parasource/rhosus/rhosus/pb/fs"
+	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	"github.com/parasource/rhosus/rhosus/util/uuid"
 	"github.com/sirupsen/logrus"
 	"log"
@@ -40,7 +40,7 @@ func NewPage() (*Page, error) {
 	}, nil
 }
 
-func (p *Page) AppendBlocks(blocks map[string]*fs.Block) error {
+func (p *Page) AppendBlocks(blocks map[string]*fs_pb.Block) error {
 	var err error
 
 	err = p.appendToDataFile([]byte(""))
@@ -72,7 +72,7 @@ func (p *Page) appendToDataFile(data []byte) error {
 }
 
 func (p *Page) Marshal() ([]byte, error) {
-	page := &fs.Page{
+	page := &fs_pb.Page{
 		Uid:          p.Uid,
 		UsedSpace:    0,
 		Blocks:       nil,

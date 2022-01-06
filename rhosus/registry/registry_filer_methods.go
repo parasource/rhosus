@@ -1,7 +1,7 @@
 package registry
 
 import (
-	fs_pb "github.com/parasource/rhosus/rhosus/pb/fs"
+	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	"github.com/parasource/rhosus/rhosus/sys"
 	"github.com/parasource/rhosus/rhosus/util/uuid"
 )

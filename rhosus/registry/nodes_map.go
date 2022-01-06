@@ -3,7 +3,7 @@ package registry
 import (
 	"context"
 	"errors"
-	transmission_pb "github.com/parasource/rhosus/rhosus/pb/transmission"
+	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/parasource/rhosus/rhosus/util/tickers"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -26,7 +26,7 @@ type NodesMap struct {
 	RecoveryManager *Manager
 }
 
-type NodeInfo transmission_pb.NodeInfo
+type NodeInfo transport_pb.NodeInfo
 type NodeGrpcConn grpc.ClientConn
 
 func NewNodesMap(registry *Registry) *NodesMap {
@@ -44,7 +44,7 @@ func (m *NodesMap) SetOnNodeDown(fun func(c context.Context)) {
 	m.onNodeDown = fun
 }
 
-func (m *NodesMap) AddNode(name string, info *transmission_pb.NodeInfo) error {
+func (m *NodesMap) AddNode(name string, info *transport_pb.NodeInfo) error {
 
 	address := net.JoinHostPort(info.Address.Host, info.Address.Port)
 
@@ -55,8 +55,8 @@ func (m *NodesMap) AddNode(name string, info *transmission_pb.NodeInfo) error {
 		return err
 	}
 	// ping new node
-	client := transmission_pb.NewTransmissionServiceClient(conn)
-	_, err = client.Ping(context.Background(), &transmission_pb.PingRequest{})
+	client := transport_pb.NewTransportServiceClient(conn)
+	_, err = client.Ping(context.Background(), &transport_pb.PingRequest{})
 	if err != nil {
 		return err
 	}
@@ -84,7 +84,7 @@ func (m *NodesMap) RemoveNode(name string) {
 	m.mu.Unlock()
 }
 
-func (m *NodesMap) UpdateNodeInfo(name string, info *transmission_pb.NodeInfo) {
+func (m *NodesMap) UpdateNodeInfo(name string, info *transport_pb.NodeInfo) {
 	m.mu.Lock()
 	if _, ok := m.nodes[name]; ok {
 		m.nodes[name] = (*NodeInfo)(info)
@@ -100,7 +100,7 @@ func (m *NodesMap) NodeExists(name string) bool {
 	return ok
 }
 
-func (m *NodesMap) GetGrpcClient(name string) (transmission_pb.TransmissionServiceClient, error) {
+func (m *NodesMap) GetGrpcClient(name string) (transport_pb.TransportServiceClient, error) {
 	m.mu.RLock()
 	conn, ok := m.nodesConns[name]
 	m.mu.RUnlock()
@@ -109,7 +109,7 @@ func (m *NodesMap) GetGrpcClient(name string) (transmission_pb.TransmissionServi
 		return nil, errors.New("undefined name. node does not persist in node map")
 	}
 
-	client := transmission_pb.NewTransmissionServiceClient((*grpc.ClientConn)(conn))
+	client := transport_pb.NewTransportServiceClient((*grpc.ClientConn)(conn))
 	return client, nil
 }
 
@@ -120,11 +120,11 @@ func (m *NodesMap) WatchNodes() {
 	for {
 		select {
 		case <-ticker.C:
-			nodes := make(map[string]*transmission_pb.NodeInfo, len(m.nodes))
+			nodes := make(map[string]*transport_pb.NodeInfo, len(m.nodes))
 
 			m.mu.RLock()
 			for uid, info := range m.nodes {
-				nodes[uid] = (*transmission_pb.NodeInfo)(info)
+				nodes[uid] = (*transport_pb.NodeInfo)(info)
 			}
 			m.mu.RUnlock()
 
@@ -133,7 +133,7 @@ func (m *NodesMap) WatchNodes() {
 
 			for uid, node := range nodes {
 				wg.Add(1)
-				go func(uid string, node *transmission_pb.NodeInfo) {
+				go func(uid string, node *transport_pb.NodeInfo) {
 
 					err := m.ProbeNode(node)
 					if err != nil {
@@ -184,14 +184,14 @@ func (m *NodesMap) WatchNodes() {
 
 }
 
-func (m *NodesMap) ProbeNode(node *transmission_pb.NodeInfo) error {
+func (m *NodesMap) ProbeNode(node *transport_pb.NodeInfo) error {
 
 	// todo
 
 	return nil
 }
 
-func (m *NodesMap) StartRecoveryProcess(node *transmission_pb.NodeInfo) error {
+func (m *NodesMap) StartRecoveryProcess(node *transport_pb.NodeInfo) error {
 
 	// todo
 

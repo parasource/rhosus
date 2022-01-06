@@ -2,7 +2,7 @@ package rhosus_node
 
 import (
 	"context"
-	transmission_pb "github.com/parasource/rhosus/rhosus/pb/transmission"
+	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"net"
@@ -15,7 +15,7 @@ type GrpcServerConfig struct {
 }
 
 type GrpcServer struct {
-	transmission_pb.TransmissionServiceServer
+	transport_pb.TransportServiceServer
 
 	node *Node
 
@@ -42,34 +42,34 @@ func NewGrpcServer(config GrpcServerConfig, node *Node) (*GrpcServer, error) {
 	return server, err
 }
 
-func (s *GrpcServer) Ping(c context.Context, r *transmission_pb.PingRequest) (*transmission_pb.PingResponse, error) {
-	return &transmission_pb.PingResponse{}, nil
+func (s *GrpcServer) Ping(c context.Context, r *transport_pb.PingRequest) (*transport_pb.PingResponse, error) {
+	return &transport_pb.PingResponse{}, nil
 }
 
-func (s *GrpcServer) ShutdownNode(c context.Context, r *transmission_pb.ShutdownNodeRequest) (*transmission_pb.ShutdownNodeResponse, error) {
+func (s *GrpcServer) ShutdownNode(c context.Context, r *transport_pb.ShutdownNodeRequest) (*transport_pb.ShutdownNodeResponse, error) {
 	panic("implement me")
 }
 
-func (s *GrpcServer) AssignBlocks(c context.Context, r *transmission_pb.AssignBlocksRequest) (*transmission_pb.AssignBlocksResponse, error) {
+func (s *GrpcServer) AssignBlocks(c context.Context, r *transport_pb.AssignBlocksRequest) (*transport_pb.AssignBlocksResponse, error) {
 	panic("implement me")
 }
 
-func (s *GrpcServer) RemoveBlocks(c context.Context, r *transmission_pb.RemoveBlocksRequest) (*transmission_pb.RemoveBlocksResponse, error) {
+func (s *GrpcServer) RemoveBlocks(c context.Context, r *transport_pb.RemoveBlocksRequest) (*transport_pb.RemoveBlocksResponse, error) {
 	panic("implement me")
 }
 
-func (s *GrpcServer) PlacePages(c context.Context, r *transmission_pb.PlacePagesRequest) (*transmission_pb.PlacePagesResponse, error) {
+func (s *GrpcServer) PlacePages(c context.Context, r *transport_pb.PlacePagesRequest) (*transport_pb.PlacePagesResponse, error) {
 	panic("implement me")
 }
 
-func (s *GrpcServer) FetchMetrics(c context.Context, r *transmission_pb.FetchMetricsRequest) (*transmission_pb.FetchMetricsResponse, error) {
+func (s *GrpcServer) FetchMetrics(c context.Context, r *transport_pb.FetchMetricsRequest) (*transport_pb.FetchMetricsResponse, error) {
 	metrics, err := s.node.CollectMetrics()
 	if err != nil {
 		logrus.Errorf("error fetching metrics: %v", err)
 		return nil, err
 	}
 
-	return &transmission_pb.FetchMetricsResponse{
+	return &transport_pb.FetchMetricsResponse{
 		Name:    s.node.Name,
 		Metrics: metrics,
 	}, nil
@@ -84,7 +84,7 @@ func (s *GrpcServer) Run() {
 	}
 
 	grpcServer := grpc.NewServer()
-	transmission_pb.RegisterTransmissionServiceServer(grpcServer, s)
+	transport_pb.RegisterTransportServiceServer(grpcServer, s)
 
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {
