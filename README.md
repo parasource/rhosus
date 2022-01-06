@@ -1,6 +1,6 @@
 # Rhosus - distributed file system
 
-#### made with love at Parasource
+#### This project is currently under active development
 
 ![rhosus](https://github.com/parasource/rhosus/blob/master/assets/logo.svg)
 

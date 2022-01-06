@@ -1,11 +1,11 @@
 syntax = "proto3";
 
-package transmission_pb;
-option go_package = "github.com/rhosus/rhosus/pb/transmission_pb";
+package transport_pb;
+option go_package = "github.com/rhosus/rhosus/pb/transport_pb";
 
 import "fs.proto";
 
-service TransmissionService {
+service TransportService {
 
   rpc Ping (PingRequest) returns (PingResponse);
   rpc ShutdownNode (ShutdownNodeRequest) returns (ShutdownNodeResponse);

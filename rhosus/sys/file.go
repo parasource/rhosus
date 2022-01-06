@@ -37,12 +37,12 @@ func (file *File) mode() os.FileMode {
 }
 
 //type fileNode struct {
-//	fs.Node
-//	fs.FSInodeGenerator
+//	fs_pb.Node
+//	fs_pb.FSInodeGenerator
 //	path string
 //}
 //
-//func NewFileNode(path string) fs.Node {
+//func NewFileNode(path string) fs_pb.Node {
 //	return &fileNode{
 //		path: path,
 //	}
