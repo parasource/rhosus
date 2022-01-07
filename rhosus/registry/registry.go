@@ -42,7 +42,7 @@ type Registry struct {
 	FileServer     *file_server.Server
 	StatsCollector *StatsCollector
 	Journal        *journal.Journal
-	ControlClient  *ControlClient
+	ControlClient  *ControlService
 	ControlServer  *ControlServer
 
 	etcdClient *rhosus_etcd.EtcdClient
