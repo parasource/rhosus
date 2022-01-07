@@ -3,11 +3,8 @@ package registry
 import (
 	"context"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
-	"github.com/parasource/rhosus/rhosus/registry/watcher"
-	"github.com/parasource/rhosus/rhosus/util/timers"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
-	"math/rand"
 	"net"
 	"sync"
 	"time"
@@ -28,8 +25,8 @@ type ControlService struct {
 	// uid of the leader peer
 	currentLeader string
 
-	// Watcher watches other registries condition etc.
-	watcher *watcher.Watcher
+	// Observer watches for heartbeats and notifies if leader is off
+	observer *Observer
 }
 
 type Peer struct {
@@ -46,19 +43,19 @@ func (p *Peer) isAlive() bool {
 
 type errorsBuffer []error
 
-func NewControlClient(registry *Registry, addresses map[string]ServerAddress) (*ControlService, error) {
+func NewControlService(registry *Registry, addresses map[string]ServerAddress) (*ControlService, error) {
 	peers := make(map[string]*control_pb.ControlClient, len(addresses))
 	errors := make(errorsBuffer, len(addresses))
 
-	w := &watcher.Watcher{}
-	go w.Watch()
-
-	client := &ControlService{
+	service := &ControlService{
 		registry: registry,
 		peers:    make(map[string]*Peer),
-
-		watcher: w,
 	}
+
+	observer := NewObserver(service)
+	go observer.Observe()
+
+	service.observer = observer
 
 	for uid, address := range addresses {
 		address := net.JoinHostPort(address.Host, address.Port)
@@ -86,41 +83,28 @@ func NewControlClient(registry *Registry, addresses map[string]ServerAddress) (*
 		// TODO: this is actually important
 	}
 
-	client.mu.Lock()
+	service.mu.Lock()
 	for uid, conn := range peers {
-		client.peers[uid] = &Peer{
+		service.peers[uid] = &Peer{
 			conn:  conn,
 			Alive: true,
 		}
 	}
-	client.mu.Unlock()
+	service.mu.Unlock()
 
-	return client, nil
+	return service, nil
 }
 
-func getRandomInterval() time.Duration {
-	return time.Duration(rand.Intn(3000-1500) + 1500)
-}
+func (s *ControlService) InitVoting() error {
 
-func (s *ControlService) VotingProcess() error {
+	responses := s.sendVoteRequests()
+	for _, res := range responses {
 
-	for {
-		// According to RAFT docs, we need to set random interval
-		// between 1.5 and 3 secs
-		timer := timers.SetTimer(time.Millisecond * getRandomInterval())
+		// Here we check if peer replied to our voteRequest
+		if res.isSuccessful() {
+			// TODO
+		} else {
 
-		select {
-		case <-timer.C:
-			responses := s.sendVoteRequests()
-			for _, res := range responses {
-
-				// Here we check if peer replied to our voteRequest
-				if res.isSuccessful() {
-					// TODO
-				} else {
-
-				}
-			}
 		}
 	}
 
@@ -213,7 +197,7 @@ func (s *ControlService) sendVoteRequests() map[string]voteResponse {
 			conn := *peer.conn
 
 			// TODO: move to configuration
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
 			defer cancel()
 
 			req := &control_pb.RequestVoteRequest{

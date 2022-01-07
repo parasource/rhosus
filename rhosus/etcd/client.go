@@ -3,7 +3,7 @@ package rhosus_etcd
 import (
 	"context"
 	registry_pb "github.com/parasource/rhosus/rhosus/pb/registry"
-	transmission_pb "github.com/parasource/rhosus/rhosus/pb/transmission"
+	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
@@ -127,7 +127,7 @@ func (c *EtcdClient) RegisterRegistry(name string, info *registry_pb.RegistryInf
 	return nil
 }
 
-func (c *EtcdClient) RegisterNode(name string, info *transmission_pb.NodeInfo) error {
+func (c *EtcdClient) RegisterNode(name string, info *transport_pb.NodeInfo) error {
 	path := serviceDiscoveryNodesPath + name
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)

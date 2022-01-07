@@ -2,7 +2,7 @@ package registry
 
 import (
 	"context"
-	transmission_pb "github.com/parasource/rhosus/rhosus/pb/transmission"
+	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/parasource/rhosus/rhosus/util/tickers"
 	"github.com/sirupsen/logrus"
 	"sync"
@@ -13,7 +13,7 @@ type StatsCollector struct {
 	registry *Registry
 
 	mu               sync.RWMutex
-	metrics          map[string]*transmission_pb.NodeMetrics
+	metrics          map[string]*transport_pb.NodeMetrics
 	metricsUpdatedAt map[string]time.Time
 
 	collectionInterval int
@@ -22,7 +22,7 @@ type StatsCollector struct {
 func NewStatsCollector(registry *Registry, collectionInterval int) *StatsCollector {
 	return &StatsCollector{
 		registry:           registry,
-		metrics:            make(map[string]*transmission_pb.NodeMetrics),
+		metrics:            make(map[string]*transport_pb.NodeMetrics),
 		metricsUpdatedAt:   make(map[string]time.Time),
 		collectionInterval: collectionInterval,
 	}
@@ -51,7 +51,7 @@ func (s *StatsCollector) Run() {
 					continue
 				}
 
-				res, err := client.FetchMetrics(context.Background(), &transmission_pb.FetchMetricsRequest{})
+				res, err := client.FetchMetrics(context.Background(), &transport_pb.FetchMetricsRequest{})
 				if err != nil {
 					logrus.Errorf("error fetching node metrics: %v", err)
 					continue
