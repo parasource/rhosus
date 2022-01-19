@@ -95,20 +95,26 @@ func NewControlService(registry *Registry, addresses map[string]ServerAddress) (
 	return service, nil
 }
 
-func (s *ControlService) InitVoting() error {
+func (s *ControlService) Start() {
 
-	responses := s.sendVoteRequests()
-	for _, res := range responses {
+	for {
+		select {
+		case <-s.observer.NotifyStartVoting():
 
-		// Here we check if peer replied to our voteRequest
-		if res.isSuccessful() {
-			// TODO
-		} else {
+			responses := s.sendVoteRequests()
+			for _, res := range responses {
+
+				// Here we check if peer replied to our voteRequest
+				if res.isSuccessful() {
+					// TODO
+				} else {
+
+				}
+			}
 
 		}
 	}
 
-	return nil
 }
 
 // isLeaderPresent checks if the leader already

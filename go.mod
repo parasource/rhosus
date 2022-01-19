@@ -15,6 +15,9 @@ require (
 	github.com/tklauser/go-sysconf v0.3.9 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	go.etcd.io/bbolt v1.3.6
+	go.etcd.io/etcd/client/pkg/v3 v3.5.1
 	go.etcd.io/etcd/client/v3 v3.5.1
+	go.uber.org/zap v1.17.0
+	golang.org/x/sys v0.0.0-20210823070655-63515b42dcdf
 	google.golang.org/grpc v1.40.0
 )

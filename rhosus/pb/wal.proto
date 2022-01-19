@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package wal_pb;
+option go_package = "github.com/parasource/rhosus/rhosus/pb/wal_pb";
+
+// Write-Ahead Log implementation
+message Log {
+  enum LogType {
+    TYPE_ENTRY = 0;
+    TYPE_SNAPSHOT = 1;
+  }
+  LogType type = 1;
+  uint32 crc = 2;
+  bytes data = 3;
+}
+
+message Snapshot {
+  int64 index = 1;
+  uint32 term = 2;
+}

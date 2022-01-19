@@ -60,19 +60,6 @@ message EntryCommittedResponse {
 
 }
 
-// <--------------------------------->
-// Journal is a structure that holds
-// records about assigning, deletion,
-// and other operations, happening in
-// registries.
-//
-// Journal is stored in application
-// memory and periodically sent to
-// Leader Registry. Also it is the
-// only way to recover dead registry
-// and restore critical data
-// <---------------------------------->
-
 message Entry {
   int64 index = 1;
   uint32 term = 2;
@@ -84,8 +71,10 @@ message Entry {
 
   // data is a marshalled one of the above types message
   bytes data = 4;
-
   int64 timestamp = 5;
+
+  // magic number ;)
+  float version = 69;
 }
 
 message OffsetRange {

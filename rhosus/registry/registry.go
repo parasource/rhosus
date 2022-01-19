@@ -4,7 +4,7 @@ import (
 	rhosus_etcd "github.com/parasource/rhosus/rhosus/etcd"
 	registry_pb "github.com/parasource/rhosus/rhosus/pb/registry"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
-	"github.com/parasource/rhosus/rhosus/registry/journal"
+	"github.com/parasource/rhosus/rhosus/registry/wal"
 	file_server "github.com/parasource/rhosus/rhosus/server"
 	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/parasource/rhosus/rhosus/util/tickers"
@@ -41,7 +41,7 @@ type Registry struct {
 	NodesMap       *NodesMap
 	FileServer     *file_server.Server
 	StatsCollector *StatsCollector
-	Journal        *journal.Journal
+	Journal        *wal.WAL
 	ControlClient  *ControlService
 	ControlServer  *ControlServer
 
