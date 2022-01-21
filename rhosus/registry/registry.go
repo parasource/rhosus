@@ -42,15 +42,16 @@ type Registry struct {
 	FileServer     *file_server.Server
 	StatsCollector *StatsCollector
 	Journal        *wal.WAL
-	ControlClient  *ControlService
-	ControlServer  *ControlServer
+
+	// Observer is used to control over raft
+	ControlObserver *Observer
 
 	etcdClient *rhosus_etcd.EtcdClient
 
-	readyCh chan struct{}
+	readyC  chan struct{}
 	readyWg sync.WaitGroup
 
-	shutdownCh chan struct{}
+	shutdownC chan struct{}
 }
 
 func NewRegistry(config RegistryConfig) (*Registry, error) {
@@ -60,8 +61,8 @@ func NewRegistry(config RegistryConfig) (*Registry, error) {
 		Config:  config,
 		readyWg: sync.WaitGroup{},
 
-		shutdownCh: make(chan struct{}, 1),
-		readyCh:    make(chan struct{}),
+		shutdownC: make(chan struct{}, 1),
+		readyC:    make(chan struct{}),
 	}
 
 	storage, err := NewStorage(StorageConfig{}, r)
@@ -75,6 +76,9 @@ func NewRegistry(config RegistryConfig) (*Registry, error) {
 
 	nMap := NewNodesMap(r)
 	r.NodesMap = nMap
+
+	o := NewObserver(r)
+	r.ControlObserver = o
 
 	statsCollector := NewStatsCollector(r, 5)
 	r.StatsCollector = statsCollector
@@ -112,7 +116,7 @@ func (r *Registry) Start() {
 
 	go r.FileServer.RunHTTP()
 
-	go r.NodesMap.WatchNodes()
+	//go r.NodesMap.WatchNodes()
 	go r.StatsCollector.Run()
 
 	// Here we load all the existing nodes and registries from etcd
@@ -144,7 +148,7 @@ func (r *Registry) Start() {
 
 	go r.handleSignals()
 
-	close(r.readyCh)
+	close(r.readyC)
 
 	err = r.registerItself()
 	if err != nil {
@@ -198,11 +202,11 @@ func (r *Registry) unregisterItself() error {
 }
 
 func (r *Registry) NotifyShutdown() <-chan struct{} {
-	return r.shutdownCh
+	return r.shutdownC
 }
 
 func (r *Registry) NotifyReady() <-chan struct{} {
-	return r.readyCh
+	return r.readyC
 }
 
 func (r *Registry) handleSignals() {
@@ -237,7 +241,7 @@ func (r *Registry) handleSignals() {
 				logrus.Errorf("error unregistering: %v", err)
 			}
 
-			r.shutdownCh <- struct{}{}
+			r.shutdownC <- struct{}{}
 
 			if pidFile != "" {
 				err := os.Remove(pidFile)

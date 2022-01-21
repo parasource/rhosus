@@ -24,9 +24,6 @@ type ControlService struct {
 	peers    map[string]*Peer
 	// uid of the leader peer
 	currentLeader string
-
-	// Observer watches for heartbeats and notifies if leader is off
-	observer *Observer
 }
 
 type Peer struct {
@@ -51,11 +48,6 @@ func NewControlService(registry *Registry, addresses map[string]ServerAddress) (
 		registry: registry,
 		peers:    make(map[string]*Peer),
 	}
-
-	observer := NewObserver(service)
-	go observer.Observe()
-
-	service.observer = observer
 
 	for uid, address := range addresses {
 		address := net.JoinHostPort(address.Host, address.Port)
@@ -97,23 +89,23 @@ func NewControlService(registry *Registry, addresses map[string]ServerAddress) (
 
 func (s *ControlService) Start() {
 
-	for {
-		select {
-		case <-s.observer.NotifyStartVoting():
-
-			responses := s.sendVoteRequests()
-			for _, res := range responses {
-
-				// Here we check if peer replied to our voteRequest
-				if res.isSuccessful() {
-					// TODO
-				} else {
-
-				}
-			}
-
-		}
-	}
+	//for {
+	//	select {
+	//	case <-s.observer.NotifyStartVoting():
+	//
+	//		responses := s.sendVoteRequests()
+	//		for _, res := range responses {
+	//
+	//			// Here we check if peer replied to our voteRequest
+	//			if res.isSuccessful() {
+	//				// TODO
+	//			} else {
+	//
+	//			}
+	//		}
+	//
+	//	}
+	//}
 
 }
 

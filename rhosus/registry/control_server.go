@@ -22,12 +22,11 @@ type ControlServer struct {
 	shutdownCh chan struct{}
 }
 
-func NewControlServer() (*ControlServer, error) {
+func NewControlServer(address string) (*ControlServer, error) {
 	var err error
 
 	s := &ControlServer{}
 
-	address := net.JoinHostPort(s.Config.Host, s.Config.Port)
 	lis, err := net.Listen("tcp", address)
 	if err != nil {
 		logrus.Fatalf("error listening tcp: %v", err)

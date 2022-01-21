@@ -1,10 +1,13 @@
 package registry
 
 import (
+	"fmt"
 	"github.com/parasource/rhosus/rhosus/registry/wal"
+	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/parasource/rhosus/rhosus/util/timers"
 	"github.com/sirupsen/logrus"
 	"math/rand"
+	"net"
 	"time"
 )
 
@@ -14,25 +17,51 @@ type Term struct {
 
 // Observer watches and starts and election if there is no signal within an interval
 type Observer struct {
-	service            *ControlService
+	registry *Registry
+
 	initiateVotingCh   chan struct{}
 	heartbeatTimeoutMs int
 
-	wal *wal.WAL
+	server  *ControlServer
+	service *ControlService
+	wal     *wal.WAL
+
+	readyC chan struct{}
 }
 
-func NewObserver(service *ControlService) *Observer {
-	o := &Observer{
-		service:          service,
-		initiateVotingCh: make(chan struct{}, 1),
-	}
+func NewObserver(registry *Registry) *Observer {
 
-	w, err := wal.Create(".", []byte("aaaa blyaaat"))
+	w, err := wal.Create("rhosuswal", []byte("test wal"))
 	if err != nil {
 		logrus.Fatalf("error creating wal: %v", err)
 		return nil
 	}
-	o.wal = w
+
+	srvPort, err := util.GetFreePort()
+	if err != nil {
+		logrus.Fatalf("error getting free port: %v", err)
+	}
+
+	srvAddress := net.JoinHostPort("localhost", fmt.Sprintf("%v", srvPort))
+	server, err := NewControlServer(srvAddress)
+	if err != nil {
+		logrus.Fatalf("error creating control server: %v", err)
+	}
+	service, err := NewControlService(registry, map[string]ServerAddress{})
+	if err != nil {
+		logrus.Fatalf("error creating control service: %v", err)
+	}
+
+	o := &Observer{
+		initiateVotingCh: make(chan struct{}, 1),
+		registry:         registry,
+
+		wal:     w,
+		server:  server,
+		service: service,
+
+		readyC: make(chan struct{}, 1),
+	}
 
 	return o
 }
