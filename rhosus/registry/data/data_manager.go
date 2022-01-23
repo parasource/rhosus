@@ -68,7 +68,6 @@ func (m *DataManager) AssignBlocks(blocks map[string]*fs_pb.Block) (err error) {
 		if page.HasFreeSpace() {
 			found = true
 
-			// As the method lies in another package, we should use defer for unlocking mu
 			err = func() error {
 				m.mu.Lock()
 				defer m.mu.Unlock()

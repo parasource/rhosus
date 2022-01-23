@@ -2,6 +2,7 @@ package registry
 
 import (
 	"fmt"
+	"github.com/parasource/rhosus/rhosus/pb/wal_pb"
 	"github.com/parasource/rhosus/rhosus/registry/wal"
 	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/parasource/rhosus/rhosus/util/timers"
@@ -50,6 +51,20 @@ func NewObserver(registry *Registry) *Observer {
 	service, err := NewControlService(registry, map[string]ServerAddress{})
 	if err != nil {
 		logrus.Fatalf("error creating control service: %v", err)
+	}
+
+	for i := 0; i < 100; i++ {
+		err = w.Encode(&wal_pb.Log{
+			Type: wal_pb.Log_TYPE_ENTRY,
+			Data: []byte(util.GenerateRandomName(2)),
+		})
+		if err != nil {
+			logrus.Fatalf("error encoding log: %v", err)
+		}
+		err = w.Flush()
+		if err != nil {
+			logrus.Errorf("error flushing log: %v", err)
+		}
 	}
 
 	o := &Observer{

@@ -1,13 +1,13 @@
 package wal
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	"github.com/parasource/rhosus/rhosus/pb/wal_pb"
 	"github.com/parasource/rhosus/rhosus/util/fileutil"
 	"github.com/sirupsen/logrus"
-	"go.uber.org/zap"
 	"io"
 	"os"
 	"path/filepath"
@@ -18,6 +18,13 @@ import (
 
 // A lot of code is brought from etcd source
 //
+
+const (
+
+	// warnSyncDuration is the amount of time allotted to an fsync before
+	// logging a warning
+	warnSyncDuration = time.Second
+)
 
 var (
 	SegmentSizeBytes int64 = 64 * 1000 * 1000
@@ -32,6 +39,7 @@ type WAL struct {
 	lastIndex int64
 	locks     []*fileutil.LockedFile
 
+	encoder   *encoder
 	decoder   *decoder
 	readClose func() error
 
@@ -73,11 +81,25 @@ func Create(dir string, metadata []byte) (*WAL, error) {
 		return nil, err
 	}
 
+	buf := new(bytes.Buffer)
 	w := &WAL{
 		dir:      dir,
 		metadata: metadata,
+
+		decoder: newDecoder(io.NopCloser(buf)),
+	}
+	w.encoder, err = newFileEncoder(f.File, 0)
+	if err != nil {
+		return nil, err
 	}
 	w.locks = append(w.locks, f)
+	if err = w.saveCrc(0); err != nil {
+		return nil, err
+	}
+
+	if err = w.encoder.encode(&wal_pb.Log{Type: wal_pb.Log_TYPE_ENTRY, Data: metadata}); err != nil {
+		return nil, err
+	}
 
 	if w, err = w.renameWAL(tmpdirpath); err != nil {
 		logrus.Fatalf("failed to rename tmp WAL directory: %v", err)
@@ -112,8 +134,16 @@ func Create(dir string, metadata []byte) (*WAL, error) {
 		return nil, err
 	}
 
-	return nil, err
+	return w, nil
 
+}
+
+func (w *WAL) Encode(log *wal_pb.Log) error {
+	return w.encoder.encode(log)
+}
+
+func (w *WAL) Flush() error {
+	return w.encoder.flush()
 }
 
 func (w *WAL) ReadAll() (metadata []byte, entries []control_pb.Entry, err error) {
@@ -196,7 +226,7 @@ func Open(dirpath string, snap wal_pb.Snapshot) (*WAL, error) {
 
 // OpenForRead only opens the wal files for read.
 // Write on a read only wal panics.
-func OpenForRead(lg *zap.Logger, dirpath string, snap wal_pb.Snapshot) (*WAL, error) {
+func OpenForRead(dirpath string, snap wal_pb.Snapshot) (*WAL, error) {
 	return openAtIndex(dirpath, snap, false)
 }
 
@@ -410,4 +440,8 @@ func (w *WAL) sync() error {
 	}
 
 	return err
+}
+
+func (w *WAL) saveCrc(prevCrc uint32) error {
+	return w.encoder.encode(&wal_pb.Log{Type: wal_pb.Log_TYPE_CRC, Crc: prevCrc})
 }

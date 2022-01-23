@@ -8,6 +8,8 @@ message Log {
   enum LogType {
     TYPE_ENTRY = 0;
     TYPE_SNAPSHOT = 1;
+    TYPE_CRC = 2;
+    TYPE_METADATA = 3;
   }
   LogType type = 1;
   uint32 crc = 2;

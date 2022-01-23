@@ -1,11 +1,11 @@
 package wal
 
 import (
+	"encoding/binary"
 	"github.com/parasource/rhosus/rhosus/pb/wal_pb"
 	"github.com/parasource/rhosus/rhosus/util/crc"
 	"github.com/parasource/rhosus/rhosus/util/ioutil"
 	"hash"
-	"hash/crc32"
 	"io"
 	"os"
 	"sync"
@@ -25,7 +25,7 @@ type encoder struct {
 func newEncoder(w io.Writer, prevCrc uint32, pageOffset int) *encoder {
 	return &encoder{
 		bw:  ioutil.NewPageWriter(w, walPageBytes, pageOffset),
-		crc: crc.New(prevCrc, &crc32.Table{}),
+		crc: crc.New(prevCrc, crcTable),
 		// 1MB buffer
 		buf:       make([]byte, 1024*1024),
 		uint64buf: make([]byte, 8),
@@ -47,6 +47,7 @@ func (e *encoder) encode(rec *wal_pb.Log) error {
 
 	e.crc.Write(rec.Data)
 	rec.Crc = e.crc.Sum32()
+
 	var (
 		data []byte
 		err  error
@@ -75,7 +76,6 @@ func (e *encoder) encode(rec *wal_pb.Log) error {
 		data = append(data, make([]byte, padBytes)...)
 	}
 	n, err = e.bw.Write(data)
-	//walWriteBytes.Add(float64(n))
 	return err
 }
 
@@ -90,19 +90,15 @@ func encodeFrameSize(dataBytes int) (lenField uint64, padBytes int) {
 }
 
 func (e *encoder) flush() error {
-	//e.mu.Lock()
-	//n, err := e.bw.FlushN()
-	//e.mu.Unlock()
-	//walWriteBytes.Add(float64(n))
-	//return err
-	return nil
+	e.mu.Lock()
+	_, err := e.bw.FlushN()
+	e.mu.Unlock()
+	return err
 }
 
 func writeUint64(w io.Writer, n uint64, buf []byte) error {
 	// http://golang.org/src/encoding/binary/binary.go
-	//binary.LittleEndian.PutUint64(buf, n)
-	//nv, err := w.Write(buf)
-	//walWriteBytes.Add(float64(nv))
-	//return err
-	return nil
+	binary.LittleEndian.PutUint64(buf, n)
+	_, err := w.Write(buf)
+	return err
 }

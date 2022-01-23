@@ -37,7 +37,6 @@ type Registry struct {
 	Storage  RegistryStorage
 	IsLeader bool
 
-	RegistriesMap  *RegistriesMap
 	NodesMap       *NodesMap
 	FileServer     *file_server.Server
 	StatsCollector *StatsCollector
@@ -70,9 +69,6 @@ func NewRegistry(config RegistryConfig) (*Registry, error) {
 		logrus.Fatalf("error creating etcd storage: %v", err)
 	}
 	r.Storage = storage
-
-	rMap := NewRegistriesMap()
-	r.RegistriesMap = rMap
 
 	nMap := NewNodesMap(r)
 	r.NodesMap = nMap
@@ -111,8 +107,6 @@ func NewRegistry(config RegistryConfig) (*Registry, error) {
 func (r *Registry) Start() {
 
 	var err error
-
-	go r.RegistriesMap.RunCleaning()
 
 	go r.FileServer.RunHTTP()
 
@@ -305,7 +299,7 @@ func (r *Registry) loadExistingRegistries() error {
 			continue
 		}
 
-		err = r.RegistriesMap.Add(name, &info)
+		//err = r.RegistriesMap.Add(name, &info)
 		if err != nil {
 			logrus.Errorf("error adding registry to map: %v", err)
 			continue
@@ -418,14 +412,14 @@ func (r *Registry) RunServiceDiscovery() {
 						logrus.Errorf("error unmarshaling registry info: %v", err)
 					}
 
-					if r.RegistriesMap.RegistryExists(name) {
-
-					} else {
-						err := r.RegistriesMap.Add(name, &info)
-						if err != nil {
-							logrus.Errorf("error adding new registry: %v", err)
-						}
-					}
+					//if r.RegistriesMap.RegistryExists(name) {
+					//
+					//} else {
+					//	err := r.RegistriesMap.Add(name, &info)
+					//	if err != nil {
+					//		logrus.Errorf("error adding new registry: %v", err)
+					//	}
+					//}
 
 				case clientv3.EventTypeDelete:
 
@@ -435,14 +429,14 @@ func (r *Registry) RunServiceDiscovery() {
 						continue
 					}
 
-					if r.RegistriesMap.RegistryExists(name) {
-						err := r.RegistriesMap.Remove(name)
-						if err != nil {
-							logrus.Errorf("error removing registry: %v", err)
-						}
-					} else {
-						logrus.Warn("undefined registry deletion signal")
-					}
+					//if r.RegistriesMap.RegistryExists(name) {
+					//	err := r.RegistriesMap.Remove(name)
+					//	if err != nil {
+					//		logrus.Errorf("error removing registry: %v", err)
+					//	}
+					//} else {
+					//	logrus.Warn("undefined registry deletion signal")
+					//}
 
 				}
 			}

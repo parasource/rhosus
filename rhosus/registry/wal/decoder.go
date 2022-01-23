@@ -17,6 +17,10 @@ const minSectorSize = 512
 // frameSizeBytes is frame size in bytes, including record size and padding size.
 const frameSizeBytes = 8
 
+var (
+	crcTable = crc32.MakeTable(crc32.Castagnoli)
+)
+
 type decoder struct {
 	mu  sync.Mutex
 	brs []*bufio.Reader
@@ -33,7 +37,7 @@ func newDecoder(r ...io.Reader) *decoder {
 	}
 	return &decoder{
 		brs: readers,
-		crc: crc.New(0, &crc32.Table{}),
+		crc: crc.New(0, crcTable),
 	}
 }
 
@@ -84,15 +88,15 @@ func (d *decoder) decodeLog(log *wal_pb.Log) error {
 		return err
 	}
 
-	//if log.Type != crcType {
-	//	d.crc.Write(log.Data)
-	//	if log.Crc != d.crc.Sum32() {
-	//		if d.isTornEntry(data) {
-	//			return io.ErrUnexpectedEOF
-	//		}
-	//		return err
-	//	}
-	//}
+	if log.Type != wal_pb.Log_TYPE_CRC {
+		d.crc.Write(log.Data)
+		if log.Crc != d.crc.Sum32() {
+			if d.isTornEntry(data) {
+				return io.ErrUnexpectedEOF
+			}
+			return err
+		}
+	}
 	// record decoded as valid; point last valid offset to end of record
 	d.lastValidOff += frameSizeBytes + recBytes + padBytes
 	return nil
