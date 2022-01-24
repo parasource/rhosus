@@ -32,7 +32,7 @@ type Observer struct {
 
 func NewObserver(registry *Registry) *Observer {
 
-	w, err := wal.Create("rhosuswal", []byte("test wal"))
+	w, err := wal.Create("rhosuswal", nil)
 	if err != nil {
 		logrus.Fatalf("error creating wal: %v", err)
 		return nil
@@ -53,19 +53,43 @@ func NewObserver(registry *Registry) *Observer {
 		logrus.Fatalf("error creating control service: %v", err)
 	}
 
-	for i := 0; i < 100; i++ {
-		err = w.Encode(&wal_pb.Log{
-			Type: wal_pb.Log_TYPE_ENTRY,
-			Data: []byte(util.GenerateRandomName(2)),
-		})
-		if err != nil {
-			logrus.Fatalf("error encoding log: %v", err)
-		}
-		err = w.Flush()
-		if err != nil {
-			logrus.Errorf("error flushing log: %v", err)
-		}
+	//logs := make(map[uint64][]byte)
+	//for i := 101; i < 1000000; i++ {
+	//	log := &wal_pb.Log{
+	//		Type:  wal_pb.Log_TYPE_ENTRY,
+	//		Crc:   0,
+	//		Data:  []byte(util.GenerateRandomName(3)),
+	//	}
+	//	bytes, err := log.Marshal()
+	//	if err != nil {
+	//		logrus.Fatalf("error marshaling: %v", err)
+	//	}
+	//
+	//	logs[uint64(i)] = bytes
+	//}
+
+	//err = w.WriteBatch(logs)
+	//if err != nil {
+	//	panic(err)
+	//}
+	//
+	//err = w.Sync()
+	//if err != nil {
+	//	logrus.Errorf("error flushing log: %v", err)
+	//}
+
+	bytes, err := w.Read(700001)
+	if err != nil {
+		logrus.Fatalf("error reading entry: %v", err)
 	}
+
+	var log wal_pb.Log
+	err = log.Unmarshal(bytes)
+	if err != nil {
+		logrus.Fatalf("error unmarshaling entry: %v", err)
+	}
+
+	logrus.Infof("entry: %v", string(log.Data))
 
 	o := &Observer{
 		initiateVotingCh: make(chan struct{}, 1),

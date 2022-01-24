@@ -1,447 +1,875 @@
 package wal
 
 import (
-	"bytes"
+	"encoding/base64"
+	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
-	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
-	"github.com/parasource/rhosus/rhosus/pb/wal_pb"
-	"github.com/parasource/rhosus/rhosus/util/fileutil"
-	"github.com/sirupsen/logrus"
-	"io"
+	"github.com/tidwall/tinylru"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
-	"time"
-)
-
-// A lot of code is brought from etcd source
-//
-
-const (
-
-	// warnSyncDuration is the amount of time allotted to an fsync before
-	// logging a warning
-	warnSyncDuration = time.Second
+	"unicode/utf8"
+	"unsafe"
 )
 
 var (
-	SegmentSizeBytes int64 = 64 * 1000 * 1000
+	// ErrCorrupt is returns when the log is corrupt.
+	ErrCorrupt = errors.New("log corrupt")
+
+	// ErrClosed is returned when an operation cannot be completed because
+	// the log is closed.
+	ErrClosed = errors.New("log closed")
+
+	// ErrNotFound is returned when an entry is not found.
+	ErrNotFound = errors.New("not found")
+
+	// ErrOutOfOrder is returned from Write() when the index is not equal to
+	// LastIndex()+1. It's required that log monotonically grows by one and has
+	// no gaps. Thus, the series 10,11,12,13,14 is valid, but 10,11,13,14 is
+	// not because there's a gap between 11 and 13. Also, 10,12,11,13 is not
+	// valid because 12 and 11 are out of order.
+	ErrOutOfOrder = errors.New("out of order")
+
+	// ErrOutOfRange is returned from TruncateFront() and TruncateBack() when
+	// the index not in the range of the log's first and last index. Or, this
+	// may be returned when the caller is attempting to remove *all* entries;
+	// The log requires that at least one entry exists following a truncate.
+	ErrOutOfRange = errors.New("out of range")
 )
 
+// Options for WAL
+type Options struct {
+	// NoSync disables fsync after writes. This is less durable and puts the
+	// log at risk of data loss when there's a server crash.
+	NoSync bool
+	// SegmentSize of each segment. This is just a target value, actual size
+	// may differ. Default is 20 MB.
+	SegmentSize int
+	// SegmentCacheSize is the maximum number of segments that will be held in
+	// memory for caching. Increasing this value may enhance performance for
+	// concurrent read operations. Default is 1
+	SegmentCacheSize int
+	// NoCopy allows for the Read() operation to return the raw underlying data
+	// slice. This is an optimization to help minimize allocations. When this
+	// option is set, do not modify the returned data because it may affect
+	// other Read calls. Default false
+	NoCopy bool
+	// Perms represents the datafiles modes and permission bits
+	DirPerms  os.FileMode
+	FilePerms os.FileMode
+}
+
+// DefaultOptions for Open().
+var DefaultOptions = &Options{
+	NoSync:           false,            // Fsync after every write
+	SegmentSize:      10 * 1024 * 1024, // 20 MB log segment files.
+	SegmentCacheSize: 2,                // Number of cached in-memory segments
+	NoCopy:           false,            // Make a new copy of data for every Read call.
+	DirPerms:         0750,             // Permissions for the created directories
+	FilePerms:        0640,             // Permissions for the created data files
+}
+
+// WAL represents a write ahead log
 type WAL struct {
-	dir     string
-	dirFile *os.File
-
-	metadata  []byte
-	start     *wal_pb.Snapshot
-	lastIndex int64
-	locks     []*fileutil.LockedFile
-
-	encoder   *encoder
-	decoder   *decoder
-	readClose func() error
-
-	fp *filePipeline
-
-	mu sync.RWMutex
+	mu         sync.RWMutex
+	path       string      // absolute path to log directory
+	opts       Options     // log options
+	closed     bool        // log is closed
+	corrupt    bool        // log may be corrupt
+	segments   []*segment  // all known log segments
+	firstIndex uint64      // index of the first entry in log
+	lastIndex  uint64      // index of the last entry in log
+	sfile      *os.File    // tail segment file handle
+	wbatch     Batch       // reusable write batch
+	scache     tinylru.LRU // segment entries cache
 }
 
-// Create creates wal instance
-func Create(dir string, metadata []byte) (*WAL, error) {
-
-	if dirExists(dir) {
-		return nil, errors.New("wal dir already exists")
-	}
-
-	tmpdirpath := filepath.Clean(dir) + ".tmp"
-	if fileutil.Exist(tmpdirpath) {
-		if err := os.RemoveAll(tmpdirpath); err != nil {
-			return nil, err
-		}
-	}
-	defer os.RemoveAll(tmpdirpath)
-
-	if err := fileutil.CreateDirAll(tmpdirpath); err != nil {
-		return nil, err
-	}
-
-	p := filepath.Join(tmpdirpath, walName(0, 0))
-	f, err := fileutil.LockFile(p, os.O_WRONLY|os.O_CREATE, fileutil.PrivateFileMode)
-	if err != nil {
-		return nil, err
-	}
-
-	if _, err = f.Seek(0, io.SeekEnd); err != nil {
-		return nil, err
-	}
-
-	if err = fileutil.Preallocate(f.File, SegmentSizeBytes, true); err != nil {
-		return nil, err
-	}
-
-	buf := new(bytes.Buffer)
-	w := &WAL{
-		dir:      dir,
-		metadata: metadata,
-
-		decoder: newDecoder(io.NopCloser(buf)),
-	}
-	w.encoder, err = newFileEncoder(f.File, 0)
-	if err != nil {
-		return nil, err
-	}
-	w.locks = append(w.locks, f)
-	if err = w.saveCrc(0); err != nil {
-		return nil, err
-	}
-
-	if err = w.encoder.encode(&wal_pb.Log{Type: wal_pb.Log_TYPE_ENTRY, Data: metadata}); err != nil {
-		return nil, err
-	}
-
-	if w, err = w.renameWAL(tmpdirpath); err != nil {
-		logrus.Fatalf("failed to rename tmp WAL directory: %v", err)
-		return nil, err
-	}
-
-	var perr error
-	defer func() {
-		if perr != nil {
-			w.cleanupWAL()
-		}
-	}()
-
-	pdir, perr := fileutil.OpenDir(filepath.Dir(w.dir))
-	if perr != nil {
-		logrus.Fatalf("failed to open parent data dir: %v", err)
-		return nil, perr
-	}
-	dirCloser := func() error {
-		if perr = pdir.Close(); perr != nil {
-			logrus.Errorf("failed to close parent data dir: %v", err)
-			return perr
-		}
-		return nil
-	}
-	if perr = fileutil.Fsync(pdir); perr != nil {
-		dirCloser()
-		logrus.Fatalf("failed to sync parent data dir: %v", err)
-		return nil, perr
-	}
-	if err = dirCloser(); err != nil {
-		return nil, err
-	}
-
-	return w, nil
-
+// segment represents a single segment file.
+type segment struct {
+	path  string // path of segment file
+	index uint64 // first index of segment
+	ebuf  []byte // cached entries buffer
+	epos  []bpos // cached entries positions in buffer
 }
 
-func (w *WAL) Encode(log *wal_pb.Log) error {
-	return w.encoder.encode(log)
+type bpos struct {
+	pos int // byte position
+	end int // one byte past pos
 }
 
-func (w *WAL) Flush() error {
-	return w.encoder.flush()
-}
-
-func (w *WAL) ReadAll() (metadata []byte, entries []control_pb.Entry, err error) {
-
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
-	log := &wal_pb.Log{}
-
-	if w.decoder == nil {
-		return nil, nil, errors.New("decoder not found")
+// Create a new write ahead log
+func Create(path string, opts *Options) (*WAL, error) {
+	if opts == nil {
+		opts = DefaultOptions
 	}
-	decoder := w.decoder
-
-	var match bool
-	for err = decoder.decode(log); err == nil; err = decoder.decode(log) {
-		switch log.Type {
-		case wal_pb.Log_TYPE_ENTRY:
-
-			var e control_pb.Entry
-			err = e.Unmarshal(log.Data)
-			if err != nil {
-				// todo: this should never happen
-				return nil, nil, errors.New("error unmarshaling")
-			}
-
-			if e.Index > w.start.Index {
-				// prevent "panic: runtime error: slice bounds out of range [:13038096702221461992] with capacity 0"
-				up := e.Index - w.start.Index - 1
-				if up > int64(len(entries)) {
-					// return error before append call causes runtime panic
-					return nil, nil, errors.New("slice out of range")
-				}
-				// The line below is potentially overriding some 'uncommitted' entries.
-				entries = append(entries[:up], e)
-			}
-			w.lastIndex = e.Index
-
-		case wal_pb.Log_TYPE_SNAPSHOT:
-
-			var snap wal_pb.Snapshot
-			err := snap.Unmarshal(log.Data)
-			if err != nil {
-				// todo: this should never happen
-				return nil, nil, errors.New("error unmarshaling")
-			}
-
-			if snap.Index == w.start.Index {
-				if snap.Term != w.start.Term {
-					return nil, nil, errors.New("snapshot mismatch")
-				}
-				match = true
-			}
-
-		}
+	if opts.SegmentCacheSize <= 0 {
+		opts.SegmentCacheSize = DefaultOptions.SegmentCacheSize
+	}
+	if opts.SegmentSize <= 0 {
+		opts.SegmentSize = DefaultOptions.SegmentSize
+	}
+	if opts.DirPerms == 0 {
+		opts.DirPerms = DefaultOptions.DirPerms
+	}
+	if opts.FilePerms == 0 {
+		opts.FilePerms = DefaultOptions.FilePerms
 	}
 
-	err = nil
-	if !match {
-		err = errors.New("snapshot not found")
-	}
-
-	w.start = &wal_pb.Snapshot{}
-	w.metadata = metadata
-
-	return metadata, entries, err
-
-}
-
-func Open(dirpath string, snap wal_pb.Snapshot) (*WAL, error) {
-	w, err := openAtIndex(dirpath, snap, true)
-	if err != nil {
-		return nil, err
-	}
-	if w.dirFile, err = fileutil.OpenDir(w.dir); err != nil {
-		return nil, err
-	}
-	return w, nil
-}
-
-// OpenForRead only opens the wal files for read.
-// Write on a read only wal panics.
-func OpenForRead(dirpath string, snap wal_pb.Snapshot) (*WAL, error) {
-	return openAtIndex(dirpath, snap, false)
-}
-
-func openAtIndex(dirpath string, snap wal_pb.Snapshot, write bool) (*WAL, error) {
-
-	names, nameIndex, err := selectWALFiles(dirpath, snap)
-	if err != nil {
-		return nil, err
-	}
-
-	rs, ls, closer, err := openWALFiles(dirpath, names, nameIndex, write)
-	if err != nil {
-		return nil, err
-	}
-
-	// create a WAL ready for reading
-	w := &WAL{
-		dir:       dirpath,
-		start:     &snap,
-		decoder:   newDecoder(rs...),
-		readClose: closer,
-		locks:     ls,
-	}
-
-	if write {
-		// write reuses the file descriptors from read; don't close so
-		// WAL can append without dropping the file lock
-		w.readClose = nil
-		if _, _, err := parseWALName(filepath.Base(w.tail().Name())); err != nil {
-			closer()
-			return nil, err
-		}
-	}
-
-	return w, nil
-}
-
-func selectWALFiles(dirpath string, snap wal_pb.Snapshot) ([]string, int, error) {
-	names, err := readWALNames(dirpath)
-	if err != nil {
-		return nil, -1, err
-	}
-
-	nameIndex, ok := searchIndex(names, snap.Index)
-	if !ok || !isValidSeq(names[nameIndex:]) {
-		err = errors.New("file not found")
-		return nil, -1, err
-	}
-
-	return names, nameIndex, nil
-}
-
-func openWALFiles(dirpath string, names []string, nameIndex int, write bool) ([]io.Reader, []*fileutil.LockedFile, func() error, error) {
-
-	rcs := make([]io.ReadCloser, 0)
-	rs := make([]io.Reader, 0)
-	ls := make([]*fileutil.LockedFile, 0)
-	for _, name := range names[nameIndex:] {
-		p := filepath.Join(dirpath, name)
-		if write {
-			l, err := fileutil.TryLockFile(p, os.O_RDWR, fileutil.PrivateFileMode)
-			if err != nil {
-				closeAll(rcs...)
-				return nil, nil, nil, err
-			}
-			ls = append(ls, l)
-			rcs = append(rcs, l)
-		} else {
-			rf, err := os.OpenFile(p, os.O_RDONLY, fileutil.PrivateFileMode)
-			if err != nil {
-				closeAll(rcs...)
-				return nil, nil, nil, err
-			}
-			ls = append(ls, nil)
-			rcs = append(rcs, rf)
-		}
-		rs = append(rs, rcs[len(rcs)-1])
-	}
-
-	closer := func() error { return closeAll(rcs...) }
-
-	return rs, ls, closer, nil
-}
-
-func (w *WAL) cleanupWAL() {
 	var err error
-	if err = w.Close(); err != nil {
-		logrus.Fatalf("failed to close WAL during cleanup: %v", err)
+	path, err = abs(path)
+	if err != nil {
+		return nil, err
 	}
-	brokenDirName := fmt.Sprintf("%s.broken.%v", w.dir, time.Now().Format("20060102.150405.999999"))
-	if err = os.Rename(w.dir, brokenDirName); err != nil {
-		logrus.Fatalf("failed to rename WAL during cleanup: %v", err)
+	l := &WAL{path: path, opts: *opts}
+	l.scache.Resize(l.opts.SegmentCacheSize)
+	if err := os.MkdirAll(path, l.opts.DirPerms); err != nil {
+		return nil, err
+	}
+	if err := l.load(); err != nil {
+		return nil, err
+	}
+	return l, nil
+}
+
+func abs(path string) (string, error) {
+	if path == ":memory:" {
+		return "", errors.New("in-memory log not supported")
+	}
+	return filepath.Abs(path)
+}
+
+func (w *WAL) pushCache(segIdx int) {
+	_, _, _, v, evicted :=
+		w.scache.SetEvicted(segIdx, w.segments[segIdx])
+	if evicted {
+		s := v.(*segment)
+		s.ebuf = nil
+		s.epos = nil
 	}
 }
 
-func (w *WAL) renameWAL(tmpdirpath string) (*WAL, error) {
-	if err := os.RemoveAll(w.dir); err != nil {
-		return nil, err
+// load all the segments. This operation also cleans up any START/END segments.
+func (w *WAL) load() error {
+	fis, err := ioutil.ReadDir(w.path)
+	if err != nil {
+		return err
 	}
-	// On non-Windows platforms, hold the lock while renaming. Releasing
-	// the lock and trying to reacquire it quickly can be flaky because
-	// it's possible the process will fork to spawn a process while this is
-	// happening. The fds are set up as close-on-exec by the Go runtime,
-	// but there is a window between the fork and the exec where another
-	// process holds the lock.
-	if err := os.Rename(tmpdirpath, w.dir); err != nil {
-		if _, ok := err.(*os.LinkError); ok {
-			return w.renameWALUnlock(tmpdirpath)
+	startIdx := -1
+	endIdx := -1
+	for _, fi := range fis {
+		name := fi.Name()
+		if fi.IsDir() || len(name) < 20 {
+			continue
 		}
-		return nil, err
+		index, err := strconv.ParseUint(name[:20], 10, 64)
+		if err != nil || index == 0 {
+			continue
+		}
+		isStart := len(name) == 26 && strings.HasSuffix(name, ".START")
+		isEnd := len(name) == 24 && strings.HasSuffix(name, ".END")
+		if len(name) == 20 || isStart || isEnd {
+			if isStart {
+				startIdx = len(w.segments)
+			} else if isEnd && endIdx == -1 {
+				endIdx = len(w.segments)
+			}
+			w.segments = append(w.segments, &segment{
+				index: index,
+				path:  filepath.Join(w.path, name),
+			})
+		}
 	}
-	w.fp = newFilePipeline(w.dir, SegmentSizeBytes)
-	df, err := fileutil.OpenDir(w.dir)
-	w.dirFile = df
-	return w, err
+	if len(w.segments) == 0 {
+		// Create a new log
+		w.segments = append(w.segments, &segment{
+			index: 1,
+			path:  filepath.Join(w.path, segmentName(1)),
+		})
+		w.firstIndex = 1
+		w.lastIndex = 0
+		w.sfile, err = os.OpenFile(w.segments[0].path, os.O_CREATE|os.O_RDWR|os.O_TRUNC, w.opts.FilePerms)
+		return err
+	}
+	// Open existing log. Clean up log if START of END segments exists.
+	if startIdx != -1 {
+		if endIdx != -1 {
+			// There should not be a START and END at the same time
+			return ErrCorrupt
+		}
+		// Delete all files leading up to START
+		for i := 0; i < startIdx; i++ {
+			if err := os.Remove(w.segments[i].path); err != nil {
+				return err
+			}
+		}
+		w.segments = append([]*segment{}, w.segments[startIdx:]...)
+		// Rename the START segment
+		orgPath := w.segments[0].path
+		finalPath := orgPath[:len(orgPath)-len(".START")]
+		err := os.Rename(orgPath, finalPath)
+		if err != nil {
+			return err
+		}
+		w.segments[0].path = finalPath
+	}
+	if endIdx != -1 {
+		// Delete all files following END
+		for i := len(w.segments) - 1; i > endIdx; i-- {
+			if err := os.Remove(w.segments[i].path); err != nil {
+				return err
+			}
+		}
+		w.segments = append([]*segment{}, w.segments[:endIdx+1]...)
+		if len(w.segments) > 1 && w.segments[len(w.segments)-2].index ==
+			w.segments[len(w.segments)-1].index {
+			// remove the segment prior to the END segment because it shares
+			// the same starting index.
+			w.segments[len(w.segments)-2] = w.segments[len(w.segments)-1]
+			w.segments = w.segments[:len(w.segments)-1]
+		}
+		// Rename the END segment
+		orgPath := w.segments[len(w.segments)-1].path
+		finalPath := orgPath[:len(orgPath)-len(".END")]
+		err := os.Rename(orgPath, finalPath)
+		if err != nil {
+			return err
+		}
+		w.segments[len(w.segments)-1].path = finalPath
+	}
+	w.firstIndex = w.segments[0].index
+	// Open the last segment for appending
+	lseg := w.segments[len(w.segments)-1]
+	w.sfile, err = os.OpenFile(lseg.path, os.O_WRONLY, w.opts.FilePerms)
+	if err != nil {
+		return err
+	}
+	if _, err := w.sfile.Seek(0, 2); err != nil {
+		return err
+	}
+	// Load the last segment entries
+	if err := w.loadSegmentEntries(lseg); err != nil {
+		return err
+	}
+	w.lastIndex = lseg.index + uint64(len(lseg.epos)) - 1
+	return nil
 }
 
-func (w *WAL) renameWALUnlock(tmpdirpath string) (*WAL, error) {
-	// rename of directory with locked files doesn't work on windows/cifs;
-	// close the WAL to release the locks so the directory can be renamed.
-
-	w.Close()
-
-	if err := os.Rename(tmpdirpath, w.dir); err != nil {
-		return nil, err
-	}
-
-	// reopen and relock
-	newWAL, oerr := Open(w.dir, wal_pb.Snapshot{})
-	if oerr != nil {
-		return nil, oerr
-	}
-	if _, _, err := newWAL.ReadAll(); err != nil {
-		newWAL.Close()
-		return nil, err
-	}
-	return newWAL, nil
+// segmentName returns a 20-byte textual representation of an index
+// for lexical ordering. This is used for the file names of log segments.
+func segmentName(index uint64) string {
+	return fmt.Sprintf("%020d", index)
 }
 
+// Close the log.
 func (w *WAL) Close() error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-
-	//if w.fp != nil {
-	//	w.fp.Close()
-	//	w.fp = nil
-	//}
-
-	if w.tail() != nil {
-		if err := w.sync(); err != nil {
-			return err
+	if w.closed {
+		if w.corrupt {
+			return ErrCorrupt
 		}
+		return ErrClosed
 	}
-	for _, l := range w.locks {
-		if l == nil {
-			continue
-		}
-		if err := l.Close(); err != nil {
-			//w.lg.Error("failed to close WAL", zap.Error(err))
-		}
+	if err := w.sfile.Sync(); err != nil {
+		return err
 	}
-
-	return w.dirFile.Close()
-}
-
-func closeAll(rcs ...io.ReadCloser) error {
-	stringArr := make([]string, 0)
-	for _, f := range rcs {
-		if err := f.Close(); err != nil {
-			stringArr = append(stringArr, err.Error())
-		}
+	if err := w.sfile.Close(); err != nil {
+		return err
 	}
-	if len(stringArr) == 0 {
-		return nil
-	}
-	return errors.New(strings.Join(stringArr, ", "))
-}
-
-func (w *WAL) tail() *fileutil.LockedFile {
-	if len(w.locks) > 0 {
-		return w.locks[len(w.locks)-1]
+	w.closed = true
+	if w.corrupt {
+		return ErrCorrupt
 	}
 	return nil
 }
 
-func (w *WAL) seq() int64 {
-	t := w.tail()
-	if t == nil {
-		return 0
+// Write an entry to the log.
+func (w *WAL) Write(index uint64, data []byte) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.corrupt {
+		return ErrCorrupt
+	} else if w.closed {
+		return ErrClosed
 	}
-	seq, _, err := parseWALName(filepath.Base(t.Name()))
-	if err != nil {
-		logrus.Errorf("failed to parse wal name")
-	}
-	return seq
+	w.wbatch.Clear()
+	w.wbatch.Write(index, data)
+	return w.writeBatch(&w.wbatch)
 }
 
-func (w *WAL) sync() error {
-	//if w.encoder != nil {
-	//	if err := w.encoder.flush(); err != nil {
+func (w *WAL) WriteBatch(data map[uint64][]byte) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.corrupt {
+		return ErrCorrupt
+	} else if w.closed {
+		return ErrClosed
+	}
+
+	for index, data := range data {
+		w.wbatch.Clear()
+		w.wbatch.Write(index, data)
+		w.writeBatch(&w.wbatch)
+	}
+
+	return nil
+}
+
+func (w *WAL) appendEntry(dst []byte, index uint64, data []byte) (out []byte, epos bpos) {
+	return appendBinaryEntry(dst, data)
+}
+
+// Cycle the old segment for a new segment.
+func (w *WAL) cycle() error {
+	if err := w.sfile.Sync(); err != nil {
+		return err
+	}
+	if err := w.sfile.Close(); err != nil {
+		return err
+	}
+	// cache the previous segment
+	w.pushCache(len(w.segments) - 1)
+	s := &segment{
+		index: w.lastIndex + 1,
+		path:  filepath.Join(w.path, segmentName(w.lastIndex+1)),
+	}
+	var err error
+	w.sfile, err = os.OpenFile(s.path, os.O_CREATE|os.O_RDWR|os.O_TRUNC, w.opts.FilePerms)
+	if err != nil {
+		return err
+	}
+	w.segments = append(w.segments, s)
+	return nil
+}
+
+func appendJSONEntry(dst []byte, index uint64, data []byte) (out []byte,
+	epos bpos) {
+	// {"index":number,"data":string}
+	mark := len(dst)
+	dst = append(dst, `{"index":"`...)
+	dst = strconv.AppendUint(dst, index, 10)
+	dst = append(dst, `","data":`...)
+	dst = appendJSONData(dst, data)
+	dst = append(dst, '}', '\n')
+	return dst, bpos{mark, len(dst)}
+}
+
+func appendJSONData(dst []byte, s []byte) []byte {
+	if utf8.Valid(s) {
+		b, _ := json.Marshal(*(*string)(unsafe.Pointer(&s)))
+		dst = append(dst, '"', '+')
+		return append(dst, b[1:]...)
+	}
+	dst = append(dst, '"', '$')
+	dst = append(dst, base64.URLEncoding.EncodeToString(s)...)
+	return append(dst, '"')
+}
+
+func appendBinaryEntry(dst []byte, data []byte) (out []byte, epos bpos) {
+	// data_size + data
+	pos := len(dst)
+	dst = appendUvarint(dst, uint64(len(data)))
+	dst = append(dst, data...)
+	return dst, bpos{pos, len(dst)}
+}
+
+func appendUvarint(dst []byte, x uint64) []byte {
+	var buf [10]byte
+	n := binary.PutUvarint(buf[:], x)
+	dst = append(dst, buf[:n]...)
+	return dst
+}
+
+// Batch of entries. Used to write multiple entries at once using WriteBatch().
+type Batch struct {
+	entries []batchEntry
+	datas   []byte
+}
+
+type batchEntry struct {
+	index uint64
+	size  int
+}
+
+// Write an entry to the batch
+func (b *Batch) Write(index uint64, data []byte) {
+	b.entries = append(b.entries, batchEntry{index, len(data)})
+	b.datas = append(b.datas, data...)
+}
+
+// Clear the batch for reuse.
+func (b *Batch) Clear() {
+	b.entries = b.entries[:0]
+	b.datas = b.datas[:0]
+}
+
+// WriteBatch writes the entries in the batch to the log in the order that they
+// were added to the batch. The batch is cleared upon a successful return.
+//func (w *WAL) WriteBatch(b *Batch) error {
+//	w.mu.Lock()
+//	defer w.mu.Unlock()
+//	if w.corrupt {
+//		return ErrCorrupt
+//	} else if w.closed {
+//		return ErrClosed
+//	}
+//	if len(b.entries) == 0 {
+//		return nil
+//	}
+//	return w.writeBatch(b)
+//}
+
+func (w *WAL) writeBatch(b *Batch) error {
+	// check that all indexes in batch are sane
+	//for i := 0; i < len(b.entries); i++ {
+	//	if b.entries[i].index != w.lastIndex+uint64(i+1) {
+	//		return ErrOutOfOrder
+	//	}
+	//}
+	// load the tail segment
+	s := w.segments[len(w.segments)-1]
+	if len(s.ebuf) > w.opts.SegmentSize {
+		// tail segment has reached capacity. Close it and create a new one.
+		if err := w.cycle(); err != nil {
+			return err
+		}
+		s = w.segments[len(w.segments)-1]
+	}
+
+	mark := len(s.ebuf)
+	datas := b.datas
+	for i := 0; i < len(b.entries); i++ {
+		data := datas[:b.entries[i].size]
+		var epos bpos
+		s.ebuf, epos = w.appendEntry(s.ebuf, b.entries[i].index, data)
+		s.epos = append(s.epos, epos)
+		if len(s.ebuf) >= w.opts.SegmentSize {
+			// segment has reached capacity, cycle now
+			if _, err := w.sfile.Write(s.ebuf[mark:]); err != nil {
+				return err
+			}
+			w.lastIndex = b.entries[i].index
+			if err := w.cycle(); err != nil {
+				return err
+			}
+			s = w.segments[len(w.segments)-1]
+			mark = 0
+		}
+		datas = datas[b.entries[i].size:]
+	}
+	if len(s.ebuf)-mark > 0 {
+		if _, err := w.sfile.Write(s.ebuf[mark:]); err != nil {
+			return err
+		}
+		w.lastIndex = b.entries[len(b.entries)-1].index
+	}
+	//if !w.opts.NoSync {
+	//	if err := w.sfile.Sync(); err != nil {
 	//		return err
 	//	}
 	//}
-
-	start := time.Now()
-	err := fileutil.Fdatasync(w.tail().File)
-
-	took := time.Since(start)
-	if took > 5 {
-		//	TODO: log slow datasync
-	}
-
-	return err
+	b.Clear()
+	return nil
 }
 
-func (w *WAL) saveCrc(prevCrc uint32) error {
-	return w.encoder.encode(&wal_pb.Log{Type: wal_pb.Log_TYPE_CRC, Crc: prevCrc})
+// FirstIndex returns the index of the first entry in the log. Returns zero
+// when log has no entries.
+func (w *WAL) FirstIndex() (index uint64, err error) {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	if w.corrupt {
+		return 0, ErrCorrupt
+	} else if w.closed {
+		return 0, ErrClosed
+	}
+	// We check the lastIndex for zero because the firstIndex is always one or
+	// more, even when there's no entries
+	if w.lastIndex == 0 {
+		return 0, nil
+	}
+	return w.firstIndex, nil
+}
+
+// LastIndex returns the index of the last entry in the log. Returns zero when
+// log has no entries.
+func (w *WAL) LastIndex() (index uint64, err error) {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	if w.corrupt {
+		return 0, ErrCorrupt
+	} else if w.closed {
+		return 0, ErrClosed
+	}
+	if w.lastIndex == 0 {
+		return 0, nil
+	}
+	return w.lastIndex, nil
+}
+
+// findSegment performs a bsearch on the segments
+func (w *WAL) findSegment(index uint64) int {
+	i, j := 0, len(w.segments)
+	for i < j {
+		h := i + (j-i)/2
+		if index >= w.segments[h].index {
+			i = h + 1
+		} else {
+			j = h
+		}
+	}
+	return i - 1
+}
+
+func (w *WAL) loadSegmentEntries(s *segment) error {
+	data, err := ioutil.ReadFile(s.path)
+	if err != nil {
+		return err
+	}
+	ebuf := data
+	var epos []bpos
+	var pos int
+	for exidx := s.index; len(data) > 0; exidx++ {
+		var n int
+
+		n, err = loadNextBinaryEntry(data)
+
+		if err != nil {
+			return err
+		}
+		data = data[n:]
+		epos = append(epos, bpos{pos, pos + n})
+		pos += n
+	}
+	s.ebuf = ebuf
+	s.epos = epos
+	return nil
+}
+
+func loadNextBinaryEntry(data []byte) (n int, err error) {
+	// data_size + data
+	size, n := binary.Uvarint(data)
+	if n <= 0 {
+		return 0, ErrCorrupt
+	}
+	if uint64(len(data)-n) < size {
+		return 0, ErrCorrupt
+	}
+	return n + int(size), nil
+}
+
+// loadSegment loads the segment entries into memory, pushes it to the front
+// of the lru cache, and returns it.
+func (w *WAL) loadSegment(index uint64) (*segment, error) {
+	// check the last segment first.
+	lseg := w.segments[len(w.segments)-1]
+	if index >= lseg.index {
+		return lseg, nil
+	}
+	// check the most recent cached segment
+	var rseg *segment
+	w.scache.Range(func(_, v interface{}) bool {
+		s := v.(*segment)
+		if index >= s.index && index < s.index+uint64(len(s.epos)) {
+			rseg = s
+		}
+		return false
+	})
+	if rseg != nil {
+		return rseg, nil
+	}
+	// find in the segment array
+	idx := w.findSegment(index)
+	s := w.segments[idx]
+	if len(s.epos) == 0 {
+		// load the entries from cache
+		if err := w.loadSegmentEntries(s); err != nil {
+			return nil, err
+		}
+	}
+	// push the segment to the front of the cache
+	w.pushCache(idx)
+	return s, nil
+}
+
+// Read an entry from the log. Returns a byte slice containing the data entry.
+func (w *WAL) Read(index uint64) (data []byte, err error) {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	if w.corrupt {
+		return nil, ErrCorrupt
+	} else if w.closed {
+		return nil, ErrClosed
+	}
+	if index == 0 || index < w.firstIndex || index > w.lastIndex {
+		return nil, ErrNotFound
+	}
+	s, err := w.loadSegment(index)
+	if err != nil {
+		return nil, err
+	}
+	epos := s.epos[index-s.index]
+	edata := s.ebuf[epos.pos:epos.end]
+	// binary read
+	size, n := binary.Uvarint(edata)
+	if n <= 0 {
+		return nil, ErrCorrupt
+	}
+	if uint64(len(edata)-n) < size {
+		return nil, ErrCorrupt
+	}
+	if w.opts.NoCopy {
+		data = edata[n : uint64(n)+size]
+	} else {
+		data = make([]byte, size)
+		copy(data, edata[n:])
+	}
+	return data, nil
+}
+
+// ClearCache clears the segment cache
+func (w *WAL) ClearCache() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.corrupt {
+		return ErrCorrupt
+	} else if w.closed {
+		return ErrClosed
+	}
+	w.clearCache()
+	return nil
+}
+func (w *WAL) clearCache() {
+	w.scache.Range(func(_, v interface{}) bool {
+		s := v.(*segment)
+		s.ebuf = nil
+		s.epos = nil
+		return true
+	})
+	w.scache = tinylru.LRU{}
+	w.scache.Resize(w.opts.SegmentCacheSize)
+}
+
+// TruncateFront truncates the front of the log by removing all entries that
+// are before the provided `index`. In other words the entry at
+// `index` becomes the first entry in the log.
+func (w *WAL) TruncateFront(index uint64) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.corrupt {
+		return ErrCorrupt
+	} else if w.closed {
+		return ErrClosed
+	}
+	return w.truncateFront(index)
+}
+func (w *WAL) truncateFront(index uint64) (err error) {
+	if index == 0 || w.lastIndex == 0 ||
+		index < w.firstIndex || index > w.lastIndex {
+		return ErrOutOfRange
+	}
+	if index == w.firstIndex {
+		// nothing to truncate
+		return nil
+	}
+	segIdx := w.findSegment(index)
+	var s *segment
+	s, err = w.loadSegment(index)
+	if err != nil {
+		return err
+	}
+	epos := s.epos[index-s.index:]
+	ebuf := s.ebuf[epos[0].pos:]
+	// Create a temp file contains the truncated segment.
+	tempName := filepath.Join(w.path, "TEMP")
+	err = func() error {
+		f, err := os.OpenFile(tempName, os.O_CREATE|os.O_RDWR|os.O_TRUNC, w.opts.FilePerms)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		if _, err := f.Write(ebuf); err != nil {
+			return err
+		}
+		if err := f.Sync(); err != nil {
+			return err
+		}
+		return f.Close()
+	}()
+	// Rename the TEMP file to it's START file name.
+	startName := filepath.Join(w.path, segmentName(index)+".START")
+	if err = os.Rename(tempName, startName); err != nil {
+		return err
+	}
+	// The log was truncated but still needs some file cleanup. Any errors
+	// following this message will not cause an on-disk data ocorruption, but
+	// may cause an inconsistency with the current program, so we'll return
+	// ErrCorrupt so the the user can attempt a recover by calling Close()
+	// followed by Open().
+	defer func() {
+		if v := recover(); v != nil {
+			err = ErrCorrupt
+			w.corrupt = true
+		}
+	}()
+	if segIdx == len(w.segments)-1 {
+		// Close the tail segment file
+		if err = w.sfile.Close(); err != nil {
+			return err
+		}
+	}
+	// Delete truncated segment files
+	for i := 0; i <= segIdx; i++ {
+		if err = os.Remove(w.segments[i].path); err != nil {
+			return err
+		}
+	}
+	// Rename the START file to the final truncated segment name.
+	newName := filepath.Join(w.path, segmentName(index))
+	if err = os.Rename(startName, newName); err != nil {
+		return err
+	}
+	s.path = newName
+	s.index = index
+	if segIdx == len(w.segments)-1 {
+		// Reopen the tail segment file
+		if w.sfile, err = os.OpenFile(newName, os.O_WRONLY, w.opts.FilePerms); err != nil {
+			return err
+		}
+		var n int64
+		if n, err = w.sfile.Seek(0, 2); err != nil {
+			return err
+		}
+		if n != int64(len(ebuf)) {
+			err = errors.New("invalid seek")
+			return err
+		}
+		// Load the last segment entries
+		if err = w.loadSegmentEntries(s); err != nil {
+			return err
+		}
+	}
+	w.segments = append([]*segment{}, w.segments[segIdx:]...)
+	w.firstIndex = index
+	w.clearCache()
+	return nil
+}
+
+// TruncateBack truncates the back of the log by removing all entries that
+// are after the provided `index`. In other words the entry at `index`
+// becomes the last entry in the log.
+func (w *WAL) TruncateBack(index uint64) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.corrupt {
+		return ErrCorrupt
+	} else if w.closed {
+		return ErrClosed
+	}
+	return w.truncateBack(index)
+}
+
+func (w *WAL) truncateBack(index uint64) (err error) {
+	if index == 0 || w.lastIndex == 0 ||
+		index < w.firstIndex || index > w.lastIndex {
+		return ErrOutOfRange
+	}
+	if index == w.lastIndex {
+		// nothing to truncate
+		return nil
+	}
+	segIdx := w.findSegment(index)
+	var s *segment
+	s, err = w.loadSegment(index)
+	if err != nil {
+		return err
+	}
+	epos := s.epos[:index-s.index+1]
+	ebuf := s.ebuf[:epos[len(epos)-1].end]
+	// Create a temp file contains the truncated segment.
+	tempName := filepath.Join(w.path, "TEMP")
+	err = func() error {
+		f, err := os.OpenFile(tempName, os.O_CREATE|os.O_RDWR|os.O_TRUNC, w.opts.FilePerms)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		if _, err := f.Write(ebuf); err != nil {
+			return err
+		}
+		if err := f.Sync(); err != nil {
+			return err
+		}
+		return f.Close()
+	}()
+	// Rename the TEMP file to it's END file name.
+	endName := filepath.Join(w.path, segmentName(s.index)+".END")
+	if err = os.Rename(tempName, endName); err != nil {
+		return err
+	}
+	// The log was truncated but still needs some file cleanup. Any errors
+	// following this message will not cause an on-disk data ocorruption, but
+	// may cause an inconsistency with the current program, so we'll return
+	// ErrCorrupt so the the user can attempt a recover by calling Close()
+	// followed by Open().
+	defer func() {
+		if v := recover(); v != nil {
+			err = ErrCorrupt
+			w.corrupt = true
+		}
+	}()
+
+	// Close the tail segment file
+	if err = w.sfile.Close(); err != nil {
+		return err
+	}
+	// Delete truncated segment files
+	for i := segIdx; i < len(w.segments); i++ {
+		if err = os.Remove(w.segments[i].path); err != nil {
+			return err
+		}
+	}
+	// Rename the END file to the final truncated segment name.
+	newName := filepath.Join(w.path, segmentName(s.index))
+	if err = os.Rename(endName, newName); err != nil {
+		return err
+	}
+	// Reopen the tail segment file
+	if w.sfile, err = os.OpenFile(newName, os.O_WRONLY, w.opts.FilePerms); err != nil {
+		return err
+	}
+	var n int64
+	n, err = w.sfile.Seek(0, 2)
+	if err != nil {
+		return err
+	}
+	if n != int64(len(ebuf)) {
+		err = errors.New("invalid seek")
+		return err
+	}
+	s.path = newName
+	w.segments = append([]*segment{}, w.segments[:segIdx+1]...)
+	w.lastIndex = index
+	w.clearCache()
+	if err = w.loadSegmentEntries(s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Sync performs an fsync on the log. This is not necessary when the
+// NoSync option is set to false.
+func (w *WAL) Sync() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.corrupt {
+		return ErrCorrupt
+	} else if w.closed {
+		return ErrClosed
+	}
+	return w.sfile.Sync()
 }
