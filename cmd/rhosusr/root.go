@@ -97,7 +97,7 @@ var rootCmd = &cobra.Command{
 		httpHost := v.GetString("http_host")
 		httpPort := v.GetString("http_port")
 
-		conf := registry.RegistryConfig{
+		conf := registry.Config{
 			HttpHost: httpHost,
 			HttpPort: httpPort,
 		}

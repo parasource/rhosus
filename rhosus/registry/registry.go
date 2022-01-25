@@ -2,7 +2,7 @@ package registry
 
 import (
 	rhosus_etcd "github.com/parasource/rhosus/rhosus/etcd"
-	registry_pb "github.com/parasource/rhosus/rhosus/pb/registry"
+	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/parasource/rhosus/rhosus/registry/wal"
 	file_server "github.com/parasource/rhosus/rhosus/server"
@@ -22,7 +22,7 @@ const (
 	etcdPingInterval = 3
 )
 
-type RegistryConfig struct {
+type Config struct {
 	HttpHost string
 	HttpPort string
 
@@ -32,7 +32,7 @@ type RegistryConfig struct {
 type Registry struct {
 	Name   string
 	mu     sync.RWMutex
-	Config RegistryConfig
+	Config Config
 
 	Storage  RegistryStorage
 	IsLeader bool
@@ -53,7 +53,7 @@ type Registry struct {
 	shutdownC chan struct{}
 }
 
-func NewRegistry(config RegistryConfig) (*Registry, error) {
+func NewRegistry(config Config) (*Registry, error) {
 
 	r := &Registry{
 		Name:    util.GenerateRandomName(2),
@@ -180,9 +180,9 @@ func (r *Registry) setupStorage() error {
 }
 
 func (r *Registry) registerItself() error {
-	info := &registry_pb.RegistryInfo{
+	info := &control_pb.RegistryInfo{
 		Name: r.Name,
-		HttpAddress: &registry_pb.RegistryInfo_Address{
+		HttpAddress: &control_pb.RegistryInfo_Address{
 			Host: r.Config.HttpHost,
 			Port: r.Config.HttpPort,
 		},
@@ -292,7 +292,7 @@ func (r *Registry) loadExistingRegistries() error {
 			continue
 		}
 
-		var info registry_pb.RegistryInfo
+		var info control_pb.RegistryInfo
 		err := info.Unmarshal(bytes)
 		if err != nil {
 			logrus.Errorf("error unmarshaling node info: %v", err)
@@ -406,7 +406,7 @@ func (r *Registry) RunServiceDiscovery() {
 						logrus.Errorf("error decoding")
 					}
 
-					var info registry_pb.RegistryInfo
+					var info control_pb.RegistryInfo
 					err = info.Unmarshal(bytes)
 					if err != nil {
 						logrus.Errorf("error unmarshaling registry info: %v", err)
