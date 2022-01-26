@@ -1,8 +1,9 @@
-package registry
+package cluster
 
 import (
 	"context"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
+	registry2 "github.com/parasource/rhosus/rhosus/registry"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"net"
@@ -20,7 +21,7 @@ type ControlService struct {
 	control_pb.ControlClient
 
 	mu       sync.RWMutex
-	registry *Registry
+	registry *registry2.Registry
 	peers    map[string]*Peer
 	// uid of the leader peer
 	currentLeader string
@@ -40,13 +41,12 @@ func (p *Peer) isAlive() bool {
 
 type errorsBuffer []error
 
-func NewControlService(registry *Registry, addresses map[string]ServerAddress) (*ControlService, error) {
+func NewControlService(addresses map[string]ServerAddress) (*ControlService, error) {
 	peers := make(map[string]*control_pb.ControlClient, len(addresses))
 	errors := make(errorsBuffer, len(addresses))
 
 	service := &ControlService{
-		registry: registry,
-		peers:    make(map[string]*Peer),
+		peers: make(map[string]*Peer),
 	}
 
 	for uid, address := range addresses {

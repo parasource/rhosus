@@ -2,7 +2,7 @@ package rhosus_etcd
 
 import (
 	"context"
-	registry_pb "github.com/parasource/rhosus/rhosus/pb/registry"
+	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/sirupsen/logrus"
@@ -108,7 +108,7 @@ func (c *EtcdClient) GetExistingRegistries() (map[string][]byte, error) {
 	return nodes, nil
 }
 
-func (c *EtcdClient) RegisterRegistry(name string, info *registry_pb.RegistryInfo) error {
+func (c *EtcdClient) RegisterRegistry(name string, info *control_pb.RegistryInfo) error {
 	path := serviceDiscoveryRegistriesPath + name
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)

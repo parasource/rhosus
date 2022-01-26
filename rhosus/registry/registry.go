@@ -4,6 +4,7 @@ import (
 	rhosus_etcd "github.com/parasource/rhosus/rhosus/etcd"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
+	"github.com/parasource/rhosus/rhosus/registry/cluster"
 	"github.com/parasource/rhosus/rhosus/registry/wal"
 	file_server "github.com/parasource/rhosus/rhosus/server"
 	"github.com/parasource/rhosus/rhosus/util"
@@ -42,8 +43,8 @@ type Registry struct {
 	StatsCollector *StatsCollector
 	Journal        *wal.WAL
 
-	// Observer is used to control over raft
-	ControlObserver *Observer
+	// Cluster is used to control over raft
+	ControlObserver *cluster.Cluster
 
 	etcdClient *rhosus_etcd.EtcdClient
 
@@ -73,7 +74,7 @@ func NewRegistry(config Config) (*Registry, error) {
 	nMap := NewNodesMap(r)
 	r.NodesMap = nMap
 
-	o := NewObserver(r)
+	o := cluster.NewCluster(r)
 	r.ControlObserver = o
 
 	statsCollector := NewStatsCollector(r, 5)
