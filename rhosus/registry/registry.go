@@ -65,8 +65,8 @@ func NewRegistry(config Config) (*Registry, error) {
 		Config:  config,
 		readyWg: sync.WaitGroup{},
 
-		shutdownC: make(chan struct{}, 1),
-		readyC:    make(chan struct{}),
+		shutdownC: make(chan struct{}),
+		readyC:    make(chan struct{}, 1),
 	}
 
 	storage, err := NewStorage(StorageConfig{}, r)
@@ -107,12 +107,17 @@ func NewRegistry(config Config) (*Registry, error) {
 	if err != nil {
 		logrus.Fatalf("couldn't get free port: %v", err)
 	}
-	err = r.registerItself(&control_pb.RegistryInfo_Address{
-		Host:     "localhost",
-		Port:     fmt.Sprintf("%v", port),
-		Username: "",
-		Password: "",
-	})
+	info := &control_pb.RegistryInfo{
+		Uid:  "test_uid",
+		Name: r.Name,
+		Address: &control_pb.RegistryInfo_Address{
+			Host:     "localhost",
+			Port:     fmt.Sprintf("%v", port),
+			Username: "",
+			Password: "",
+		},
+	}
+	err = r.registerItself(info)
 
 	//err = r.setupStorage()
 	//if err != nil {
@@ -120,7 +125,9 @@ func NewRegistry(config Config) (*Registry, error) {
 	//}
 
 	// Setting up registries cluster from existing peers
-	c := cluster.NewCluster(cluster.Config{}, regs)
+	c := cluster.NewCluster(cluster.Config{
+		RegistryInfo: info,
+	}, regs)
 	r.Cluster = c
 
 	fileServer, err := file_server.NewServer(file_server.ServerConfig{
@@ -141,42 +148,55 @@ func NewRegistry(config Config) (*Registry, error) {
 
 func (r *Registry) Start() {
 
-	var err error
+	//var err error
 
 	go r.FileServer.RunHTTP()
 
 	go r.NodesManager.WatchNodes()
 	go r.StatsCollector.Run()
 
-	err = r.Storage.PutBlocks("node_1", map[string][]uint64{
-		"uu_block_1": {0, 1024},
-		"uu_block_2": {1025, 1024 * 1024},
-	})
-	if err != nil {
-		logrus.Errorf("error putting blocks in storage: %v", err)
-	}
+	//err = r.Storage.PutBlocks("node_1", map[string][]uint64{
+	//	"uu_block_1": {0, 1024},
+	//	"uu_block_2": {1025, 1024 * 1024},
+	//})
+	//if err != nil {
+	//	logrus.Errorf("error putting blocks in storage: %v", err)
+	//}
 
 	go r.RunServiceDiscovery()
 
 	go r.handleSignals()
 
-	close(r.readyC)
+	r.readyC <- struct{}{}
 
 	logrus.Infof("Registry %v is ready", r.Name)
 
-	for {
-		select {
-		case <-r.NotifyShutdown():
+	select {
+	case <-r.NotifyShutdown():
 
-			//r.FileServer.SendShutdownSignal()
-			//
-			//err := r.unregisterItself()
-			//if err != nil {
-			//	logrus.Errorf("error unregistering: %v", err)
-			//}
+		logrus.Infof("shutting down registry")
+		pidFile := viper.GetString("pid_file")
 
-			return
+		r.FileServer.SendShutdownSignal()
+		err := r.Storage.Close()
+		if err != nil {
+			logrus.Errorf("error closing db: %v", err)
 		}
+
+		err = r.unregisterItself()
+		if err != nil {
+			logrus.Errorf("error unregistering: %v", err)
+		}
+
+		if pidFile != "" {
+			err := os.Remove(pidFile)
+			if err != nil {
+				logrus.Errorf("error removing pid file: %v", err)
+			}
+		}
+		os.Exit(0)
+
+		return
 	}
 
 }
@@ -192,12 +212,7 @@ func (r *Registry) setupStorage() error {
 	return r.Storage.Setup(existingNodes)
 }
 
-func (r *Registry) registerItself(address *control_pb.RegistryInfo_Address) error {
-	info := &control_pb.RegistryInfo{
-		Name:    r.Name,
-		Address: address,
-	}
-
+func (r *Registry) registerItself(info *control_pb.RegistryInfo) error {
 	return r.etcdClient.RegisterRegistry(r.Name, info)
 }
 
@@ -224,36 +239,17 @@ func (r *Registry) handleSignals() {
 
 		case syscall.SIGINT, os.Interrupt, syscall.SIGTERM:
 
-			logrus.Infof("shutting down registry")
 			pidFile := viper.GetString("pid_file")
 			shutdownTimeout := time.Duration(viper.GetInt("shutdown_timeout")) * time.Second
+
+			close(r.shutdownC)
+
 			go time.AfterFunc(shutdownTimeout, func() {
 				if pidFile != "" {
 					os.Remove(pidFile)
 				}
 				os.Exit(1)
 			})
-
-			r.FileServer.SendShutdownSignal()
-			err := r.Storage.Close()
-			if err != nil {
-				logrus.Errorf("error closing db: %v", err)
-			}
-
-			err = r.unregisterItself()
-			if err != nil {
-				logrus.Errorf("error unregistering: %v", err)
-			}
-
-			r.shutdownC <- struct{}{}
-
-			if pidFile != "" {
-				err := os.Remove(pidFile)
-				if err != nil {
-					logrus.Errorf("error removing pid file: %v", err)
-				}
-			}
-			os.Exit(0)
 		}
 	}
 
