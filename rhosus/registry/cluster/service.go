@@ -3,7 +3,6 @@ package cluster
 import (
 	"context"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
-	registry2 "github.com/parasource/rhosus/rhosus/registry"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"net"
@@ -14,15 +13,15 @@ import (
 type ServerAddress struct {
 	Host     string
 	Port     string
+	Username string
 	Password string
 }
 
 type ControlService struct {
 	control_pb.ControlClient
 
-	mu       sync.RWMutex
-	registry *registry2.Registry
-	peers    map[string]*Peer
+	mu    sync.RWMutex
+	peers map[string]*Peer
 	// uid of the leader peer
 	currentLeader string
 }
@@ -41,7 +40,7 @@ func (p *Peer) isAlive() bool {
 
 type errorsBuffer []error
 
-func NewControlService(addresses map[string]ServerAddress) (*ControlService, error) {
+func NewControlService(addresses map[string]string) (*ControlService, []string, error) {
 	peers := make(map[string]*control_pb.ControlClient, len(addresses))
 	errors := make(errorsBuffer, len(addresses))
 
@@ -49,12 +48,13 @@ func NewControlService(addresses map[string]ServerAddress) (*ControlService, err
 		peers: make(map[string]*Peer),
 	}
 
+	var sanePeers []string
 	for uid, address := range addresses {
-		address := net.JoinHostPort(address.Host, address.Port)
 
 		conn, err := grpc.Dial(address, grpc.WithInsecure())
 		if err != nil {
-			return nil, err
+			logrus.Errorf("couldn't connect to a registry peer: %v", err)
+			continue
 		}
 		// ping new node
 		c := control_pb.NewControlClient(conn)
@@ -68,6 +68,7 @@ func NewControlService(addresses map[string]ServerAddress) (*ControlService, err
 		}
 
 		peers[uid] = &c
+		sanePeers = append(sanePeers, uid)
 	}
 
 	// No other registries are alive
@@ -84,7 +85,7 @@ func NewControlService(addresses map[string]ServerAddress) (*ControlService, err
 	}
 	service.mu.Unlock()
 
-	return service, nil
+	return service, sanePeers, nil
 }
 
 func (s *ControlService) Start() {

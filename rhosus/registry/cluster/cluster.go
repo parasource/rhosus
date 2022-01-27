@@ -3,14 +3,10 @@ package cluster
 import (
 	"context"
 	"errors"
-	"fmt"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
-	"github.com/parasource/rhosus/rhosus/pb/wal_pb"
 	"github.com/parasource/rhosus/rhosus/registry/wal"
-	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/parasource/rhosus/rhosus/util/timers"
 	"github.com/sirupsen/logrus"
-	"math/rand"
 	"net"
 	"sync"
 	"time"
@@ -21,13 +17,13 @@ type Term struct {
 }
 
 type Config struct {
-	entriesBufferSize int
+	RegistryInfo *control_pb.RegistryInfo
 
-	heartbeatTimeoutMinMs int
-	heartbeatTimeoutMaxMs int
+	HeartbeatTimeoutMinMs int
+	HeartbeatTimeoutMaxMs int
 
-	electionTimeoutMinMs int
-	electionTimeoutMaxMs int
+	ElectionTimeoutMinMs int
+	ElectionTimeoutMaxMs int
 }
 
 // Cluster watches and starts and election if there is no signal within an interval
@@ -35,11 +31,9 @@ type Cluster struct {
 	config Config
 
 	mu          sync.RWMutex
+	peers       map[string]*control_pb.RegistryInfo
 	isLeader    bool
 	isCandidate bool
-
-	initiateVotingCh   chan struct{}
-	heartbeatTimeoutMs int
 
 	server  *ControlServer
 	service *ControlService
@@ -51,73 +45,34 @@ type Cluster struct {
 	readyC chan struct{}
 }
 
-type PeerURLs []string
+func NewCluster(config Config, peers map[string]*control_pb.RegistryInfo) *Cluster {
 
-func NewCluster(config Config, peers PeerURLs) *Cluster {
-
+	// First, we create a Write-ahead Log
 	w, err := wal.Create("rhosuswal", nil)
 	if err != nil {
 		logrus.Fatalf("error creating wal: %v", err)
 		return nil
 	}
 
-	srvPort, err := util.GetFreePort()
-	if err != nil {
-		logrus.Fatalf("error getting free port: %v", err)
-	}
-
-	srvAddress := net.JoinHostPort("localhost", fmt.Sprintf("%v", srvPort))
+	// Server to accept other peers connections
+	srvAddress := net.JoinHostPort(config.RegistryInfo.Address.Host, config.RegistryInfo.Address.Port)
 	server, err := NewControlServer(srvAddress)
 	if err != nil {
 		logrus.Fatalf("error creating control server: %v", err)
 	}
-	service, err := NewControlService(map[string]ServerAddress{})
+
+	// Creating a service that holds connections to other peers
+	addresses := make(map[string]string, len(peers))
+	for uid, info := range peers {
+		addresses[uid] = composeRegistryAddress(info.Address)
+	}
+	service, sanePeers, err := NewControlService(addresses)
 	if err != nil {
 		logrus.Fatalf("error creating control service: %v", err)
 	}
 
-	//logs := make(map[uint64][]byte)
-	//for i := 101; i < 1000000; i++ {
-	//	log := &wal_pb.Log{
-	//		Type:  wal_pb.Log_TYPE_ENTRY,
-	//		Crc:   0,
-	//		Data:  []byte(util.GenerateRandomName(3)),
-	//	}
-	//	bytes, err := log.Marshal()
-	//	if err != nil {
-	//		logrus.Fatalf("error marshaling: %v", err)
-	//	}
-	//
-	//	logs[uint64(i)] = bytes
-	//}
-
-	//err = w.WriteBatch(logs)
-	//if err != nil {
-	//	panic(err)
-	//}
-	//
-	//err = w.Sync()
-	//if err != nil {
-	//	logrus.Errorf("error flushing log: %v", err)
-	//}
-
-	bytes, err := w.Read(700001)
-	if err != nil {
-		logrus.Fatalf("error reading entry: %v", err)
-	}
-
-	var log wal_pb.Log
-	err = log.Unmarshal(bytes)
-	if err != nil {
-		logrus.Fatalf("error unmarshaling entry: %v", err)
-	}
-
-	logrus.Infof("entry: %v", string(log.Data))
-
-	o := &Cluster{
+	c := &Cluster{
 		config: config,
-
-		initiateVotingCh: make(chan struct{}, 1),
 
 		wal:     w,
 		server:  server,
@@ -129,7 +84,13 @@ func NewCluster(config Config, peers PeerURLs) *Cluster {
 		readyC: make(chan struct{}, 1),
 	}
 
-	return o
+	// We add only working peers to our map
+	// We will try to reconnect to others some time later
+	for _, uid := range sanePeers {
+		c.peers[uid] = peers[uid]
+	}
+
+	return c
 }
 
 func (c *Cluster) WriteEntry(entry *control_pb.Entry) error {
@@ -199,7 +160,7 @@ func (c *Cluster) RunSendEntries() {
 				ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
 				defer cancel()
 
-				res, err := c.service.AppendEntries(ctx, req)
+				_, err := c.service.AppendEntries(ctx, req)
 				if err != nil {
 
 				}
@@ -225,12 +186,4 @@ func (c *Cluster) WatchForEntries() {
 			logrus.Infof("vote responses: %v", resp)
 		}
 	}
-}
-
-func (c *Cluster) NotifyStartVoting() <-chan struct{} {
-	return c.initiateVotingCh
-}
-
-func getIntervalMs(min int, max int) time.Duration {
-	return time.Millisecond * time.Duration(rand.Intn(max-min)+min)
 }

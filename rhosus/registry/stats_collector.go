@@ -39,13 +39,13 @@ func (s *StatsCollector) Run() {
 			nodes := make(map[string]*NodeInfo)
 
 			s.mu.RLock()
-			for uid, info := range s.registry.NodesMap.nodes {
+			for uid, info := range s.registry.NodesManager.nodes {
 				nodes[uid] = info
 			}
 			s.mu.RUnlock()
 
 			for name := range nodes {
-				client, err := s.registry.NodesMap.GetGrpcClient(name)
+				client, err := s.registry.NodesManager.GetGrpcClient(name)
 				if err != nil {
 					logrus.Errorf("error getting node grpc conn: %v", err)
 					continue

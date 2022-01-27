@@ -99,12 +99,15 @@ message EntryDelete {
 // <------------------------->
 
 message RegistryInfo {
+  string uid = 1;
+  string name = 2;
   message Address {
     string host = 1;
     string port = 2;
+    string username = 3;
+    string password = 4;
   }
-  string name = 1;
-  Address httpAddress = 2;
+  Address address = 3;
 }
 
 message Event {

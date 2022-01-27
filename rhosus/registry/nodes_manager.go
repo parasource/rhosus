@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-type NodesMap struct {
+type NodesManager struct {
 	registry *Registry
 
 	mu              sync.RWMutex
@@ -29,8 +29,8 @@ type NodesMap struct {
 type NodeInfo transport_pb.NodeInfo
 type NodeGrpcConn grpc.ClientConn
 
-func NewNodesMap(registry *Registry) *NodesMap {
-	return &NodesMap{
+func NewNodesMap(registry *Registry) *NodesManager {
+	return &NodesManager{
 		registry: registry,
 
 		noAliveNodesCh:  make(chan struct{}, 1),
@@ -40,11 +40,11 @@ func NewNodesMap(registry *Registry) *NodesMap {
 	}
 }
 
-func (m *NodesMap) SetOnNodeDown(fun func(c context.Context)) {
+func (m *NodesManager) SetOnNodeDown(fun func(c context.Context)) {
 	m.onNodeDown = fun
 }
 
-func (m *NodesMap) AddNode(name string, info *transport_pb.NodeInfo) error {
+func (m *NodesManager) AddNode(name string, info *transport_pb.NodeInfo) error {
 
 	address := net.JoinHostPort(info.Address.Host, info.Address.Port)
 
@@ -74,7 +74,7 @@ func (m *NodesMap) AddNode(name string, info *transport_pb.NodeInfo) error {
 	return nil
 }
 
-func (m *NodesMap) RemoveNode(name string) {
+func (m *NodesManager) RemoveNode(name string) {
 	m.mu.Lock()
 	delete(m.nodes, name)
 	delete(m.nodesProbeTries, name)
@@ -84,7 +84,7 @@ func (m *NodesMap) RemoveNode(name string) {
 	m.mu.Unlock()
 }
 
-func (m *NodesMap) UpdateNodeInfo(name string, info *transport_pb.NodeInfo) {
+func (m *NodesManager) UpdateNodeInfo(name string, info *transport_pb.NodeInfo) {
 	m.mu.Lock()
 	if _, ok := m.nodes[name]; ok {
 		m.nodes[name] = (*NodeInfo)(info)
@@ -92,7 +92,7 @@ func (m *NodesMap) UpdateNodeInfo(name string, info *transport_pb.NodeInfo) {
 	m.mu.Unlock()
 }
 
-func (m *NodesMap) NodeExists(name string) bool {
+func (m *NodesManager) NodeExists(name string) bool {
 	m.mu.RLock()
 	_, ok := m.nodes[name]
 	m.mu.RUnlock()
@@ -100,7 +100,7 @@ func (m *NodesMap) NodeExists(name string) bool {
 	return ok
 }
 
-func (m *NodesMap) GetGrpcClient(name string) (transport_pb.TransportServiceClient, error) {
+func (m *NodesManager) GetGrpcClient(name string) (transport_pb.TransportServiceClient, error) {
 	m.mu.RLock()
 	conn, ok := m.nodesConns[name]
 	m.mu.RUnlock()
@@ -113,7 +113,7 @@ func (m *NodesMap) GetGrpcClient(name string) (transport_pb.TransportServiceClie
 	return client, nil
 }
 
-func (m *NodesMap) WatchNodes() {
+func (m *NodesManager) WatchNodes() {
 
 	ticker := tickers.SetTicker(time.Second * 5)
 
@@ -184,20 +184,20 @@ func (m *NodesMap) WatchNodes() {
 
 }
 
-func (m *NodesMap) ProbeNode(node *transport_pb.NodeInfo) error {
+func (m *NodesManager) ProbeNode(node *transport_pb.NodeInfo) error {
 
 	// todo
 
 	return nil
 }
 
-func (m *NodesMap) StartRecoveryProcess(node *transport_pb.NodeInfo) error {
+func (m *NodesManager) StartRecoveryProcess(node *transport_pb.NodeInfo) error {
 
 	// todo
 
 	return nil
 }
 
-func (m *NodesMap) NotifyNoAliveNodes() <-chan struct{} {
+func (m *NodesManager) NotifyNoAliveNodes() <-chan struct{} {
 	return m.noAliveNodesCh
 }

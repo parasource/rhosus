@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"fmt"
 	rhosus_etcd "github.com/parasource/rhosus/rhosus/etcd"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
@@ -24,13 +25,16 @@ const (
 )
 
 type Config struct {
-	HttpHost string
-	HttpPort string
+	ClusterHost     string `json:"cluster_host"`
+	ClusterPort     string `json:"cluster_port"`
+	ClusterUsername string `json:"cluster_username"`
+	ClusterPassword string `json:"cluster_password"`
 
 	ServerConfig file_server.ServerConfig
 }
 
 type Registry struct {
+	Uid    string
 	Name   string
 	mu     sync.RWMutex
 	Config Config
@@ -38,13 +42,13 @@ type Registry struct {
 	Storage  RegistryStorage
 	IsLeader bool
 
-	NodesMap       *NodesMap
+	NodesManager   *NodesManager
 	FileServer     *file_server.Server
 	StatsCollector *StatsCollector
 	Journal        *wal.WAL
 
 	// Cluster is used to control over raft
-	ControlObserver *cluster.Cluster
+	Cluster *cluster.Cluster
 
 	etcdClient *rhosus_etcd.EtcdClient
 
@@ -72,10 +76,7 @@ func NewRegistry(config Config) (*Registry, error) {
 	r.Storage = storage
 
 	nMap := NewNodesMap(r)
-	r.NodesMap = nMap
-
-	o := cluster.NewCluster(r)
-	r.ControlObserver = o
+	r.NodesManager = nMap
 
 	statsCollector := NewStatsCollector(r, 5)
 	r.StatsCollector = statsCollector
@@ -89,9 +90,42 @@ func NewRegistry(config Config) (*Registry, error) {
 	}
 	r.etcdClient = etcdClient
 
+	// Here we load all the existing nodes and registries from etcd
+	// Error occurs only in non-usual conditions, so we kill process
+	regs, err := r.getExistingRegistries()
+	if err != nil {
+		logrus.Fatalf("error loading existing registries from etcd: %v", err)
+	}
+
+	err = r.loadExistingNodes()
+	if err != nil {
+		logrus.Fatalf("error loading existing nodes from etcd: %v", err)
+	}
+
+	// Registering itself in etcd cluster
+	port, err := util.GetFreePort()
+	if err != nil {
+		logrus.Fatalf("couldn't get free port: %v", err)
+	}
+	err = r.registerItself(&control_pb.RegistryInfo_Address{
+		Host:     "localhost",
+		Port:     fmt.Sprintf("%v", port),
+		Username: "",
+		Password: "",
+	})
+
+	//err = r.setupStorage()
+	//if err != nil {
+	//	logrus.Fatalf("error setting up storage: %v", err)
+	//}
+
+	// Setting up registries cluster from existing peers
+	c := cluster.NewCluster(cluster.Config{}, regs)
+	r.Cluster = c
+
 	fileServer, err := file_server.NewServer(file_server.ServerConfig{
-		Host:      r.Config.HttpHost,
-		Port:      r.Config.HttpPort,
+		Host:      r.Config.ServerConfig.Host,
+		Port:      r.Config.ServerConfig.Port,
 		MaxSizeMb: 500,
 	})
 	if err != nil {
@@ -111,25 +145,8 @@ func (r *Registry) Start() {
 
 	go r.FileServer.RunHTTP()
 
-	//go r.NodesMap.WatchNodes()
+	go r.NodesManager.WatchNodes()
 	go r.StatsCollector.Run()
-
-	// Here we load all the existing nodes and registries from etcd
-	// Error occurs only in non-usual conditions, so we kill process
-	err = r.loadExistingRegistries()
-	if err != nil {
-		logrus.Fatalf("error loading existing registries from etcd: %v", err)
-	}
-
-	err = r.loadExistingNodes()
-	if err != nil {
-		logrus.Fatalf("error loading existing nodes from etcd: %v", err)
-	}
-
-	err = r.setupStorage()
-	if err != nil {
-		logrus.Fatalf("error setting up storage: %v", err)
-	}
 
 	err = r.Storage.PutBlocks("node_1", map[string][]uint64{
 		"uu_block_1": {0, 1024},
@@ -144,11 +161,6 @@ func (r *Registry) Start() {
 	go r.handleSignals()
 
 	close(r.readyC)
-
-	err = r.registerItself()
-	if err != nil {
-		logrus.Errorf("error registering in etcd: %v", err)
-	}
 
 	logrus.Infof("Registry %v is ready", r.Name)
 
@@ -171,8 +183,8 @@ func (r *Registry) Start() {
 
 func (r *Registry) setupStorage() error {
 	r.mu.RLock()
-	existingNodes := make([]string, len(r.NodesMap.nodes))
-	for uid := range r.NodesMap.nodes {
+	existingNodes := make([]string, len(r.NodesManager.nodes))
+	for uid := range r.NodesManager.nodes {
 		existingNodes = append(existingNodes, uid)
 	}
 	r.mu.RUnlock()
@@ -180,13 +192,10 @@ func (r *Registry) setupStorage() error {
 	return r.Storage.Setup(existingNodes)
 }
 
-func (r *Registry) registerItself() error {
+func (r *Registry) registerItself(address *control_pb.RegistryInfo_Address) error {
 	info := &control_pb.RegistryInfo{
-		Name: r.Name,
-		HttpAddress: &control_pb.RegistryInfo_Address{
-			Host: r.Config.HttpHost,
-			Port: r.Config.HttpPort,
-		},
+		Name:    r.Name,
+		Address: address,
 	}
 
 	return r.etcdClient.RegisterRegistry(r.Name, info)
@@ -267,7 +276,7 @@ func (r *Registry) loadExistingNodes() error {
 			continue
 		}
 
-		err = r.NodesMap.AddNode(name, &info)
+		err = r.NodesManager.AddNode(name, &info)
 		if err != nil {
 			logrus.Errorf("error adding node to map: %v", err)
 			continue
@@ -279,12 +288,15 @@ func (r *Registry) loadExistingNodes() error {
 	return nil
 }
 
-func (r *Registry) loadExistingRegistries() error {
+func (r *Registry) getExistingRegistries() (map[string]*control_pb.RegistryInfo, error) {
 
 	registries, err := r.etcdClient.GetExistingRegistries()
 	if err != nil {
 		logrus.Fatalf("error getting existing registries: %v", err)
 	}
+
+	result := make(map[string]*control_pb.RegistryInfo)
+
 	for path, bytes := range registries {
 
 		name := rhosus_etcd.ParseRegistryName(path)
@@ -300,16 +312,12 @@ func (r *Registry) loadExistingRegistries() error {
 			continue
 		}
 
-		//err = r.RegistriesMap.Add(name, &info)
-		if err != nil {
-			logrus.Errorf("error adding registry to map: %v", err)
-			continue
-		}
+		result[info.Uid] = &info
 
 		logrus.Infof("registry %v added from existing map", info.Name)
 	}
 
-	return nil
+	return result, nil
 }
 
 // <------------------------------------->
@@ -356,12 +364,12 @@ func (r *Registry) RunServiceDiscovery() {
 						logrus.Errorf("error unmarshaling node info: %v", err)
 					}
 
-					if r.NodesMap.NodeExists(name) {
+					if r.NodesManager.NodeExists(name) {
 						// If node already exists in a node map => updating node info
 
-						r.NodesMap.UpdateNodeInfo(name, &info)
+						r.NodesManager.UpdateNodeInfo(name, &info)
 					} else {
-						err := r.NodesMap.AddNode(name, &info)
+						err := r.NodesManager.AddNode(name, &info)
 						if err != nil {
 							logrus.Errorf("error adding node: %v", err)
 							continue
@@ -375,8 +383,8 @@ func (r *Registry) RunServiceDiscovery() {
 
 					name := rhosus_etcd.ParseNodeName(string(event.Kv.Key))
 
-					if r.NodesMap.NodeExists(name) {
-						r.NodesMap.RemoveNode(name)
+					if r.NodesManager.NodeExists(name) {
+						r.NodesManager.RemoveNode(name)
 
 						logrus.Infof("node %v shut down", name)
 					} else {
