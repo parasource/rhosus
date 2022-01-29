@@ -5,8 +5,6 @@ import (
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
-	"net"
-	"sync"
 	"time"
 )
 
@@ -20,8 +18,8 @@ type ServerAddress struct {
 type ControlService struct {
 	control_pb.ControlClient
 
-	mu    sync.RWMutex
-	peers map[string]*Peer
+	cluster *Cluster
+	peers   map[string]*Peer
 	// uid of the leader peer
 	currentLeader string
 }
@@ -40,12 +38,13 @@ func (p *Peer) isAlive() bool {
 
 type errorsBuffer []error
 
-func NewControlService(addresses map[string]string) (*ControlService, []string, error) {
+func NewControlService(cluster *Cluster, addresses map[string]string) (*ControlService, []string, error) {
 	peers := make(map[string]*control_pb.ControlClient, len(addresses))
 	errors := make(errorsBuffer, len(addresses))
 
 	service := &ControlService{
-		peers: make(map[string]*Peer),
+		peers:   make(map[string]*Peer),
+		cluster: cluster,
 	}
 
 	var sanePeers []string
@@ -69,6 +68,8 @@ func NewControlService(addresses map[string]string) (*ControlService, []string, 
 
 		peers[uid] = &c
 		sanePeers = append(sanePeers, uid)
+
+		logrus.Infof("connected to peer %v", address)
 	}
 
 	// No other registries are alive
@@ -76,14 +77,12 @@ func NewControlService(addresses map[string]string) (*ControlService, []string, 
 		// TODO: this is actually important
 	}
 
-	service.mu.Lock()
 	for uid, conn := range peers {
 		service.peers[uid] = &Peer{
 			conn:  conn,
 			Alive: true,
 		}
 	}
-	service.mu.Unlock()
 
 	return service, sanePeers, nil
 }
@@ -113,8 +112,6 @@ func (s *ControlService) Start() {
 // isLeaderPresent checks if the leader already
 // present in cluster
 func (s *ControlService) isLeaderPresent() bool {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
 
 	for _, peer := range s.peers {
 		if peer.IsLeader {
@@ -125,10 +122,9 @@ func (s *ControlService) isLeaderPresent() bool {
 	return false
 }
 
-func (s *ControlService) AddPeer(uid string, address ServerAddress, isLeader bool) error {
-	addr := net.JoinHostPort(address.Host, address.Port)
+func (s *ControlService) AddPeer(uid string, address string, isLeader bool) error {
 
-	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+	conn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
 		conn.Close()
 		return err
@@ -142,12 +138,10 @@ func (s *ControlService) AddPeer(uid string, address ServerAddress, isLeader boo
 		return err
 	}
 
-	s.mu.Lock()
 	s.peers[uid] = &Peer{
 		conn:     &c,
 		IsLeader: isLeader,
 	}
-	s.mu.Unlock()
 
 	return nil
 }
@@ -160,8 +154,6 @@ func (s *ControlService) removePeer(uid string) error {
 
 // getCurrentLeader returns current cluster leader
 func (s *ControlService) getCurrentLeader() *Peer {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
 
 	return s.peers[s.currentLeader]
 }
@@ -182,11 +174,9 @@ func (v voteResponse) getError() error {
 func (s *ControlService) sendVoteRequests() map[string]voteResponse {
 
 	peers := make(map[string]*Peer, len(s.peers))
-	s.mu.RLock()
 	for uid, peer := range s.peers {
 		peers[uid] = peer
 	}
-	s.mu.RUnlock()
 
 	responses := make(map[string]voteResponse)
 

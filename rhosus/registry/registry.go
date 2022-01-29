@@ -69,11 +69,11 @@ func NewRegistry(config Config) (*Registry, error) {
 		readyC:    make(chan struct{}, 1),
 	}
 
-	storage, err := NewStorage(StorageConfig{}, r)
-	if err != nil {
-		logrus.Fatalf("error creating etcd storage: %v", err)
-	}
-	r.Storage = storage
+	//storage, err := NewStorage(StorageConfig{}, r)
+	//if err != nil {
+	//	logrus.Fatalf("error creating etcd storage: %v", err)
+	//}
+	//r.Storage = storage
 
 	nMap := NewNodesMap(r)
 	r.NodesManager = nMap
@@ -118,11 +118,6 @@ func NewRegistry(config Config) (*Registry, error) {
 		},
 	}
 	err = r.registerItself(info)
-
-	//err = r.setupStorage()
-	//if err != nil {
-	//	logrus.Fatalf("error setting up storage: %v", err)
-	//}
 
 	// Setting up registries cluster from existing peers
 	c := cluster.NewCluster(cluster.Config{
@@ -177,13 +172,13 @@ func (r *Registry) Start() {
 		logrus.Infof("shutting down registry")
 		pidFile := viper.GetString("pid_file")
 
-		r.FileServer.SendShutdownSignal()
-		err := r.Storage.Close()
-		if err != nil {
-			logrus.Errorf("error closing db: %v", err)
-		}
+		r.FileServer.Shutdown()
+		//err := r.Storage.Close()
+		//if err != nil {
+		//	logrus.Errorf("error closing db: %v", err)
+		//}
 
-		err = r.unregisterItself()
+		err := r.unregisterItself()
 		if err != nil {
 			logrus.Errorf("error unregistering: %v", err)
 		}
@@ -417,6 +412,10 @@ func (r *Registry) RunServiceDiscovery() {
 						logrus.Errorf("error unmarshaling registry info: %v", err)
 					}
 
+					err = r.Cluster.DiscoverOrUpdate(info.Uid, &info)
+					if err != nil {
+						logrus.Errorf("error discovering registry: %v", err)
+					}
 					//if r.RegistriesMap.RegistryExists(name) {
 					//
 					//} else {

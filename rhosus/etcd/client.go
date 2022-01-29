@@ -108,8 +108,8 @@ func (c *EtcdClient) GetExistingRegistries() (map[string][]byte, error) {
 	return nodes, nil
 }
 
-func (c *EtcdClient) RegisterRegistry(name string, info *control_pb.RegistryInfo) error {
-	path := serviceDiscoveryRegistriesPath + name
+func (c *EtcdClient) RegisterRegistry(uid string, info *control_pb.RegistryInfo) error {
+	path := serviceDiscoveryRegistriesPath + uid
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()

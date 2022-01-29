@@ -12,6 +12,10 @@ import (
 	"time"
 )
 
+var (
+	ErrShutdown = errors.New("cluster is shut down")
+)
+
 type Term struct {
 	votes map[string]uint32
 }
@@ -42,10 +46,24 @@ type Cluster struct {
 	entriesC chan *control_pb.Entry
 	buffer   *entriesBuffer
 
-	readyC chan struct{}
+	shutdown  bool
+	shutdownC chan struct{}
+	readyC    chan struct{}
 }
 
 func NewCluster(config Config, peers map[string]*control_pb.RegistryInfo) *Cluster {
+
+	c := &Cluster{
+		config: config,
+
+		peers: make(map[string]*control_pb.RegistryInfo),
+
+		entriesC: make(chan *control_pb.Entry),
+		buffer:   &entriesBuffer{},
+
+		shutdownC: make(chan struct{}),
+		readyC:    make(chan struct{}, 1),
+	}
 
 	// First, we create a Write-ahead Log
 	w, err := wal.Create("rhosuswal", nil)
@@ -56,33 +74,25 @@ func NewCluster(config Config, peers map[string]*control_pb.RegistryInfo) *Clust
 
 	// Server to accept other peers connections
 	srvAddress := net.JoinHostPort(config.RegistryInfo.Address.Host, config.RegistryInfo.Address.Port)
-	server, err := NewControlServer(srvAddress)
+	server, err := NewControlServer(c, srvAddress)
 	if err != nil {
 		logrus.Fatalf("error creating control server: %v", err)
 	}
+	logrus.Infof("listening raft on %v", srvAddress)
 
 	// Creating a service that holds connections to other peers
 	addresses := make(map[string]string, len(peers))
 	for uid, info := range peers {
 		addresses[uid] = composeRegistryAddress(info.Address)
 	}
-	service, sanePeers, err := NewControlService(addresses)
+	service, sanePeers, err := NewControlService(c, addresses)
 	if err != nil {
 		logrus.Fatalf("error creating control service: %v", err)
 	}
 
-	c := &Cluster{
-		config: config,
-
-		wal:     w,
-		server:  server,
-		service: service,
-
-		entriesC: make(chan *control_pb.Entry),
-		buffer:   &entriesBuffer{},
-
-		readyC: make(chan struct{}, 1),
-	}
+	c.wal = w
+	c.server = server
+	c.service = service
 
 	// We add only working peers to our map
 	// We will try to reconnect to others some time later
@@ -93,7 +103,56 @@ func NewCluster(config Config, peers map[string]*control_pb.RegistryInfo) *Clust
 	return c
 }
 
+func (c *Cluster) DiscoverOrUpdate(uid string, info *control_pb.RegistryInfo) (err error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.shutdown {
+		return ErrShutdown
+	}
+
+	// Update existing peer if it exists
+	if peer, ok := c.peers[uid]; ok {
+
+		// TODO
+
+	} else {
+		err = c.service.AddPeer(uid, composeRegistryAddress(info.Address), false)
+		if err != nil {
+			return err
+		}
+
+		c.peers[uid] = peer
+
+		logrus.Infof("added cluster peer %v with name %v", uid, info.Name)
+	}
+
+	return err
+}
+
+func (c *Cluster) RemovePeer(uid string) (err error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.shutdown {
+		return ErrShutdown
+	}
+
+	if _, ok := c.peers[uid]; ok {
+		err = c.service.removePeer(uid)
+	}
+
+	return err
+}
+
 func (c *Cluster) WriteEntry(entry *control_pb.Entry) error {
+
+	c.mu.RLock()
+	if c.shutdown {
+		c.mu.RUnlock()
+		return ErrShutdown
+	}
+	c.mu.RUnlock()
 
 	select {
 	case c.entriesC <- entry:
@@ -116,6 +175,11 @@ func (c *Cluster) Run() {
 	go c.WatchForEntries()
 
 	for {
+
+		if c.shutdown {
+			return
+		}
+
 		select {
 		case e := <-c.entriesC:
 			err := c.buffer.Write(e)
@@ -130,9 +194,21 @@ func (c *Cluster) Run() {
 
 }
 
+func (c *Cluster) Shutdown() {
+	close(c.shutdownC)
+
+	c.mu.Lock()
+	c.shutdown = true
+	c.mu.Unlock()
+}
+
 func (c *Cluster) RunSendEntries() {
 
 	for {
+
+		if c.shutdown {
+			return
+		}
 
 		// Only leader should send entries and heartbeats
 		if !c.isLeader {
@@ -174,6 +250,10 @@ func (c *Cluster) RunSendEntries() {
 func (c *Cluster) WatchForEntries() {
 	for {
 
+		if c.shutdown {
+			return
+		}
+
 		// According to RAFT docs, we need to set random interval
 		// between 150 and 300 ms
 		electionTimout := timers.SetTimer(time.Millisecond * getIntervalMs(300, 500))
@@ -186,4 +266,8 @@ func (c *Cluster) WatchForEntries() {
 			logrus.Infof("vote responses: %v", resp)
 		}
 	}
+}
+
+func (c *Cluster) NotifyShutdown() <-chan struct{} {
+	return c.shutdownC
 }

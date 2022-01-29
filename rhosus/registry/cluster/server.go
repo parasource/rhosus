@@ -15,17 +15,18 @@ type ControlServerConfig struct {
 }
 
 type ControlServer struct {
+	cluster *Cluster
 	control_pb.ControlServer
 
 	Config ControlServerConfig
-
-	shutdownCh chan struct{}
 }
 
-func NewControlServer(address string) (*ControlServer, error) {
+func NewControlServer(cluster *Cluster, address string) (*ControlServer, error) {
 	var err error
 
-	s := &ControlServer{}
+	s := &ControlServer{
+		cluster: cluster,
+	}
 
 	lis, err := net.Listen("tcp", address)
 	if err != nil {
@@ -42,21 +43,14 @@ func NewControlServer(address string) (*ControlServer, error) {
 	}()
 
 	go func() {
-		if err := grpcServer.Serve(lis); err != nil {
-			logrus.Fatalf("error listening grpc node server: %v", err)
-		}
-	}()
-	go func() {
-		for {
-			select {
-			case <-s.NotifyShutdown():
-				err := lis.Close()
-				if err != nil {
-					logrus.Errorf("error closing control server tcp: %v", err)
-				}
-
-				return
+		select {
+		case <-s.cluster.NotifyShutdown():
+			err := lis.Close()
+			if err != nil {
+				logrus.Errorf("error closing control server tcp: %v", err)
 			}
+
+			return
 		}
 	}()
 
@@ -76,7 +70,7 @@ func (s *ControlServer) Shutdown(c context.Context, req *control_pb.Void) (*cont
 }
 
 func (s *ControlServer) Alive(c context.Context, req *control_pb.Void) (*control_pb.Void, error) {
-	panic("implement me")
+	return &control_pb.Void{}, nil
 }
 
 func (s *ControlServer) Online(c context.Context, req *control_pb.Void) (*control_pb.Void, error) {
@@ -85,8 +79,4 @@ func (s *ControlServer) Online(c context.Context, req *control_pb.Void) (*contro
 
 func (s *ControlServer) Offline(c context.Context, req *control_pb.Void) (*control_pb.Void, error) {
 	panic("implement me")
-}
-
-func (s *ControlServer) NotifyShutdown() <-chan struct{} {
-	return s.shutdownCh
 }
