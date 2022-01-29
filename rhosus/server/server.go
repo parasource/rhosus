@@ -36,8 +36,8 @@ type Server struct {
 
 	http *http.Server
 
-	shutdownCh chan struct{}
-	readyCh    chan struct{}
+	shutdownC chan struct{}
+	readyC    chan struct{}
 
 	RegistryAdd    func(dir string, name string, owner string, group string, timestamp int64, size uint64, data []byte) (*sys.File, error)
 	RegistryDelete func(dir string, name string) error
@@ -45,9 +45,9 @@ type Server struct {
 
 func NewServer(conf ServerConfig) (*Server, error) {
 	s := &Server{
-		Config:     conf,
-		shutdownCh: make(chan struct{}, 1),
-		readyCh:    make(chan struct{}),
+		Config:    conf,
+		shutdownC: make(chan struct{}),
+		readyC:    make(chan struct{}, 1),
 	}
 
 	httpServer := &http.Server{
@@ -81,10 +81,11 @@ func (s *Server) RunHTTP() {
 	}()
 
 	logrus.Infof("HTTP file server is up and running on %v", net.JoinHostPort(s.Config.Host, s.Config.Port))
-	close(s.readyCh)
+	s.readyC <- struct{}{}
 
 	select {
 	case <-s.NotifyShutdown():
+		logrus.Infof("shutting down HTTP server")
 		err := s.http.Shutdown(context.Background())
 		if err != nil {
 			logrus.Errorf("error occured while shutting down http server: %v", err)
@@ -92,16 +93,16 @@ func (s *Server) RunHTTP() {
 	}
 }
 
-func (s *Server) SendShutdownSignal() {
-	s.shutdownCh <- struct{}{}
+func (s *Server) Shutdown() {
+	close(s.shutdownC)
 }
 
 func (s *Server) NotifyShutdown() <-chan struct{} {
-	return s.shutdownCh
+	return s.shutdownC
 }
 
 func (s *Server) NotifyReady() <-chan struct{} {
-	return s.readyCh
+	return s.readyC
 }
 
 func (s *Server) Handle(w http.ResponseWriter, r *http.Request) {
