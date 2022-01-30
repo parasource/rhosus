@@ -39,7 +39,6 @@ type Registry struct {
 	mu     sync.RWMutex
 	Config Config
 
-	Storage  RegistryStorage
 	IsLeader bool
 
 	NodesManager   *NodesManager
@@ -196,17 +195,6 @@ func (r *Registry) Start() {
 
 }
 
-func (r *Registry) setupStorage() error {
-	r.mu.RLock()
-	existingNodes := make([]string, len(r.NodesManager.nodes))
-	for uid := range r.NodesManager.nodes {
-		existingNodes = append(existingNodes, uid)
-	}
-	r.mu.RUnlock()
-
-	return r.Storage.Setup(existingNodes)
-}
-
 func (r *Registry) registerItself(info *control_pb.RegistryInfo) error {
 	return r.etcdClient.RegisterRegistry(r.Name, info)
 }
@@ -323,6 +311,7 @@ func (r *Registry) RunServiceDiscovery() {
 	defer ticker.Stop()
 
 	for {
+
 		select {
 		case <-ticker.C:
 
