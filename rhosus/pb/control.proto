@@ -24,17 +24,23 @@ message Void {
 
 }
 
+enum State {
+  LEADER = 0;
+  CANDIDATE = 1;
+  FOLLOWER = 2;
+}
+
 message RequestVoteRequest {
   uint32 term = 1;
   string candidateUid = 2;
-  int64 lastLogIndex = 3;
+  uint64 lastLogIndex = 3;
   uint32 lastLogTerm = 4;
 }
 
 message RequestVoteResponse {
   string from = 1;
-  string term = 2;
-  uint32 voteGranted = 3;
+  uint32 term = 2;
+  bool voteGranted = 3;
 }
 
 message AppendEntriesRequest {

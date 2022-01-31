@@ -17,7 +17,9 @@ var (
 )
 
 type Term struct {
-	votes map[string]uint32
+	term     uint64
+	votes    map[string]uint32
+	votedFor uint32
 }
 
 type Config struct {
@@ -34,10 +36,10 @@ type Config struct {
 type Cluster struct {
 	config Config
 
-	mu          sync.RWMutex
-	peers       map[string]*control_pb.RegistryInfo
-	isLeader    bool
-	isCandidate bool
+	ID string
+
+	mu    sync.RWMutex
+	peers map[string]*control_pb.RegistryInfo
 
 	server  *ControlServer
 	service *ControlService
@@ -45,6 +47,11 @@ type Cluster struct {
 
 	entriesC chan *control_pb.Entry
 	buffer   *entriesBuffer
+
+	term         uint32
+	lastLogIndex uint64
+	votes        map[string]string
+	state        control_pb.State
 
 	shutdown  bool
 	shutdownC chan struct{}
@@ -61,12 +68,17 @@ func NewCluster(config Config, peers map[string]*control_pb.RegistryInfo) *Clust
 		entriesC: make(chan *control_pb.Entry),
 		buffer:   &entriesBuffer{},
 
+		term:         0,
+		lastLogIndex: 0,
+		votes:        make(map[string]string),
+		state:        control_pb.State_FOLLOWER,
+
 		shutdownC: make(chan struct{}),
 		readyC:    make(chan struct{}, 1),
 	}
 
 	// First, we create a Write-ahead Log
-	w, err := wal.Create("rhosuswal", nil)
+	w, err := wal.Create("wal", nil)
 	if err != nil {
 		logrus.Fatalf("error creating wal: %v", err)
 		return nil
@@ -101,6 +113,12 @@ func NewCluster(config Config, peers map[string]*control_pb.RegistryInfo) *Clust
 	}
 
 	return c
+}
+
+func (c *Cluster) SetLastLogIndex(index uint64) {
+	c.mu.Lock()
+	c.lastLogIndex = index
+	c.mu.Unlock()
 }
 
 func (c *Cluster) DiscoverOrUpdate(uid string, info *control_pb.RegistryInfo) (err error) {
@@ -211,7 +229,7 @@ func (c *Cluster) RunSendEntries() {
 		}
 
 		// Only leader should send entries and heartbeats
-		if !c.isLeader {
+		if !c.isLeader() {
 			continue
 		}
 
@@ -247,7 +265,42 @@ func (c *Cluster) RunSendEntries() {
 	}
 }
 
+func (c *Cluster) StartElection() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	respC := c.service.sendVoteRequests()
+
+	var counter, votes = 0, 0
+
+	for {
+		select {
+		case vote := <-respC:
+			counter++
+
+			if vote.res.Term > c.term {
+				// step down
+			}
+			if vote.res.VoteGranted {
+				votes++
+			}
+
+			if votes >= len(c.peers)/2+1 {
+				// become leader
+
+				break
+			}
+		}
+	}
+}
+
+func (c *Cluster) becomeLeader() {
+	c.state = control_pb.State_LEADER
+
+}
+
 func (c *Cluster) WatchForEntries() {
+
 	for {
 
 		if c.shutdown {
@@ -262,12 +315,23 @@ func (c *Cluster) WatchForEntries() {
 		case <-electionTimout.C:
 			timers.ReleaseTimer(electionTimout)
 
-			resp := c.service.sendVoteRequests()
-			logrus.Infof("vote responses: %v", resp)
+			c.StartElection()
 		}
 	}
 }
 
 func (c *Cluster) NotifyShutdown() <-chan struct{} {
 	return c.shutdownC
+}
+
+func (c *Cluster) isLeader() bool {
+	return c.state == control_pb.State_LEADER
+}
+
+func (c *Cluster) isCandidate() bool {
+	return c.state == control_pb.State_CANDIDATE
+}
+
+func (c *Cluster) isFollower() bool {
+	return c.state == control_pb.State_FOLLOWER
 }
