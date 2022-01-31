@@ -4,8 +4,10 @@ import (
 	"fmt"
 	rhosus_etcd "github.com/parasource/rhosus/rhosus/etcd"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
+	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/parasource/rhosus/rhosus/registry/cluster"
+	"github.com/parasource/rhosus/rhosus/registry/storage"
 	"github.com/parasource/rhosus/rhosus/registry/wal"
 	file_server "github.com/parasource/rhosus/rhosus/server"
 	"github.com/parasource/rhosus/rhosus/util"
@@ -43,6 +45,7 @@ type Registry struct {
 
 	NodesManager   *NodesManager
 	FileServer     *file_server.Server
+	Storage        *storage.Storage
 	StatsCollector *StatsCollector
 	Journal        *wal.WAL
 
@@ -88,6 +91,34 @@ func NewRegistry(config Config) (*Registry, error) {
 		logrus.Fatalf("error connecting to etcd: %v", err)
 	}
 	r.etcdClient = etcdClient
+
+	s, err := storage.NewStorage(storage.Config{
+		WriteTimeoutS: 1,
+	}, etcdClient)
+	if err != nil {
+		logrus.Fatalf("error creating storage: %v", err)
+	}
+	r.Storage = s
+
+	err = s.PutFile("style.css", &fs_pb.File{
+		Uid:       "234234234",
+		Name:      "style.css",
+		DirID:     "lkj234lkj",
+		FullPath:  "style.css",
+		Timestamp: time.Now().UnixMilli(),
+		Size_:     1024 * 1024,
+		Blocks:    0,
+	})
+	if err != nil {
+		logrus.Errorf("error putting file in storage: %v", err)
+	}
+
+	file, err := s.GetFile("style.css")
+	if err != nil {
+		logrus.Errorf("error getting file from storage: %v", err)
+	}
+
+	logrus.Infof("file: %v", file)
 
 	// Here we load all the existing nodes and registries from etcd
 	// Error occurs only in non-usual conditions, so we kill process

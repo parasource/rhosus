@@ -174,6 +174,10 @@ func (c *EtcdClient) Get(ctx context.Context, key string, ops ...etcd.OpOption) 
 	return c.cli.Get(ctx, key, ops...)
 }
 
+func (c *EtcdClient) Delete(ctx context.Context, key string, ops ...etcd.OpOption) (*etcd.DeleteResponse, error) {
+	return c.cli.Delete(ctx, key, ops...)
+}
+
 func (c *EtcdClient) WatchForRegistriesUpdates() etcd.WatchChan {
 	return c.cli.Watch(context.Background(), serviceDiscoveryRegistriesPath, etcd.WithPrefix())
 }
