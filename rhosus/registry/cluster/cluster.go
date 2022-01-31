@@ -1,7 +1,6 @@
 package cluster
 
 import (
-	"context"
 	"errors"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	"github.com/parasource/rhosus/rhosus/registry/wal"
@@ -71,7 +70,7 @@ func NewCluster(config Config, peers map[string]*control_pb.RegistryInfo) *Clust
 		term:         0,
 		lastLogIndex: 0,
 		votes:        make(map[string]string),
-		state:        control_pb.State_FOLLOWER,
+		state:        control_pb.State_LEADER,
 
 		shutdownC: make(chan struct{}),
 		readyC:    make(chan struct{}, 1),
@@ -111,6 +110,8 @@ func NewCluster(config Config, peers map[string]*control_pb.RegistryInfo) *Clust
 	for _, uid := range sanePeers {
 		c.peers[uid] = peers[uid]
 	}
+
+	go c.Run()
 
 	return c
 }
@@ -233,34 +234,25 @@ func (c *Cluster) RunSendEntries() {
 			continue
 		}
 
-		// if observer doesn't hear from leader in 100 ms, current peer becomes a candidate
+		// if observer doesn't hear from leader in 150 to 300 ms, current peer becomes a candidate
 		// and starts an election
-		heartbeatTimeout := timers.SetTimer(time.Millisecond * getIntervalMs(150, 300))
+		heartbeatTimeout := timers.SetTimer(getIntervalMs(150, 300))
 
 		select {
 		case <-heartbeatTimeout.C:
 
 			entries := c.buffer.Read()
 			req := &control_pb.AppendEntriesRequest{
-				Term: 1,
-				//LeaderUid:            "",
+				Term:         1,
+				LeaderUid:    c.ID,
 				PrevLogIndex: 0,
 				PrevLogTerm:  1,
 				Entries:      entries,
 				LeaderCommit: true,
 			}
 
-			go func() {
-				ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
-				defer cancel()
-
-				_, err := c.service.AppendEntries(ctx, req)
-				if err != nil {
-
-				}
-
-			}()
-
+			resp := c.service.AppendEntries(req)
+			logrus.Infof("responses: %v", resp)
 		}
 	}
 }
@@ -305,6 +297,10 @@ func (c *Cluster) WatchForEntries() {
 
 		if c.shutdown {
 			return
+		}
+
+		if !c.isFollower() {
+			continue
 		}
 
 		// According to RAFT docs, we need to set random interval
