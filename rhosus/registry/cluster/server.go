@@ -18,6 +18,8 @@ type ControlServer struct {
 	cluster *Cluster
 	control_pb.ControlServer
 
+	votedFor string
+
 	Config ControlServerConfig
 }
 
@@ -58,7 +60,39 @@ func NewControlServer(cluster *Cluster, address string) (*ControlServer, error) 
 }
 
 func (s *ControlServer) RequestVote(c context.Context, req *control_pb.RequestVoteRequest) (*control_pb.RequestVoteResponse, error) {
-	panic("implement me")
+
+	// If the term of the candidate is less than our - we don't grant a vote
+	if req.Term <= s.cluster.term {
+		return &control_pb.RequestVoteResponse{
+			From:        s.cluster.ID,
+			Term:        s.cluster.term,
+			VoteGranted: false,
+		}, nil
+	}
+
+	if req.Term > s.cluster.term {
+		// step down
+	}
+
+	cond1 := s.votedFor == ""
+	cond2 := s.votedFor == req.CandidateUid
+	cond3 := req.LastLogIndex >= s.cluster.lastLogIndex-uint64(1)
+
+	if (cond1 || cond2) && cond3 {
+		s.votedFor = req.CandidateUid
+		// set new term
+		return &control_pb.RequestVoteResponse{
+			From:        s.cluster.ID,
+			Term:        req.Term,
+			VoteGranted: true,
+		}, nil
+	}
+
+	return &control_pb.RequestVoteResponse{
+		From:        s.cluster.ID,
+		Term:        s.cluster.term,
+		VoteGranted: false,
+	}, nil
 }
 
 func (s *ControlServer) AppendEntries(c context.Context, req *control_pb.AppendEntriesRequest) (*control_pb.AppendEntriesResponse, error) {
@@ -70,6 +104,7 @@ func (s *ControlServer) Shutdown(c context.Context, req *control_pb.Void) (*cont
 }
 
 func (s *ControlServer) Alive(c context.Context, req *control_pb.Void) (*control_pb.Void, error) {
+	logrus.Warnf("IM ALIVE")
 	return &control_pb.Void{}, nil
 }
 

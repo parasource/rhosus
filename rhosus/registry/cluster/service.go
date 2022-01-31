@@ -171,14 +171,14 @@ func (v voteResponse) getError() error {
 	return v.err
 }
 
-func (s *ControlService) sendVoteRequests() map[string]voteResponse {
+func (s *ControlService) sendVoteRequests() chan voteResponse {
 
 	peers := make(map[string]*Peer, len(s.peers))
 	for uid, peer := range s.peers {
 		peers[uid] = peer
 	}
 
-	responses := make(map[string]voteResponse)
+	respC := make(chan voteResponse)
 
 	for uid, peer := range peers {
 
@@ -197,15 +197,13 @@ func (s *ControlService) sendVoteRequests() map[string]voteResponse {
 			}
 			res, err := conn.RequestVote(ctx, req)
 			if err != nil {
-				// TODO: this is important too
-				logrus.Errorf("error connecting to %v: %v", uid, err)
-				responses[uid] = voteResponse{
+				respC <- voteResponse{
 					res: nil,
 					err: err,
 				}
 			}
 
-			responses[uid] = voteResponse{
+			respC <- voteResponse{
 				res: res,
 				err: nil,
 			}
@@ -214,5 +212,5 @@ func (s *ControlService) sendVoteRequests() map[string]voteResponse {
 		}(uid, peer)
 	}
 
-	return responses
+	return respC
 }
