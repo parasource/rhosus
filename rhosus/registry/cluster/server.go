@@ -79,6 +79,9 @@ func (s *ControlServer) RequestVote(c context.Context, req *control_pb.RequestVo
 	cond3 := req.LastLogIndex >= s.cluster.lastLogIndex-uint64(1)
 
 	if (cond1 || cond2) && cond3 {
+
+		logrus.Info("vote granted")
+
 		s.votedFor = req.CandidateUid
 		// set new term
 		return &control_pb.RequestVoteResponse{
@@ -96,7 +99,8 @@ func (s *ControlServer) RequestVote(c context.Context, req *control_pb.RequestVo
 }
 
 func (s *ControlServer) AppendEntries(c context.Context, req *control_pb.AppendEntriesRequest) (*control_pb.AppendEntriesResponse, error) {
-	panic("implement me")
+	logrus.Infof("ENTRIES APPENDED")
+	return &control_pb.AppendEntriesResponse{}, nil
 }
 
 func (s *ControlServer) Shutdown(c context.Context, req *control_pb.Void) (*control_pb.Void, error) {

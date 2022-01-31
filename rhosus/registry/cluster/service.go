@@ -16,8 +16,6 @@ type ServerAddress struct {
 }
 
 type ControlService struct {
-	control_pb.ControlClient
-
 	cluster *Cluster
 	peers   map[string]*Peer
 	// uid of the leader peer
@@ -107,6 +105,26 @@ func (s *ControlService) Start() {
 	//	}
 	//}
 
+}
+
+func (s *ControlService) AppendEntries(req *control_pb.AppendEntriesRequest) map[string]*control_pb.AppendEntriesResponse {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	resp := make(map[string]*control_pb.AppendEntriesResponse)
+
+	for uid, peer := range s.peers {
+		conn := *peer.conn
+
+		res, err := conn.AppendEntries(ctx, req)
+		if err != nil {
+			logrus.Errorf("error sending entries to peer %v: %v", uid, err)
+		}
+
+		resp[uid] = res
+	}
+
+	return resp
 }
 
 // isLeaderPresent checks if the leader already
