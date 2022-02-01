@@ -7,6 +7,7 @@ import (
 	"github.com/parasource/rhosus/rhosus/util/timers"
 	"github.com/sirupsen/logrus"
 	"net"
+	_ "net/http/pprof"
 	"sync"
 	"time"
 )
@@ -52,6 +53,12 @@ type Cluster struct {
 	votes        map[string]string
 	state        control_pb.State
 
+	// When we change a state of a node to leader of follower,
+	// we need to stop corresponding goroutines
+	// to prevent busy loop
+	stopSendingC  chan struct{}
+	stopWatchingC chan struct{}
+
 	shutdown  bool
 	shutdownC chan struct{}
 	readyC    chan struct{}
@@ -70,7 +77,10 @@ func NewCluster(config Config, peers map[string]*control_pb.RegistryInfo) *Clust
 		term:         0,
 		lastLogIndex: 0,
 		votes:        make(map[string]string),
-		state:        control_pb.State_LEADER,
+		state:        control_pb.State_FOLLOWER,
+
+		stopSendingC:  make(chan struct{}, 1),
+		stopWatchingC: make(chan struct{}, 1),
 
 		shutdownC: make(chan struct{}),
 		readyC:    make(chan struct{}, 1),
@@ -81,6 +91,11 @@ func NewCluster(config Config, peers map[string]*control_pb.RegistryInfo) *Clust
 	if err != nil {
 		logrus.Fatalf("error creating wal: %v", err)
 		return nil
+	}
+
+	// At this point there are no other registries, so we promote us to a leader
+	if len(peers) < 1 {
+		c.state = control_pb.State_LEADER
 	}
 
 	// Server to accept other peers connections
@@ -190,14 +205,20 @@ func (c *Cluster) WriteEntry(entry *control_pb.Entry) error {
 
 func (c *Cluster) Run() {
 
-	go c.RunSendEntries()
-	go c.WatchForEntries()
+	if c.isLeader() {
+		go c.RunSendEntries(c.stopSendingC)
+	} else {
+		go c.WatchForEntries(c.stopWatchingC)
+	}
 
 	for {
 
+		c.mu.RLock()
 		if c.shutdown {
+			c.mu.RUnlock()
 			return
 		}
+		c.mu.RUnlock()
 
 		select {
 		case e := <-c.entriesC:
@@ -221,26 +242,25 @@ func (c *Cluster) Shutdown() {
 	c.mu.Unlock()
 }
 
-func (c *Cluster) RunSendEntries() {
+func (c *Cluster) RunSendEntries(stopC <-chan struct{}) {
 
 	for {
 
+		c.mu.RLock()
 		if c.shutdown {
+			c.mu.RUnlock()
 			return
 		}
-
-		// Only leader should send entries and heartbeats
-		if !c.isLeader() {
-			continue
-		}
+		c.mu.RUnlock()
 
 		// if observer doesn't hear from leader in 150 to 300 ms, current peer becomes a candidate
 		// and starts an election
 		heartbeatTimeout := timers.SetTimer(getIntervalMs(150, 300))
 
 		select {
+		case <-stopC:
+			return
 		case <-heartbeatTimeout.C:
-
 			entries := c.buffer.Read()
 			req := &control_pb.AppendEntriesRequest{
 				Term:         1,
@@ -250,7 +270,6 @@ func (c *Cluster) RunSendEntries() {
 				Entries:      entries,
 				LeaderCommit: true,
 			}
-
 			resp := c.service.AppendEntries(req)
 			logrus.Infof("responses: %v", resp)
 		}
@@ -286,32 +305,47 @@ func (c *Cluster) StartElection() error {
 	}
 }
 
-func (c *Cluster) becomeLeader() {
-	c.state = control_pb.State_LEADER
+func (c *Cluster) becomeFollower() {
+	c.mu.Lock()
+	c.state = control_pb.State_FOLLOWER
+	c.mu.Unlock()
 
+	// Now we stop sending entries and start listening them
+	c.stopSendingC <- struct{}{}
+	go c.WatchForEntries(c.stopWatchingC)
 }
 
-func (c *Cluster) WatchForEntries() {
+func (c *Cluster) becomeLeader() {
+	c.mu.Lock()
+	c.state = control_pb.State_LEADER
+	c.mu.Unlock()
+
+	// Now we don't want node to listen for other entries
+	c.stopWatchingC <- struct{}{}
+	go c.RunSendEntries(c.stopSendingC)
+}
+
+func (c *Cluster) WatchForEntries(stopC <-chan struct{}) {
 
 	for {
 
+		c.mu.RLock()
 		if c.shutdown {
+			c.mu.RUnlock()
 			return
 		}
-
-		if !c.isFollower() {
-			continue
-		}
+		c.mu.RUnlock()
 
 		// According to RAFT docs, we need to set random interval
 		// between 150 and 300 ms
-		electionTimout := timers.SetTimer(time.Millisecond * getIntervalMs(300, 500))
+		electionTimout := timers.SetTimer(getIntervalMs(300, 500))
 
 		select {
 		case <-electionTimout.C:
 			timers.ReleaseTimer(electionTimout)
-
 			c.StartElection()
+		case <-stopC:
+			return
 		}
 	}
 }
