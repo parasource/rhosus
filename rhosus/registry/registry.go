@@ -4,7 +4,6 @@ import (
 	"fmt"
 	rhosus_etcd "github.com/parasource/rhosus/rhosus/etcd"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
-	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/parasource/rhosus/rhosus/registry/cluster"
 	"github.com/parasource/rhosus/rhosus/registry/storage"
@@ -12,6 +11,7 @@ import (
 	file_server "github.com/parasource/rhosus/rhosus/server"
 	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/parasource/rhosus/rhosus/util/tickers"
+	"github.com/parasource/rhosus/rhosus/util/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -62,7 +62,10 @@ type Registry struct {
 
 func NewRegistry(config Config) (*Registry, error) {
 
+	uid, _ := uuid.NewV4()
+
 	r := &Registry{
+		Uid:     uid.String(),
 		Name:    util.GenerateRandomName(2),
 		Config:  config,
 		readyWg: sync.WaitGroup{},
@@ -100,26 +103,6 @@ func NewRegistry(config Config) (*Registry, error) {
 	}
 	r.Storage = s
 
-	err = s.PutFile("style.css", &fs_pb.File{
-		Uid:       "234234234",
-		Name:      "style.css",
-		DirID:     "lkj234lkj",
-		FullPath:  "style.css",
-		Timestamp: time.Now().UnixMilli(),
-		Size_:     1024 * 1024,
-		Blocks:    0,
-	})
-	if err != nil {
-		logrus.Errorf("error putting file in storage: %v", err)
-	}
-
-	file, err := s.GetFile("style.css")
-	if err != nil {
-		logrus.Errorf("error getting file from storage: %v", err)
-	}
-
-	logrus.Infof("file: %v", file)
-
 	// Here we load all the existing nodes and registries from etcd
 	// Error occurs only in non-usual conditions, so we kill process
 	regs, err := r.getExistingRegistries()
@@ -138,7 +121,7 @@ func NewRegistry(config Config) (*Registry, error) {
 		logrus.Fatalf("couldn't get free port: %v", err)
 	}
 	info := &control_pb.RegistryInfo{
-		Uid:  "test_uid",
+		Uid:  r.Uid,
 		Name: r.Name,
 		Address: &control_pb.RegistryInfo_Address{
 			Host:     "localhost",
@@ -151,6 +134,7 @@ func NewRegistry(config Config) (*Registry, error) {
 
 	// Setting up registries cluster from existing peers
 	c := cluster.NewCluster(cluster.Config{
+		ID:           r.Uid,
 		RegistryInfo: info,
 	}, regs)
 	r.Cluster = c
@@ -227,11 +211,11 @@ func (r *Registry) Start() {
 }
 
 func (r *Registry) registerItself(info *control_pb.RegistryInfo) error {
-	return r.etcdClient.RegisterRegistry(r.Name, info)
+	return r.etcdClient.RegisterRegistry(info.Uid, info)
 }
 
 func (r *Registry) unregisterItself() error {
-	return r.etcdClient.UnregisterRegistry(r.Name)
+	return r.etcdClient.UnregisterRegistry(r.Uid)
 }
 
 func (r *Registry) NotifyShutdown() <-chan struct{} {
@@ -307,13 +291,7 @@ func (r *Registry) getExistingRegistries() (map[string]*control_pb.RegistryInfo,
 
 	result := make(map[string]*control_pb.RegistryInfo)
 
-	for path, bytes := range registries {
-
-		name := rhosus_etcd.ParseRegistryName(path)
-
-		if name == r.Name {
-			continue
-		}
+	for _, bytes := range registries {
 
 		var info control_pb.RegistryInfo
 		err := info.Unmarshal(bytes)

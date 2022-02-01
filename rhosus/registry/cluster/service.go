@@ -196,7 +196,7 @@ func (s *ControlService) sendVoteRequests() chan voteResponse {
 		peers[uid] = peer
 	}
 
-	respC := make(chan voteResponse)
+	respC := make(chan voteResponse, len(peers))
 
 	for uid, peer := range peers {
 
@@ -219,6 +219,7 @@ func (s *ControlService) sendVoteRequests() chan voteResponse {
 					res: nil,
 					err: err,
 				}
+				return
 			}
 
 			respC <- voteResponse{

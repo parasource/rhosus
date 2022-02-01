@@ -99,6 +99,7 @@ func (s *ControlServer) RequestVote(c context.Context, req *control_pb.RequestVo
 }
 
 func (s *ControlServer) AppendEntries(c context.Context, req *control_pb.AppendEntriesRequest) (*control_pb.AppendEntriesResponse, error) {
+	s.cluster.cancelVotingTimeoutC <- struct{}{}
 	logrus.Infof("ENTRIES APPENDED")
 	return &control_pb.AppendEntriesResponse{}, nil
 }
