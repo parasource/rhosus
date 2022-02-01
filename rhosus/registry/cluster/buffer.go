@@ -12,7 +12,7 @@ var (
 )
 
 type entriesBuffer struct {
-	mu      sync.Mutex
+	mu      sync.RWMutex
 	entries []*control_pb.Entry
 }
 
