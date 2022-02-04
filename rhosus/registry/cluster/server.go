@@ -18,7 +18,8 @@ type ControlServer struct {
 	cluster *Cluster
 	control_pb.ControlServer
 
-	votedFor string
+	lastVotedTerm uint32
+	votedFor      string
 
 	Config ControlServerConfig
 }
@@ -61,18 +62,25 @@ func NewControlServer(cluster *Cluster, address string) (*ControlServer, error) 
 
 func (s *ControlServer) RequestVote(c context.Context, req *control_pb.RequestVoteRequest) (*control_pb.RequestVoteResponse, error) {
 
-	// If the term of the candidate is less than our - we don't grant a vote
-	if req.Term <= s.cluster.term {
+	s.cluster.electionTimeoutC <- struct{}{}
+
+	// If the currentTerm of the candidate is less than our - we don't grant a vote
+	if req.Term <= s.cluster.currentTerm || s.lastVotedTerm == req.Term {
 		return &control_pb.RequestVoteResponse{
 			From:        s.cluster.ID,
-			Term:        s.cluster.term,
+			Term:        s.cluster.currentTerm,
 			VoteGranted: false,
 		}, nil
 	}
 
-	if req.Term > s.cluster.term {
-		// step down
-	}
+	s.cluster.currentTerm = req.Term
+	s.lastVotedTerm = req.Term
+
+	return &control_pb.RequestVoteResponse{
+		From:        s.cluster.ID,
+		Term:        s.cluster.currentTerm,
+		VoteGranted: true,
+	}, nil
 
 	cond1 := s.votedFor == ""
 	cond2 := s.votedFor == req.CandidateUid
@@ -83,7 +91,7 @@ func (s *ControlServer) RequestVote(c context.Context, req *control_pb.RequestVo
 		logrus.Info("vote granted")
 
 		s.votedFor = req.CandidateUid
-		// set new term
+		// set new currentTerm
 		return &control_pb.RequestVoteResponse{
 			From:        s.cluster.ID,
 			Term:        req.Term,
@@ -93,13 +101,22 @@ func (s *ControlServer) RequestVote(c context.Context, req *control_pb.RequestVo
 
 	return &control_pb.RequestVoteResponse{
 		From:        s.cluster.ID,
-		Term:        s.cluster.term,
+		Term:        s.cluster.currentTerm,
 		VoteGranted: false,
 	}, nil
 }
 
 func (s *ControlServer) AppendEntries(c context.Context, req *control_pb.AppendEntriesRequest) (*control_pb.AppendEntriesResponse, error) {
-	s.cluster.cancelVotingTimeoutC <- struct{}{}
+
+	s.cluster.electionTimeoutC <- struct{}{}
+
+	// According to RAFT docs, if the candidate receives AppendEntries
+	// request from another node, claiming to be a leader and having greater
+	// term, current node returns to follower state
+	if s.cluster.isCandidate() && req.Term >= s.cluster.currentTerm {
+		s.cluster.becomeFollower()
+	}
+
 	logrus.Infof("ENTRIES APPENDED")
 	return &control_pb.AppendEntriesResponse{}, nil
 }

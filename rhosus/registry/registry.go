@@ -7,7 +7,6 @@ import (
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/parasource/rhosus/rhosus/registry/cluster"
 	"github.com/parasource/rhosus/rhosus/registry/storage"
-	"github.com/parasource/rhosus/rhosus/registry/wal"
 	file_server "github.com/parasource/rhosus/rhosus/server"
 	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/parasource/rhosus/rhosus/util/tickers"
@@ -47,9 +46,8 @@ type Registry struct {
 	FileServer     *file_server.Server
 	Storage        *storage.Storage
 	StatsCollector *StatsCollector
-	Journal        *wal.WAL
 
-	// Cluster is used to control over raft
+	// Cluster is used to control over other registries
 	Cluster *cluster.Cluster
 
 	etcdClient *rhosus_etcd.EtcdClient
@@ -130,7 +128,6 @@ func NewRegistry(config Config) (*Registry, error) {
 			Password: "",
 		},
 	}
-	err = r.registerItself(info)
 
 	// Setting up registries cluster from existing peers
 	c := cluster.NewCluster(cluster.Config{
@@ -138,6 +135,11 @@ func NewRegistry(config Config) (*Registry, error) {
 		RegistryInfo: info,
 	}, regs)
 	r.Cluster = c
+
+	err = r.registerItself(info)
+	if err != nil {
+		logrus.Fatalf("%v", err)
+	}
 
 	fileServer, err := file_server.NewServer(file_server.ServerConfig{
 		Host:      r.Config.ServerConfig.Host,
