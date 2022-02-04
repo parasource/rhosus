@@ -12,26 +12,24 @@ import (
 	"time"
 )
 
+const ElectionTimeoutThresholdPercent = 0.8
+
 var (
 	ErrShutdown = errors.New("cluster is shut down")
 )
-
-type Term struct {
-	term     uint64
-	votes    map[string]uint32
-	votedFor uint32
-}
 
 type Config struct {
 	ID string
 
 	RegistryInfo *control_pb.RegistryInfo
 
-	HeartbeatTimeoutMinMs int
-	HeartbeatTimeoutMaxMs int
+	HeartbeatIntervalMinMs int
+	HeartbeatIntervalMaxMs int
 
 	ElectionTimeoutMinMs int
 	ElectionTimeoutMaxMs int
+
+	MaxEntriesPerRequest int
 }
 
 // Cluster watches and starts and election if there is no signal within an interval
@@ -40,8 +38,10 @@ type Cluster struct {
 
 	ID string
 
-	mu    sync.RWMutex
-	peers map[string]*control_pb.RegistryInfo
+	mu          sync.RWMutex
+	peers       map[string]*Peer
+	syncedPeers map[string]bool
+	leader      string
 
 	server  *ControlServer
 	service *ControlService
@@ -50,17 +50,16 @@ type Cluster struct {
 	entriesC chan *control_pb.Entry
 	buffer   *entriesBuffer
 
-	term         uint32
+	currentTerm  uint32
 	lastLogIndex uint64
-	votes        map[string]string
 	state        control_pb.State
 
+	electionTimeoutC chan struct{}
 	// When we change a state of a node to leader of follower,
 	// we need to stop corresponding goroutines
 	// to prevent busy loop
-	stopSendingC         chan struct{}
-	stopWatchingC        chan struct{}
-	cancelVotingTimeoutC chan struct{}
+	stopSendingC  chan struct{}
+	stopWatchingC chan struct{}
 
 	shutdown  bool
 	shutdownC chan struct{}
@@ -74,19 +73,18 @@ func NewCluster(config Config, peers map[string]*control_pb.RegistryInfo) *Clust
 		ID:     config.ID,
 		config: config,
 
-		peers: make(map[string]*control_pb.RegistryInfo),
+		peers: make(map[string]*Peer),
 
 		entriesC: make(chan *control_pb.Entry),
 		buffer:   &entriesBuffer{},
 
-		term:         0,
+		currentTerm:  0,
 		lastLogIndex: 0,
-		votes:        make(map[string]string),
 		state:        control_pb.State_FOLLOWER,
 
-		stopSendingC:         make(chan struct{}, 1),
-		stopWatchingC:        make(chan struct{}, 1),
-		cancelVotingTimeoutC: make(chan struct{}, 1),
+		stopSendingC:     make(chan struct{}, 1),
+		stopWatchingC:    make(chan struct{}, 1),
+		electionTimeoutC: make(chan struct{}, 1),
 
 		shutdownC: make(chan struct{}),
 		readyC:    make(chan struct{}, 1),
@@ -98,16 +96,17 @@ func NewCluster(config Config, peers map[string]*control_pb.RegistryInfo) *Clust
 		logrus.Fatalf("error creating wal: %v", err)
 		return nil
 	}
+	c.wal = w
 
-	// Server to accept other peers connections
+	// Server to accept other conns connections
 	srvAddress := net.JoinHostPort(config.RegistryInfo.Address.Host, config.RegistryInfo.Address.Port)
 	server, err := NewControlServer(c, srvAddress)
 	if err != nil {
 		logrus.Fatalf("error creating control server: %v", err)
 	}
-	logrus.Infof("listening raft on %v", srvAddress)
+	logrus.Infof("listening control on %v", srvAddress)
 
-	// Creating a service that holds connections to other peers
+	// Creating a service that holds connections to other conns
 	addresses := make(map[string]string, len(peers))
 	for uid, info := range peers {
 		// we skip ourselves
@@ -125,10 +124,13 @@ func NewCluster(config Config, peers map[string]*control_pb.RegistryInfo) *Clust
 	c.server = server
 	c.service = service
 
-	// We add only working peers to our map
+	// We add only working conns to our map
 	// We will try to reconnect to others some time later
 	for _, uid := range sanePeers {
-		c.peers[uid] = peers[uid]
+		c.peers[uid] = &Peer{
+			info:   peers[uid],
+			buffer: &entriesBuffer{},
+		}
 	}
 
 	// At this point there are no other registries, so we promote us to a leader
@@ -156,17 +158,23 @@ func (c *Cluster) DiscoverOrUpdate(uid string, info *control_pb.RegistryInfo) (e
 	}
 
 	// Update existing peer if it exists
-	if peer, ok := c.peers[uid]; ok {
+	if _, ok := c.peers[uid]; ok {
 
-		// TODO
+		//TODO
 
 	} else {
-		err = c.service.AddPeer(uid, composeRegistryAddress(info.Address), false)
+		err = c.service.AddPeer(uid, composeRegistryAddress(info.Address))
 		if err != nil {
 			return err
 		}
 
-		c.peers[uid] = peer
+		c.peers[uid] = &Peer{
+			info:         info,
+			buffer:       &entriesBuffer{},
+			prevIndex:    0,
+			lastActivity: time.Now(),
+			unavailable:  false,
+		}
 
 		logrus.Infof("added cluster peer %v with name %v", uid, info.Name)
 	}
@@ -211,6 +219,27 @@ func (c *Cluster) WriteEntry(entry *control_pb.Entry) error {
 	}
 
 	return nil
+}
+
+//func (c *Cluster) IsWalEmpty() bool {
+//	return c.wal.isEmpty()
+//}
+
+func (c *Cluster) isPromotable() bool {
+	lastIndex, err := c.wal.LastIndex()
+	if err != nil {
+		return false
+	}
+
+	return lastIndex > 0
+}
+
+func (c *Cluster) MemberCount() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	// we include ourselves
+	return len(c.peers) + 1
 }
 
 func (c *Cluster) Run() {
@@ -265,12 +294,13 @@ func (c *Cluster) RunSendEntries() {
 
 		// if observer doesn't hear from leader in 150 to 300 ms, current peer becomes a candidate
 		// and starts an election
-		heartbeatTimeout := timers.SetTimer(getIntervalMs(150, 300))
+		heartbeatTick := timers.SetTimer(getIntervalMs(150, 300))
 
 		select {
 		case <-c.stopSendingC:
 			return
-		case <-heartbeatTimeout.C:
+		case <-heartbeatTick.C:
+
 			entries := c.buffer.Read()
 			req := &control_pb.AppendEntriesRequest{
 				Term:         1,
@@ -281,6 +311,7 @@ func (c *Cluster) RunSendEntries() {
 				LeaderCommit: true,
 			}
 			resp := c.service.AppendEntries(req)
+
 			logrus.Infof("responses: %v", resp)
 		}
 	}
@@ -297,16 +328,19 @@ func (c *Cluster) WatchForEntries() {
 		}
 		c.mu.RUnlock()
 
-		// According to RAFT docs, we need to set random interval
-		// between 150 and 300 ms
+		// We need to set random interval between 150 and 300 ms
+		// It is something similar to RAFT, but not completely
 		electionTimout := timers.SetTimer(getIntervalMs(300, 500))
-
 		select {
-		case <-c.cancelVotingTimeoutC:
+		// Leader is alright, so we discard timeout
+		case <-c.electionTimeoutC:
 			timers.ReleaseTimer(electionTimout)
 
 		case <-electionTimout.C:
 			timers.ReleaseTimer(electionTimout)
+
+			c.state = control_pb.State_CANDIDATE
+			c.currentTerm++
 
 			err := c.StartElection()
 			if err != nil {
@@ -321,38 +355,37 @@ func (c *Cluster) WatchForEntries() {
 
 func (c *Cluster) StartElection() error {
 
+	logrus.Infof("election started")
 	respC := c.service.sendVoteRequests()
 
 	var responded, voted = 0, 0
+	var wg sync.WaitGroup
 
-	// TODO: maybe add some workers
 	for i := 0; i <= cap(respC); i++ {
-		timeout := timers.SetTimer(time.Millisecond * 100)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
 
-		select {
-		case <-timeout.C:
-			// Node doesn't respond for too long, so we skip it
-			// Actually we got to handle it more properly
-			continue
-		case vote := <-respC:
-			if vote.err != nil {
-				logrus.Errorf("error getting vote from a peer: %v", vote.err)
-				continue
-			}
-			responded++
+			if vote := <-respC; true {
+				if vote.err != nil {
+					responded++
 
-			//if vote.res.Term > c.term {
-			//	// step down
-			//}
-			if vote.res.VoteGranted {
-				voted++
+					logrus.Errorf("error getting vote from a peer: %v", vote.err)
+					return
+				}
+				if vote.res.VoteGranted {
+					voted++
+				}
 			}
-		}
+		}()
 	}
 
+	wg.Wait()
+
 	// It means there are no nodes alive, so we promote ourselves to a leader
-	if responded == 0 {
+	if responded == 0 || voted > responded/2 {
 		c.becomeLeader()
+		return nil
 	}
 
 	return nil

@@ -631,6 +631,27 @@ func (w *WAL) Read(index uint64) (data []byte, err error) {
 	return data, nil
 }
 
+func (w *WAL) GetEntriesAfter(index uint64) ([][]byte, error) {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	var entries [][]byte
+
+	lastIdx, err := w.LastIndex()
+	if err != nil {
+		return nil, err
+	}
+	for i := index; i <= lastIdx; i++ {
+		entry, err := w.Read(i)
+		if err != nil {
+			return nil, err
+		}
+		entries = append(entries, entry)
+	}
+
+	return entries, nil
+}
+
 // ClearCache clears the segment cache
 func (w *WAL) ClearCache() error {
 	w.mu.Lock()
