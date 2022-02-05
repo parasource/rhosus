@@ -62,10 +62,11 @@ func NewControlServer(cluster *Cluster, address string) (*ControlServer, error) 
 
 func (s *ControlServer) RequestVote(c context.Context, req *control_pb.RequestVoteRequest) (*control_pb.RequestVoteResponse, error) {
 
-	s.cluster.electionTimeoutC <- struct{}{}
+	s.cluster.entriesAppendedC <- struct{}{}
 
 	// If the currentTerm of the candidate is less than our - we don't grant a vote
-	if req.Term <= s.cluster.currentTerm || s.lastVotedTerm == req.Term {
+	if s.lastVotedTerm == req.Term {
+		logrus.Warnf("DECLINED: %v --- %v", req, s.cluster.currentTerm)
 		return &control_pb.RequestVoteResponse{
 			From:        s.cluster.ID,
 			Term:        s.cluster.currentTerm,
@@ -108,7 +109,7 @@ func (s *ControlServer) RequestVote(c context.Context, req *control_pb.RequestVo
 
 func (s *ControlServer) AppendEntries(c context.Context, req *control_pb.AppendEntriesRequest) (*control_pb.AppendEntriesResponse, error) {
 
-	s.cluster.electionTimeoutC <- struct{}{}
+	s.cluster.entriesAppendedC <- struct{}{}
 
 	// According to RAFT docs, if the candidate receives AppendEntries
 	// request from another node, claiming to be a leader and having greater

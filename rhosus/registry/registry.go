@@ -180,7 +180,7 @@ func (r *Registry) Start() {
 
 	r.readyC <- struct{}{}
 
-	logrus.Infof("Registry %v is ready", r.Name)
+	logrus.Infof("Registry %v : %v is ready", r.Name, r.Uid)
 
 	select {
 	case <-r.NotifyShutdown():
