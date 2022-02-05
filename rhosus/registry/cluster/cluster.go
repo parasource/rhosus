@@ -8,7 +8,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"math"
 	"net"
-	_ "net/http/pprof"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -17,7 +16,8 @@ import (
 const ElectionTimeoutThresholdPercent = 0.8
 
 var (
-	ErrShutdown = errors.New("cluster is shut down")
+	ErrShutdown     = errors.New("cluster is shut down")
+	ErrPeerNotFound = errors.New("peer not found")
 )
 
 type Config struct {
@@ -57,9 +57,8 @@ type Cluster struct {
 	state        control_pb.State
 
 	entriesAppendedC chan struct{}
-	// These are locks to avoid busy loops
-	stopWriteLoop chan struct{}
-	stopReadLoop  chan struct{}
+
+	handleEntries func(entries []*control_pb.Entry)
 
 	shutdown  bool
 	shutdownC chan struct{}
@@ -83,10 +82,6 @@ func NewCluster(config Config, peers map[string]*control_pb.RegistryInfo) *Clust
 		state:        control_pb.State_FOLLOWER,
 
 		entriesAppendedC: make(chan struct{}, 60),
-
-		// TODO: this is a shitty way to solve a problem
-		stopReadLoop:  make(chan struct{}, 5),
-		stopWriteLoop: make(chan struct{}, 5),
 
 		shutdownC: make(chan struct{}),
 		readyC:    make(chan struct{}, 1),
@@ -145,10 +140,29 @@ func NewCluster(config Config, peers map[string]*control_pb.RegistryInfo) *Clust
 	return c
 }
 
+func (c *Cluster) SetEntriesHandler(f func(entries []*control_pb.Entry)) {
+	c.mu.Lock()
+	c.handleEntries = f
+	c.mu.Unlock()
+}
+
 func (c *Cluster) SetLastLogIndex(index uint64) {
 	c.mu.Lock()
 	c.lastLogIndex = index
 	c.mu.Unlock()
+}
+
+func (c *Cluster) SetCurrentTerm(term uint32) {
+	c.mu.Lock()
+	c.currentTerm = term
+	c.mu.Unlock()
+}
+
+func (c *Cluster) GetCurrentTerm() uint32 {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return c.currentTerm
 }
 
 func (c *Cluster) DiscoverOrUpdate(uid string, info *control_pb.RegistryInfo) (err error) {
@@ -171,11 +185,11 @@ func (c *Cluster) DiscoverOrUpdate(uid string, info *control_pb.RegistryInfo) (e
 		}
 
 		c.peers[uid] = &Peer{
-			info:         info,
-			buffer:       &entriesBuffer{},
-			prevIndex:    0,
-			lastActivity: time.Now(),
-			unavailable:  false,
+			info:               info,
+			buffer:             &entriesBuffer{},
+			lastCommittedIndex: 0,
+			lastActivity:       time.Now(),
+			recovering:         false,
 		}
 
 		logrus.Infof("added cluster peer %v with name %v", uid, info.Name)
@@ -246,11 +260,8 @@ func (c *Cluster) MemberCount() int {
 
 func (c *Cluster) Run() {
 
-	if c.isLeader() {
-		go c.LoopWriteEntries()
-	} else {
-		go c.LoopReadEntries()
-	}
+	go c.LoopWriteEntries()
+	go c.LoopReadEntries()
 
 	for {
 
@@ -275,14 +286,6 @@ func (c *Cluster) Run() {
 
 }
 
-func (c *Cluster) Shutdown() {
-	close(c.shutdownC)
-
-	c.mu.Lock()
-	c.shutdown = true
-	c.mu.Unlock()
-}
-
 func (c *Cluster) LoopWriteEntries() {
 
 	for {
@@ -298,36 +301,147 @@ func (c *Cluster) LoopWriteEntries() {
 		// and starts an election
 		heartbeatTick := timers.SetTimer(getIntervalMs(150, 300))
 
-		select {
-		case <-c.stopWriteLoop:
-			timers.ReleaseTimer(heartbeatTick)
-			return
-
-		case <-heartbeatTick.C:
-
+		if <-heartbeatTick.C; true {
 			c.mu.RLock()
 			if !c.isLeader() {
 				c.mu.RUnlock()
-				return
-			}
-
-			entries := c.buffer.Read()
-			req := &control_pb.AppendEntriesRequest{
-				Term:         c.currentTerm,
-				LeaderUid:    c.ID,
-				PrevLogIndex: 0,
-				PrevLogTerm:  1,
-				Entries:      entries,
-				LeaderCommit: true,
+				continue
 			}
 			c.mu.RUnlock()
 
-			resp := c.service.AppendEntries(req)
-
-			logrus.Infof("responses: %v", resp)
-
+			c.dispatchEntries()
 		}
 	}
+}
+
+func (c *Cluster) dispatchEntries() {
+
+	peers := make(map[string]*Peer)
+
+	c.mu.RLock()
+	for uid, peer := range c.peers {
+		peers[uid] = peer
+	}
+	c.mu.RUnlock()
+
+	for uid, peer := range peers {
+
+		// If the peer is currently recovering, we don't need
+		// to send him new entries, we just stack them in its buffer
+		if peer.IsRecovering() {
+			continue
+		}
+
+		go func(uid string, peer *Peer) {
+
+			entries := peer.buffer.Read()
+			req := &control_pb.AppendEntriesRequest{
+				Term:         c.currentTerm,
+				LeaderUid:    c.ID,
+				Entries:      entries,
+				LeaderCommit: true,
+			}
+
+			res, err := c.service.AppendEntries(uid, req)
+			if err != nil {
+				logrus.Warnf("error appending entries: %v", err)
+				return
+			}
+
+			// In this case we need to retry with less index
+			if !res.Success {
+				err := c.startLogRecovering(uid, res.LastCommittedIndex)
+				if err != nil {
+					logrus.Errorf("error starting recovering proccess: %v", err)
+				}
+			}
+
+		}(uid, peer)
+	}
+}
+
+func (c *Cluster) startLogRecovering(uid string, from uint64) error {
+
+	c.mu.RLock()
+	if peer, ok := c.peers[uid]; ok {
+		c.mu.RUnlock()
+
+		peer.SetRecovering(true)
+		defer peer.SetRecovering(false)
+
+		lastIndex, err := c.wal.LastIndex()
+		if err != nil {
+			return err
+		}
+
+		for index := from + 1; index <= lastIndex; index++ {
+
+			bytes, err := c.wal.Read(index)
+			if err != nil {
+				logrus.Errorf("error getting entry while recovering peer: %v", err)
+				return err
+			}
+
+			var entry control_pb.Entry
+			err = entry.Unmarshal(bytes)
+			if err != nil {
+				logrus.Errorf("error unmarshaling entry: %v", err)
+			}
+
+			res, err := c.service.AppendEntries(uid, &control_pb.AppendEntriesRequest{
+				Term:         c.currentTerm,
+				LeaderUid:    c.ID,
+				Entries:      []*control_pb.Entry{&entry},
+				LeaderCommit: true,
+			})
+			if err != nil {
+				return err
+			}
+			// This should NEVER happen
+			if !res.Success {
+				return errors.New("unexpected error while recovering peer's wal")
+			}
+
+			peer.SetLastCommittedIndex(index)
+		}
+	}
+	c.mu.RUnlock()
+
+	logrus.Infof("peer's %v wal has been recovered", uid)
+
+	return ErrPeerNotFound
+}
+
+// WriteEntriesFromLeader is called by registry to write entries to
+// local version of WAL
+func (c *Cluster) WriteEntriesFromLeader(entries []*control_pb.Entry) error {
+
+	// First, we need to call registry callback to write entries to database
+	c.mu.RLock()
+	if c.handleEntries != nil {
+		c.mu.RUnlock()
+
+		c.handleEntries(entries)
+	}
+	c.mu.RUnlock()
+
+	index, _ := c.wal.LastIndex()
+
+	for _, entry := range entries {
+		index++
+
+		bytes, _ := entry.Marshal()
+
+		err := c.wal.Write(index, bytes)
+		if err != nil {
+			return err
+		}
+
+		c.SetLastLogIndex(index)
+	}
+
+	return nil
+
 }
 
 func (c *Cluster) LoopReadEntries() {
@@ -346,16 +460,19 @@ func (c *Cluster) LoopReadEntries() {
 		electionTimout := timers.SetTimer(getIntervalMs(300, 500))
 
 		select {
-
-		case <-c.stopReadLoop:
-			timers.ReleaseTimer(electionTimout)
-			return
 		// Leader is alright, so we discard timeout
 		case <-c.entriesAppendedC:
 			timers.ReleaseTimer(electionTimout)
 
 		case <-electionTimout.C:
 			timers.ReleaseTimer(electionTimout)
+
+			c.mu.RLock()
+			if c.isLeader() {
+				c.mu.RUnlock()
+				continue
+			}
+			c.mu.RUnlock()
 
 			err := c.StartElection()
 			if err != nil {
@@ -388,7 +505,7 @@ func (c *Cluster) StartElection() error {
 
 			res, err := c.service.sendVoteRequest(uid)
 			if err != nil {
-				logrus.Errorf("error sending vote request to %v: %v", uid, err)
+				logrus.Warnf("error sending vote request to %v: %v", uid, err)
 				return
 			}
 
@@ -404,6 +521,7 @@ func (c *Cluster) StartElection() error {
 
 	if responded < 1 || float64(voted) >= math.Floor(float64(responded/2)) {
 		c.becomeLeader()
+		logrus.Infof("I AM THE LEADER!!!")
 	}
 
 	return nil
@@ -413,18 +531,12 @@ func (c *Cluster) becomeFollower() {
 	c.mu.Lock()
 	c.state = control_pb.State_FOLLOWER
 	c.mu.Unlock()
-
-	c.stopWriteLoop <- struct{}{}
-	go c.LoopReadEntries()
 }
 
 func (c *Cluster) becomeLeader() {
 	c.mu.Lock()
 	c.state = control_pb.State_LEADER
 	c.mu.Unlock()
-
-	c.stopReadLoop <- struct{}{}
-	go c.LoopWriteEntries()
 }
 
 // Leader cannot become a candidate, so
@@ -433,8 +545,6 @@ func (c *Cluster) becomeCandidate() {
 	c.mu.Lock()
 	c.state = control_pb.State_CANDIDATE
 	c.mu.Unlock()
-
-	c.stopReadLoop <- struct{}{}
 }
 
 func (c *Cluster) NotifyShutdown() <-chan struct{} {
@@ -451,4 +561,12 @@ func (c *Cluster) isCandidate() bool {
 
 func (c *Cluster) isFollower() bool {
 	return c.state == control_pb.State_FOLLOWER
+}
+
+func (c *Cluster) Shutdown() {
+	close(c.shutdownC)
+
+	c.mu.Lock()
+	c.shutdown = true
+	c.mu.Unlock()
 }

@@ -64,9 +64,15 @@ func (s *ControlServer) RequestVote(c context.Context, req *control_pb.RequestVo
 
 	s.cluster.entriesAppendedC <- struct{}{}
 
-	// If the currentTerm of the candidate is less than our - we don't grant a vote
-	if s.lastVotedTerm == req.Term {
-		logrus.Warnf("DECLINED: %v --- %v", req, s.cluster.currentTerm)
+	currentTerm := s.cluster.GetCurrentTerm()
+	if req.Term > currentTerm {
+		s.cluster.SetCurrentTerm(req.Term)
+		s.cluster.becomeFollower()
+		s.votedFor = ""
+	}
+
+	if req.Term < currentTerm {
+		logrus.Warnf("DECLINED LESS TERM: %v --- %v", req, s.cluster.currentTerm)
 		return &control_pb.RequestVoteResponse{
 			From:        s.cluster.ID,
 			Term:        s.cluster.currentTerm,
@@ -74,52 +80,98 @@ func (s *ControlServer) RequestVote(c context.Context, req *control_pb.RequestVo
 		}, nil
 	}
 
-	s.cluster.currentTerm = req.Term
+	// If we already voted in this term - we decline
+	if s.lastVotedTerm == req.Term && s.votedFor != "" && s.votedFor != req.CandidateUid {
+
+		logrus.Warnf("DECLINED ALREADY VOTED: %v --- %v", req, s.cluster.currentTerm)
+		return &control_pb.RequestVoteResponse{
+			From:        s.cluster.ID,
+			Term:        s.cluster.currentTerm,
+			VoteGranted: false,
+		}, nil
+	}
+
+	if req.LastLogIndex < s.cluster.lastLogIndex {
+
+		logrus.Warnf("DECLINED LESS LOG INDEX: %v --- %v", req, s.cluster.currentTerm)
+		return &control_pb.RequestVoteResponse{
+			From:        s.cluster.ID,
+			Term:        s.cluster.currentTerm,
+			VoteGranted: false,
+		}, nil
+	}
+
+	s.cluster.SetCurrentTerm(req.Term)
 	s.lastVotedTerm = req.Term
 
 	return &control_pb.RequestVoteResponse{
 		From:        s.cluster.ID,
-		Term:        s.cluster.currentTerm,
+		Term:        currentTerm,
 		VoteGranted: true,
-	}, nil
-
-	cond1 := s.votedFor == ""
-	cond2 := s.votedFor == req.CandidateUid
-	cond3 := req.LastLogIndex >= s.cluster.lastLogIndex-uint64(1)
-
-	if (cond1 || cond2) && cond3 {
-
-		logrus.Info("vote granted")
-
-		s.votedFor = req.CandidateUid
-		// set new currentTerm
-		return &control_pb.RequestVoteResponse{
-			From:        s.cluster.ID,
-			Term:        req.Term,
-			VoteGranted: true,
-		}, nil
-	}
-
-	return &control_pb.RequestVoteResponse{
-		From:        s.cluster.ID,
-		Term:        s.cluster.currentTerm,
-		VoteGranted: false,
 	}, nil
 }
 
 func (s *ControlServer) AppendEntries(c context.Context, req *control_pb.AppendEntriesRequest) (*control_pb.AppendEntriesResponse, error) {
 
-	s.cluster.entriesAppendedC <- struct{}{}
+	logrus.Infof("HEARTBEAT TERM: %v", req.Term)
 
-	// According to RAFT docs, if the candidate receives AppendEntries
-	// request from another node, claiming to be a leader and having greater
-	// term, current node returns to follower state
-	if s.cluster.isCandidate() && req.Term >= s.cluster.currentTerm {
+	currentTerm := s.cluster.GetCurrentTerm()
+
+	if req.Term > currentTerm {
 		s.cluster.becomeFollower()
+		s.cluster.SetCurrentTerm(req.Term)
+		s.votedFor = ""
 	}
 
-	logrus.Infof("ENTRIES APPENDED")
-	return &control_pb.AppendEntriesResponse{}, nil
+	if req.Term < currentTerm {
+
+		return &control_pb.AppendEntriesResponse{
+			From:               s.cluster.ID,
+			Term:               s.cluster.currentTerm,
+			Success:            true,
+			LastAgreedIndex:    s.cluster.lastLogIndex,
+			LastCommittedIndex: s.cluster.lastLogIndex,
+		}, nil
+	}
+
+	s.cluster.entriesAppendedC <- struct{}{}
+
+	// If there are no entries then it is used just for the heartbeat
+	if len(req.Entries) < 1 {
+
+		return &control_pb.AppendEntriesResponse{
+			From:               s.cluster.ID,
+			Term:               s.cluster.currentTerm,
+			Success:            true,
+			LastAgreedIndex:    s.cluster.lastLogIndex,
+			LastCommittedIndex: s.cluster.lastLogIndex,
+		}, nil
+	}
+
+	// Consistency is broken, so something below happened:
+	// - current node was down for some time, and we need
+	//   to recover it by loading all the missing entries
+	// - something else
+	if req.Entries[0].Index-s.cluster.lastLogIndex != 1 {
+		return &control_pb.AppendEntriesResponse{
+			From:               s.cluster.ID,
+			Term:               s.cluster.currentTerm,
+			Success:            false,
+			LastCommittedIndex: s.cluster.lastLogIndex,
+		}, nil
+	}
+
+	err := s.cluster.WriteEntriesFromLeader(req.Entries)
+	if err != nil {
+		logrus.Errorf("error writing to wal: %v", err)
+	}
+
+	return &control_pb.AppendEntriesResponse{
+		From:               s.cluster.ID,
+		Term:               s.cluster.currentTerm,
+		Success:            true,
+		LastCommittedIndex: s.cluster.lastLogIndex,
+	}, nil
 }
 
 func (s *ControlServer) Shutdown(c context.Context, req *control_pb.Void) (*control_pb.Void, error) {
@@ -127,7 +179,6 @@ func (s *ControlServer) Shutdown(c context.Context, req *control_pb.Void) (*cont
 }
 
 func (s *ControlServer) Alive(c context.Context, req *control_pb.Void) (*control_pb.Void, error) {
-	logrus.Warnf("IM ALIVE")
 	return &control_pb.Void{}, nil
 }
 
