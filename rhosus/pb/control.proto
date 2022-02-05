@@ -55,8 +55,9 @@ message AppendEntriesRequest {
 message AppendEntriesResponse {
   string from = 1;
   uint32 term = 2;
-  uint32 success = 3;
-  int64 lastAgreedIndex = 4;
+  bool success = 3;
+  uint64 lastAgreedIndex = 4;
+  uint64 lastCommittedIndex = 5;
 }
 
 message EntryCommittedRequest {
@@ -68,7 +69,7 @@ message EntryCommittedResponse {
 }
 
 message Entry {
-  int64 index = 1;
+  uint64 index = 1;
   uint32 term = 2;
   enum Type {
     ASSIGN = 0;

@@ -35,7 +35,7 @@ type errorsBuffer []error
 func NewControlService(cluster *Cluster, addresses map[string]string) (*ControlService, []string, error) {
 
 	peers := make(map[string]*control_pb.ControlClient, len(addresses))
-	errors := make(errorsBuffer, len(addresses))
+	errs := make(errorsBuffer, len(addresses))
 
 	service := &ControlService{
 		conns:   make(map[string]*PeerConn),
@@ -56,7 +56,7 @@ func NewControlService(cluster *Cluster, addresses map[string]string) (*ControlS
 		if err != nil {
 			// TODO: write something more informative
 			logrus.Errorf("error connecting to registry: %v", err)
-			errors = append(errors, err)
+			errs = append(errs, err)
 			conn.Close()
 			continue
 		}
@@ -68,7 +68,7 @@ func NewControlService(cluster *Cluster, addresses map[string]string) (*ControlS
 	}
 
 	// No other registries are alive
-	if len(errors) == len(addresses) {
+	if len(errs) == len(addresses) {
 		// TODO: this is actually important
 	}
 
@@ -82,27 +82,19 @@ func NewControlService(cluster *Cluster, addresses map[string]string) (*ControlS
 	return service, sanePeers, nil
 }
 
-func (s *ControlService) AppendEntries(req *control_pb.AppendEntriesRequest) map[string]*control_pb.AppendEntriesResponse {
+func (s *ControlService) AppendEntries(uid string, req *control_pb.AppendEntriesRequest) (*control_pb.AppendEntriesResponse, error) {
 
-	resp := make(map[string]*control_pb.AppendEntriesResponse)
+	if peer, ok := s.conns[uid]; ok {
 
-	for uid, peer := range s.conns {
-		go func(uid string, peer *PeerConn) {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
-			defer cancel()
+		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
+		defer cancel()
 
-			conn := *peer.conn
+		conn := *peer.conn
 
-			_, err := conn.AppendEntries(ctx, req)
-			if err != nil {
-				logrus.Errorf("error sending entries to peer %v: %v", uid, err)
-			}
-
-			//resp[uid] = res
-		}(uid, peer)
+		return conn.AppendEntries(ctx, req)
 	}
 
-	return resp
+	return nil, errors.New("peer not found")
 }
 
 func (s *ControlService) AddPeer(uid string, address string) error {
@@ -137,25 +129,6 @@ func (s *ControlService) removePeer(uid string) error {
 	return nil
 }
 
-// getCurrentLeader returns current cluster leader
-func (s *ControlService) getCurrentLeader() *PeerConn {
-
-	return s.conns[s.currentLeader]
-}
-
-type voteResponse struct {
-	res *control_pb.RequestVoteResponse
-	err error
-}
-
-func (v voteResponse) isSuccessful() bool {
-	return v.err == nil
-}
-
-func (v voteResponse) getError() error {
-	return v.err
-}
-
 func (s *ControlService) sendVoteRequest(uid string) (*control_pb.RequestVoteResponse, error) {
 
 	if peer, ok := s.conns[uid]; ok {
@@ -165,55 +138,10 @@ func (s *ControlService) sendVoteRequest(uid string) (*control_pb.RequestVoteRes
 
 		conn := *peer.conn
 		return conn.RequestVote(ctx, &control_pb.RequestVoteRequest{
-			Term:         s.cluster.currentTerm,
+			Term:         s.cluster.GetCurrentTerm(),
 			CandidateUid: s.cluster.ID,
 		})
 	}
 
 	return nil, errors.New("conn not found")
-}
-
-func (s *ControlService) sendVoteRequests() chan voteResponse {
-
-	peers := make(map[string]*PeerConn, len(s.conns))
-	for uid, peer := range s.conns {
-		peers[uid] = peer
-	}
-
-	respC := make(chan voteResponse, len(peers))
-
-	for uid, peer := range peers {
-
-		go func(uid string, peer *PeerConn) {
-			conn := *peer.conn
-
-			// TODO: move to configuration
-			ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
-			defer cancel()
-
-			req := &control_pb.RequestVoteRequest{
-				Term:         0,
-				CandidateUid: "",
-				LastLogIndex: 0,
-				LastLogTerm:  0,
-			}
-			res, err := conn.RequestVote(ctx, req)
-			if err != nil {
-				respC <- voteResponse{
-					res: nil,
-					err: err,
-				}
-				return
-			}
-
-			respC <- voteResponse{
-				res: res,
-				err: nil,
-			}
-
-			logrus.Infof("response from peer %v: %v", res.From, res.VoteGranted)
-		}(uid, peer)
-	}
-
-	return respC
 }

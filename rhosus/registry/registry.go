@@ -14,6 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"io"
 	"os"
 	"os/signal"
 	"sync"
@@ -23,6 +24,8 @@ import (
 
 const (
 	etcdPingInterval = 3
+
+	uuidFilePath = "uuid"
 )
 
 type Config struct {
@@ -60,10 +63,10 @@ type Registry struct {
 
 func NewRegistry(config Config) (*Registry, error) {
 
-	uid, _ := uuid.NewV4()
+	uid := getUid()
 
 	r := &Registry{
-		Uid:     uid.String(),
+		Uid:     uid,
 		Name:    util.GenerateRandomName(2),
 		Config:  config,
 		readyWg: sync.WaitGroup{},
@@ -154,6 +157,42 @@ func NewRegistry(config Config) (*Registry, error) {
 	return r, nil
 }
 
+func getUid() string {
+	var uid string
+
+	v4uid, _ := uuid.NewV4()
+	return v4uid.String()
+
+	// since we are just testing, we dont need that yet
+	if util.FileExists(uuidFilePath) {
+		file, err := os.OpenFile(uuidFilePath, os.O_RDONLY, 0666)
+		defer file.Close()
+
+		if err != nil {
+			logrus.Errorf("error opening node uuid file: %v", err)
+		}
+		data, err := io.ReadAll(file)
+		if err != nil {
+
+		}
+
+		uid = string(data)
+	} else {
+		v4uid, _ := uuid.NewV4()
+		uid = v4uid.String()
+
+		file, err := os.Create(uuidFilePath)
+		defer file.Close()
+
+		if err != nil {
+
+		}
+		file.Write([]byte(uid))
+	}
+
+	return uid
+}
+
 ///////////////////////////////////////////
 // RegistriesMap instances management methods
 
@@ -166,21 +205,13 @@ func (r *Registry) Start() {
 	go r.NodesManager.WatchNodes()
 	go r.StatsCollector.Run()
 
-	//err = r.Storage.PutBlocks("node_1", map[string][]uint64{
-	//	"uu_block_1": {0, 1024},
-	//	"uu_block_2": {1025, 1024 * 1024},
-	//})
-	//if err != nil {
-	//	logrus.Errorf("error putting blocks in storage: %v", err)
-	//}
-
 	go r.RunServiceDiscovery()
 
 	go r.handleSignals()
 
 	r.readyC <- struct{}{}
 
-	logrus.Infof("Registry %v : %v is ready", r.Name, r.Uid)
+	logrus.Infof("Registry %v:%v is ready", r.Name, r.Uid)
 
 	select {
 	case <-r.NotifyShutdown():
