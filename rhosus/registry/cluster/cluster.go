@@ -6,9 +6,11 @@ import (
 	"github.com/parasource/rhosus/rhosus/registry/wal"
 	"github.com/parasource/rhosus/rhosus/util/timers"
 	"github.com/sirupsen/logrus"
+	"math"
 	"net"
 	_ "net/http/pprof"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -54,12 +56,10 @@ type Cluster struct {
 	lastLogIndex uint64
 	state        control_pb.State
 
-	electionTimeoutC chan struct{}
-	// When we change a state of a node to leader of follower,
-	// we need to stop corresponding goroutines
-	// to prevent busy loop
-	stopSendingC  chan struct{}
-	stopWatchingC chan struct{}
+	entriesAppendedC chan struct{}
+	// These are locks to avoid busy loops
+	stopWriteLoop chan struct{}
+	stopReadLoop  chan struct{}
 
 	shutdown  bool
 	shutdownC chan struct{}
@@ -82,9 +82,11 @@ func NewCluster(config Config, peers map[string]*control_pb.RegistryInfo) *Clust
 		lastLogIndex: 0,
 		state:        control_pb.State_FOLLOWER,
 
-		stopSendingC:     make(chan struct{}, 1),
-		stopWatchingC:    make(chan struct{}, 1),
-		electionTimeoutC: make(chan struct{}, 1),
+		entriesAppendedC: make(chan struct{}, 60),
+
+		// TODO: this is a shitty way to solve a problem
+		stopReadLoop:  make(chan struct{}, 5),
+		stopWriteLoop: make(chan struct{}, 5),
 
 		shutdownC: make(chan struct{}),
 		readyC:    make(chan struct{}, 1),
@@ -245,9 +247,9 @@ func (c *Cluster) MemberCount() int {
 func (c *Cluster) Run() {
 
 	if c.isLeader() {
-		go c.RunSendEntries()
+		go c.LoopWriteEntries()
 	} else {
-		go c.WatchForEntries()
+		go c.LoopReadEntries()
 	}
 
 	for {
@@ -281,7 +283,7 @@ func (c *Cluster) Shutdown() {
 	c.mu.Unlock()
 }
 
-func (c *Cluster) RunSendEntries() {
+func (c *Cluster) LoopWriteEntries() {
 
 	for {
 
@@ -297,27 +299,38 @@ func (c *Cluster) RunSendEntries() {
 		heartbeatTick := timers.SetTimer(getIntervalMs(150, 300))
 
 		select {
-		case <-c.stopSendingC:
+		case <-c.stopWriteLoop:
+			timers.ReleaseTimer(heartbeatTick)
 			return
+
 		case <-heartbeatTick.C:
+
+			c.mu.RLock()
+			if !c.isLeader() {
+				c.mu.RUnlock()
+				return
+			}
 
 			entries := c.buffer.Read()
 			req := &control_pb.AppendEntriesRequest{
-				Term:         1,
+				Term:         c.currentTerm,
 				LeaderUid:    c.ID,
 				PrevLogIndex: 0,
 				PrevLogTerm:  1,
 				Entries:      entries,
 				LeaderCommit: true,
 			}
+			c.mu.RUnlock()
+
 			resp := c.service.AppendEntries(req)
 
 			logrus.Infof("responses: %v", resp)
+
 		}
 	}
 }
 
-func (c *Cluster) WatchForEntries() {
+func (c *Cluster) LoopReadEntries() {
 
 	for {
 
@@ -331,61 +344,66 @@ func (c *Cluster) WatchForEntries() {
 		// We need to set random interval between 150 and 300 ms
 		// It is something similar to RAFT, but not completely
 		electionTimout := timers.SetTimer(getIntervalMs(300, 500))
+
 		select {
+
+		case <-c.stopReadLoop:
+			timers.ReleaseTimer(electionTimout)
+			return
 		// Leader is alright, so we discard timeout
-		case <-c.electionTimeoutC:
+		case <-c.entriesAppendedC:
 			timers.ReleaseTimer(electionTimout)
 
 		case <-electionTimout.C:
 			timers.ReleaseTimer(electionTimout)
 
-			c.state = control_pb.State_CANDIDATE
-			c.currentTerm++
-
 			err := c.StartElection()
 			if err != nil {
 				logrus.Errorf("error starting election proccess: %v", err)
 			}
-
-		case <-c.stopWatchingC:
-			return
 		}
 	}
 }
 
 func (c *Cluster) StartElection() error {
 
-	logrus.Infof("election started")
-	respC := c.service.sendVoteRequests()
+	logrus.Infof("election started for %v peers", len(c.peers))
+	c.becomeCandidate()
 
-	var responded, voted = 0, 0
+	c.mu.Lock()
+	c.currentTerm++
+	var peers []*Peer
+	for _, peer := range c.peers {
+		peers = append(peers, peer)
+	}
+	c.mu.Unlock()
+
+	var voted, responded int32
 	var wg sync.WaitGroup
 
-	for i := 0; i <= cap(respC); i++ {
+	for _, peer := range peers {
 		wg.Add(1)
-		go func() {
+		go func(uid string) {
 			defer wg.Done()
 
-			if vote := <-respC; true {
-				if vote.err != nil {
-					responded++
-
-					logrus.Errorf("error getting vote from a peer: %v", vote.err)
-					return
-				}
-				if vote.res.VoteGranted {
-					voted++
-				}
+			res, err := c.service.sendVoteRequest(uid)
+			if err != nil {
+				logrus.Errorf("error sending vote request to %v: %v", uid, err)
+				return
 			}
-		}()
-	}
 
+			logrus.Infof("res received: %v", res)
+			atomic.AddInt32(&responded, 1)
+
+			if res.VoteGranted {
+				atomic.AddInt32(&voted, 1)
+			}
+		}(peer.info.Uid)
+	}
 	wg.Wait()
 
-	// It means there are no nodes alive, so we promote ourselves to a leader
-	if responded == 0 || voted > responded/2 {
+	if responded < 1 || float64(voted) >= math.Floor(float64(responded/2)) {
 		c.becomeLeader()
-		return nil
 	}
 
 	return nil
@@ -396,9 +414,8 @@ func (c *Cluster) becomeFollower() {
 	c.state = control_pb.State_FOLLOWER
 	c.mu.Unlock()
 
-	// Now we stop sending entries and start listening them
-	c.stopSendingC <- struct{}{}
-	go c.WatchForEntries()
+	c.stopWriteLoop <- struct{}{}
+	go c.LoopReadEntries()
 }
 
 func (c *Cluster) becomeLeader() {
@@ -406,9 +423,18 @@ func (c *Cluster) becomeLeader() {
 	c.state = control_pb.State_LEADER
 	c.mu.Unlock()
 
-	// Now we don't want node to listen for other entries
-	c.stopWatchingC <- struct{}{}
-	go c.RunSendEntries()
+	c.stopReadLoop <- struct{}{}
+	go c.LoopWriteEntries()
+}
+
+// Leader cannot become a candidate, so
+// we need to stop only a read loop
+func (c *Cluster) becomeCandidate() {
+	c.mu.Lock()
+	c.state = control_pb.State_CANDIDATE
+	c.mu.Unlock()
+
+	c.stopReadLoop <- struct{}{}
 }
 
 func (c *Cluster) NotifyShutdown() <-chan struct{} {

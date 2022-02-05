@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"context"
+	"errors"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -153,6 +154,23 @@ func (v voteResponse) isSuccessful() bool {
 
 func (v voteResponse) getError() error {
 	return v.err
+}
+
+func (s *ControlService) sendVoteRequest(uid string) (*control_pb.RequestVoteResponse, error) {
+
+	if peer, ok := s.conns[uid]; ok {
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*10)
+		defer cancel()
+
+		conn := *peer.conn
+		return conn.RequestVote(ctx, &control_pb.RequestVoteRequest{
+			Term:         s.cluster.currentTerm,
+			CandidateUid: s.cluster.ID,
+		})
+	}
+
+	return nil, errors.New("conn not found")
 }
 
 func (s *ControlService) sendVoteRequests() chan voteResponse {
