@@ -2,11 +2,12 @@ package registry
 
 import (
 	"fmt"
+	"github.com/parasource/rhosus/rhosus/backend"
 	rhosus_etcd "github.com/parasource/rhosus/rhosus/etcd"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
+	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/parasource/rhosus/rhosus/registry/cluster"
-	"github.com/parasource/rhosus/rhosus/registry/storage"
 	file_server "github.com/parasource/rhosus/rhosus/server"
 	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/parasource/rhosus/rhosus/util/tickers"
@@ -47,7 +48,7 @@ type Registry struct {
 
 	NodesManager   *NodesManager
 	FileServer     *file_server.Server
-	Storage        *storage.Storage
+	Storage        *backend.Storage
 	StatsCollector *StatsCollector
 
 	// Cluster is used to control over other registries
@@ -96,13 +97,39 @@ func NewRegistry(config Config) (*Registry, error) {
 	}
 	r.etcdClient = etcdClient
 
-	s, err := storage.NewStorage(storage.Config{
+	s, err := backend.NewStorage(backend.Config{
 		WriteTimeoutS: 1,
-	}, etcdClient)
+	})
 	if err != nil {
 		logrus.Fatalf("error creating storage: %v", err)
 	}
 	r.Storage = s
+
+	go func() {
+
+		batch := make(map[string]*fs_pb.File, 1000)
+
+		for i := 1; i <= 1000; i++ {
+
+			batch[fmt.Sprintf("index_%v.html", i)] = &fs_pb.File{
+				Uid:       "123123",
+				Name:      fmt.Sprintf("index_%v.html", i),
+				DirID:     "321321",
+				FullPath:  fmt.Sprintf("Desktop/index_%v.html", i),
+				Timestamp: time.Now().Unix(),
+				Size_:     64,
+				Blocks:    2,
+			}
+		}
+
+		start := time.Now()
+		err := s.StoreBatch(batch)
+		if err != nil {
+			logrus.Errorf("error storing batch: %v", err)
+		}
+
+		logrus.Infof("storage done in %v", time.Since(start).String())
+	}()
 
 	// Here we load all the existing nodes and registries from etcd
 	// Error occurs only in non-usual conditions, so we kill process
@@ -163,7 +190,7 @@ func getUid() string {
 	v4uid, _ := uuid.NewV4()
 	return v4uid.String()
 
-	// since we are just testing, we dont need that yet
+	// since we are just testing, we don't need that yet
 	if util.FileExists(uuidFilePath) {
 		file, err := os.OpenFile(uuidFilePath, os.O_RDONLY, 0666)
 		defer file.Close()
@@ -213,22 +240,18 @@ func (r *Registry) Start() {
 
 	logrus.Infof("Registry %v:%v is ready", r.Name, r.Uid)
 
-	select {
-	case <-r.NotifyShutdown():
+	if <-r.NotifyShutdown(); true {
 
 		logrus.Infof("shutting down registry")
 		pidFile := viper.GetString("pid_file")
-
-		r.FileServer.Shutdown()
-		//err := r.Storage.Close()
-		//if err != nil {
-		//	logrus.Errorf("error closing db: %v", err)
-		//}
-
 		err := r.unregisterItself()
 		if err != nil {
 			logrus.Errorf("error unregistering: %v", err)
 		}
+
+		r.FileServer.Shutdown()
+		r.Storage.Shutdown()
+		r.Cluster.Shutdown()
 
 		if pidFile != "" {
 			err := os.Remove(pidFile)
@@ -237,7 +260,6 @@ func (r *Registry) Start() {
 			}
 		}
 		os.Exit(0)
-
 		return
 	}
 

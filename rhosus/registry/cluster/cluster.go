@@ -383,7 +383,6 @@ func (c *Cluster) startLogRecovering(uid string, from uint64) error {
 		defer peer.SetRecovering(false)
 
 		lastIndex := c.lastLogIndex
-		logrus.Infof("trying index %v", lastIndex)
 
 		for index := from + 1; index <= lastIndex; index++ {
 
@@ -415,7 +414,6 @@ func (c *Cluster) startLogRecovering(uid string, from uint64) error {
 
 			peer.SetLastCommittedIndex(index)
 
-			logrus.Infof("peer's %v wal has been recovered", uid)
 		}
 
 		return nil
@@ -474,7 +472,7 @@ func (c *Cluster) StartElection() error {
 	}
 	c.mu.Unlock()
 
-	logrus.Infof("election started for %v peers at term %v", len(c.peers), c.GetCurrentTerm())
+	logrus.Debugf("election started for %v peers at term %v", len(c.peers), c.GetCurrentTerm())
 
 	var voted, responded int32
 	var wg sync.WaitGroup
@@ -490,7 +488,6 @@ func (c *Cluster) StartElection() error {
 				return
 			}
 
-			logrus.Infof("res received: %v", res)
 			atomic.AddInt32(&responded, 1)
 
 			if res.VoteGranted {
@@ -502,7 +499,7 @@ func (c *Cluster) StartElection() error {
 
 	if responded < 1 || float64(voted) >= math.Floor(float64(responded/2)) {
 		c.becomeLeader()
-		logrus.Infof("I AM THE LEADER!!!")
+		logrus.Debug("changed node state to a leader")
 	}
 
 	return nil
