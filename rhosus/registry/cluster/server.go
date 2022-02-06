@@ -25,6 +25,7 @@ type ControlServer struct {
 }
 
 func NewControlServer(cluster *Cluster, address string) (*ControlServer, error) {
+
 	var err error
 
 	s := &ControlServer{
@@ -62,9 +63,8 @@ func NewControlServer(cluster *Cluster, address string) (*ControlServer, error) 
 
 func (s *ControlServer) RequestVote(c context.Context, req *control_pb.RequestVoteRequest) (*control_pb.RequestVoteResponse, error) {
 
-	s.cluster.entriesAppendedC <- struct{}{}
-
 	currentTerm := s.cluster.GetCurrentTerm()
+
 	if req.Term > currentTerm {
 		s.cluster.SetCurrentTerm(req.Term)
 		s.cluster.becomeFollower()
@@ -81,7 +81,7 @@ func (s *ControlServer) RequestVote(c context.Context, req *control_pb.RequestVo
 	}
 
 	// If we already voted in this term - we decline
-	if s.lastVotedTerm == req.Term && s.votedFor != "" && s.votedFor != req.CandidateUid {
+	if s.lastVotedTerm == req.Term {
 
 		logrus.Warnf("DECLINED ALREADY VOTED: %v --- %v", req, s.cluster.currentTerm)
 		return &control_pb.RequestVoteResponse{
@@ -93,7 +93,7 @@ func (s *ControlServer) RequestVote(c context.Context, req *control_pb.RequestVo
 
 	if req.LastLogIndex < s.cluster.lastLogIndex {
 
-		logrus.Warnf("DECLINED LESS LOG INDEX: %v --- %v", req, s.cluster.currentTerm)
+		logrus.Warnf("DECLINED LESS LOG INDEX: %v --- %v", req.LastLogIndex, s.cluster.lastLogIndex)
 		return &control_pb.RequestVoteResponse{
 			From:        s.cluster.ID,
 			Term:        s.cluster.currentTerm,
@@ -117,6 +117,7 @@ func (s *ControlServer) AppendEntries(c context.Context, req *control_pb.AppendE
 
 	currentTerm := s.cluster.GetCurrentTerm()
 
+	logrus.Warnf("TERMS: %v -- %v", req.Term, currentTerm)
 	if req.Term > currentTerm {
 		s.cluster.becomeFollower()
 		s.cluster.SetCurrentTerm(req.Term)
@@ -124,11 +125,11 @@ func (s *ControlServer) AppendEntries(c context.Context, req *control_pb.AppendE
 	}
 
 	if req.Term < currentTerm {
-
+		logrus.Warnf("DECLINED LESS TERM: %v -- %v", req.Term, currentTerm)
 		return &control_pb.AppendEntriesResponse{
 			From:               s.cluster.ID,
 			Term:               s.cluster.currentTerm,
-			Success:            true,
+			Success:            false,
 			LastAgreedIndex:    s.cluster.lastLogIndex,
 			LastCommittedIndex: s.cluster.lastLogIndex,
 		}, nil
@@ -148,11 +149,13 @@ func (s *ControlServer) AppendEntries(c context.Context, req *control_pb.AppendE
 		}, nil
 	}
 
+	logrus.Warnf("DELTA: %v -- %v", req.Entries[0].Index, s.cluster.lastLogIndex)
 	// Consistency is broken, so something below happened:
 	// - current node was down for some time, and we need
 	//   to recover it by loading all the missing entries
 	// - something else
 	if req.Entries[0].Index-s.cluster.lastLogIndex != 1 {
+
 		return &control_pb.AppendEntriesResponse{
 			From:               s.cluster.ID,
 			Term:               s.cluster.currentTerm,

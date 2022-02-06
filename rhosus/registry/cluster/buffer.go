@@ -34,22 +34,24 @@ func (b *entriesBuffer) Write(entry *control_pb.Entry) error {
 	return nil
 }
 
-func (b *entriesBuffer) WriteBatch(entries []control_pb.Entry) error {
+func (b *entriesBuffer) WriteBatch(entries []*control_pb.Entry) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	for _, entry := range entries {
 
-		if b.entries[len(b.entries)-1].Index >= entry.Index {
-			return ErrCorrupt
+		if len(b.entries) > 0 {
+			if b.entries[len(b.entries)-1].Index >= entry.Index {
+				return ErrCorrupt
+			}
+
+			if b.entries[len(b.entries)-1].Term > entry.Term {
+				logrus.Errorf("skipping entry with less currentTerm")
+				continue
+			}
 		}
 
-		if b.entries[len(b.entries)-1].Term > entry.Term {
-			logrus.Errorf("skipping entry with less currentTerm")
-			continue
-		}
-
-		entries = append(entries, entry)
+		b.entries = append(b.entries, entry)
 	}
 
 	return nil

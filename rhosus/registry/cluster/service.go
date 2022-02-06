@@ -19,8 +19,6 @@ type ServerAddress struct {
 type ControlService struct {
 	cluster *Cluster
 	conns   map[string]*PeerConn
-	// uid of the leader peer
-	currentLeader string
 }
 
 type PeerConn struct {
@@ -68,9 +66,9 @@ func NewControlService(cluster *Cluster, addresses map[string]string) (*ControlS
 	}
 
 	// No other registries are alive
-	if len(errs) == len(addresses) {
-		// TODO: this is actually important
-	}
+	//if len(errs) == len(addresses) {
+	//	service.cluster.becomeLeader()
+	//}
 
 	for uid, conn := range peers {
 		service.conns[uid] = &PeerConn{
@@ -139,6 +137,7 @@ func (s *ControlService) sendVoteRequest(uid string) (*control_pb.RequestVoteRes
 		conn := *peer.conn
 		return conn.RequestVote(ctx, &control_pb.RequestVoteRequest{
 			Term:         s.cluster.GetCurrentTerm(),
+			LastLogIndex: s.cluster.lastLogIndex,
 			CandidateUid: s.cluster.ID,
 		})
 	}

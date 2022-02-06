@@ -17,6 +17,10 @@ type Peer struct {
 	recovering bool
 }
 
+func (p *Peer) WriteToBuffer(entries []*control_pb.Entry) error {
+	return p.buffer.WriteBatch(entries)
+}
+
 func (p *Peer) IsRecovering() bool {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -28,6 +32,13 @@ func (p *Peer) SetRecovering(recovering bool) {
 	p.mu.Lock()
 	p.recovering = recovering
 	p.mu.Unlock()
+}
+
+func (p *Peer) GetLastCommittedIndex() uint64 {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	return p.lastCommittedIndex
 }
 
 func (p *Peer) SetLastCommittedIndex(index uint64) {
