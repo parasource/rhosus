@@ -6,6 +6,7 @@ import (
 	"github.com/parasource/rhosus/rhosus/registry/wal"
 	"github.com/parasource/rhosus/rhosus/util/timers"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"math"
 	"net"
 	"sync"
@@ -18,6 +19,7 @@ const ElectionTimeoutThresholdPercent = 0.8
 var (
 	ErrShutdown     = errors.New("cluster is shut down")
 	ErrPeerNotFound = errors.New("peer not found")
+	ErrWriteTimeout = errors.New("cluster write timeout")
 )
 
 type Config struct {
@@ -49,8 +51,7 @@ type Cluster struct {
 	service *ControlService
 	wal     *wal.WAL
 
-	entriesC chan *control_pb.Entry
-	buffer   *entriesBuffer
+	writeEntriesC chan *writeRequest
 
 	currentTerm  uint32
 	lastLogIndex uint64
@@ -74,26 +75,30 @@ func NewCluster(config Config, peers map[string]*control_pb.RegistryInfo) *Clust
 
 		peers: make(map[string]*Peer),
 
-		entriesC: make(chan *control_pb.Entry),
-		buffer:   &entriesBuffer{},
+		writeEntriesC: make(chan *writeRequest),
 
 		currentTerm:  0,
 		lastLogIndex: 0,
 		state:        control_pb.State_FOLLOWER,
 
-		entriesAppendedC: make(chan struct{}, 60),
+		// just magic number
+		entriesAppendedC: make(chan struct{}, 50),
 
 		shutdownC: make(chan struct{}),
 		readyC:    make(chan struct{}, 1),
 	}
 
+	v := viper.GetViper()
+	walPath := v.GetString("wal_path")
+
 	// First, we create a Write-ahead Log
-	w, err := wal.Create("wal", nil)
+	w, err := wal.Create(walPath, nil)
 	if err != nil {
 		logrus.Fatalf("error creating wal: %v", err)
 		return nil
 	}
 	c.wal = w
+	c.setInitialTermAndIndex()
 
 	// Server to accept other conns connections
 	srvAddress := net.JoinHostPort(config.RegistryInfo.Address.Host, config.RegistryInfo.Address.Port)
@@ -137,7 +142,57 @@ func NewCluster(config Config, peers map[string]*control_pb.RegistryInfo) *Clust
 
 	go c.Run()
 
+	go func() {
+		for {
+			time.Sleep(time.Second * 2)
+
+			if !c.isLeader() {
+				continue
+			}
+
+			err := c.WriteEntries([]*control_pb.Entry{
+				{
+					Index:     c.lastLogIndex + 1,
+					Term:      c.GetCurrentTerm(),
+					Type:      control_pb.Entry_ASSIGN,
+					Data:      []byte("azazazaza"),
+					Timestamp: time.Now().Unix(),
+				},
+			})
+			if err != nil {
+				logrus.Errorf("error writing entries: %v", err)
+			}
+		}
+
+	}()
+
 	return c
+}
+
+func (c *Cluster) setInitialTermAndIndex() {
+	var err error
+
+	lastIndex, err := c.wal.LastIndex()
+	if err != nil {
+		logrus.Fatalf("error reading last entry in journal: %v", err)
+	}
+
+	if lastIndex == 0 {
+		c.SetLastLogIndex(0)
+		c.SetCurrentTerm(0)
+
+		return
+	}
+
+	data, err := c.wal.Read(lastIndex)
+	if err != nil {
+		logrus.Fatalf("error reading last entry in journal: %v", err)
+	}
+	var entry control_pb.Entry
+	entry.Unmarshal(data)
+
+	c.SetLastLogIndex(entry.Index)
+	c.SetCurrentTerm(entry.Term)
 }
 
 func (c *Cluster) SetEntriesHandler(f func(entries []*control_pb.Entry)) {
@@ -166,6 +221,7 @@ func (c *Cluster) GetCurrentTerm() uint32 {
 }
 
 func (c *Cluster) DiscoverOrUpdate(uid string, info *control_pb.RegistryInfo) (err error) {
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -213,42 +269,18 @@ func (c *Cluster) RemovePeer(uid string) (err error) {
 	return err
 }
 
-func (c *Cluster) WriteEntry(entry *control_pb.Entry) error {
-
-	c.mu.RLock()
-	if c.shutdown {
-		c.mu.RUnlock()
-		return ErrShutdown
-	}
-	c.mu.RUnlock()
-
-	select {
-	case c.entriesC <- entry:
-	default:
-		writeTimeout := timers.SetTimer(time.Millisecond * 500)
-
-		select {
-		case c.entriesC <- entry:
-		case <-writeTimeout.C:
-			return errors.New("entry write timeout")
-		}
-	}
-
-	return nil
-}
-
 //func (c *Cluster) IsWalEmpty() bool {
 //	return c.wal.isEmpty()
 //}
 
-func (c *Cluster) isPromotable() bool {
-	lastIndex, err := c.wal.LastIndex()
-	if err != nil {
-		return false
-	}
-
-	return lastIndex > 0
-}
+//func (c *Cluster) isPromotable() bool {
+//	lastIndex, err := c.wal.LastIndex()
+//	if err != nil {
+//		return false
+//	}
+//
+//	return lastIndex > 0
+//}
 
 func (c *Cluster) MemberCount() int {
 	c.mu.RLock()
@@ -263,27 +295,7 @@ func (c *Cluster) Run() {
 	go c.LoopWriteEntries()
 	go c.LoopReadEntries()
 
-	for {
-
-		c.mu.RLock()
-		if c.shutdown {
-			c.mu.RUnlock()
-			return
-		}
-		c.mu.RUnlock()
-
-		select {
-		case e := <-c.entriesC:
-			err := c.buffer.Write(e)
-			if err != nil {
-				switch err {
-				case ErrCorrupt:
-					// TODO: do something
-				}
-			}
-		}
-	}
-
+	c.WritePipeline()
 }
 
 func (c *Cluster) LoopWriteEntries() {
@@ -302,6 +314,7 @@ func (c *Cluster) LoopWriteEntries() {
 		heartbeatTick := timers.SetTimer(getIntervalMs(150, 300))
 
 		if <-heartbeatTick.C; true {
+
 			c.mu.RLock()
 			if !c.isLeader() {
 				c.mu.RUnlock()
@@ -369,10 +382,8 @@ func (c *Cluster) startLogRecovering(uid string, from uint64) error {
 		peer.SetRecovering(true)
 		defer peer.SetRecovering(false)
 
-		lastIndex, err := c.wal.LastIndex()
-		if err != nil {
-			return err
-		}
+		lastIndex := c.lastLogIndex
+		logrus.Infof("trying index %v", lastIndex)
 
 		for index := from + 1; index <= lastIndex; index++ {
 
@@ -403,45 +414,15 @@ func (c *Cluster) startLogRecovering(uid string, from uint64) error {
 			}
 
 			peer.SetLastCommittedIndex(index)
+
+			logrus.Infof("peer's %v wal has been recovered", uid)
 		}
+
+		return nil
 	}
 	c.mu.RUnlock()
-
-	logrus.Infof("peer's %v wal has been recovered", uid)
 
 	return ErrPeerNotFound
-}
-
-// WriteEntriesFromLeader is called by registry to write entries to
-// local version of WAL
-func (c *Cluster) WriteEntriesFromLeader(entries []*control_pb.Entry) error {
-
-	// First, we need to call registry callback to write entries to database
-	c.mu.RLock()
-	if c.handleEntries != nil {
-		c.mu.RUnlock()
-
-		c.handleEntries(entries)
-	}
-	c.mu.RUnlock()
-
-	index, _ := c.wal.LastIndex()
-
-	for _, entry := range entries {
-		index++
-
-		bytes, _ := entry.Marshal()
-
-		err := c.wal.Write(index, bytes)
-		if err != nil {
-			return err
-		}
-
-		c.SetLastLogIndex(index)
-	}
-
-	return nil
-
 }
 
 func (c *Cluster) LoopReadEntries() {
@@ -483,8 +464,6 @@ func (c *Cluster) LoopReadEntries() {
 }
 
 func (c *Cluster) StartElection() error {
-
-	logrus.Infof("election started for %v peers", len(c.peers))
 	c.becomeCandidate()
 
 	c.mu.Lock()
@@ -494,6 +473,8 @@ func (c *Cluster) StartElection() error {
 		peers = append(peers, peer)
 	}
 	c.mu.Unlock()
+
+	logrus.Infof("election started for %v peers at term %v", len(c.peers), c.GetCurrentTerm())
 
 	var voted, responded int32
 	var wg sync.WaitGroup
