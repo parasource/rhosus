@@ -2,13 +2,12 @@ package backend
 
 import (
 	"errors"
-	"fmt"
+	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/parasource/rhosus/rhosus/util/timers"
 	"github.com/sirupsen/logrus"
 	bolt "go.etcd.io/bbolt"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -155,7 +154,7 @@ func (s *Storage) StoreFile(path string, file *fs_pb.File) error {
 	return res.err
 }
 
-func (s *Storage) StoreBatch(files map[string]*fs_pb.File) error {
+func (s *Storage) StoreBatch(files map[string]*control_pb.FileInfo) error {
 
 	s.mu.RLock()
 	if s.shutdown {
@@ -262,73 +261,145 @@ func (s *Storage) DeleteFile(path string) error {
 // Blocks methods
 // --------------------------
 
-type Block struct {
-	From uint64
-	To   uint64
-	Size int64
+func (s *Storage) PutBlocks(fileID string, blocks []*control_pb.BlockInfo) error {
+
+	s.mu.RLock()
+	if s.shutdown {
+		s.mu.RUnlock()
+		return ErrShutdown
+	}
+	s.mu.RUnlock()
+
+	fBlocks := &control_pb.FileBlocks{
+		Blocks: blocks,
+	}
+	bytes, _ := fBlocks.Marshal()
+	strBytes := util.Base64Encode(bytes)
+
+	r := NewStoreRequest(dataOpStoreBlocks, fileID, strBytes)
+
+	select {
+	case s.fileReqC <- r:
+	default:
+		timer := timers.SetTimer(time.Second * time.Duration(s.config.WriteTimeoutS))
+		defer timers.ReleaseTimer(timer)
+		select {
+		case s.blocksReqC <- r:
+		case <-timer.C:
+			return ErrWriteTimeout
+		}
+	}
+
+	res := r.result()
+	return res.err
 }
 
-func (s *Storage) PutBlocks(blocks map[string]Block) error {
+func (s *Storage) PutBatchBlocks(blocks map[string][]*control_pb.BlockInfo) error {
 
-	err := s.db.Update(func(tx *bolt.Tx) error {
+	s.mu.RLock()
+	if s.shutdown {
+		s.mu.RUnlock()
+		return ErrShutdown
+	}
+	s.mu.RUnlock()
 
-		b, _ := tx.CreateBucketIfNotExists([]byte(blocksStorageBucketName))
+	data := make(map[string]string)
 
-		for uid, rng := range blocks {
-
-			from := fmt.Sprintf("%v", rng.From)
-			to := fmt.Sprintf("%v", rng.To)
-
-			b.Put([]byte(blockFromKey(uid)), []byte(from))
-			b.Put([]byte(blockToKey(uid)), []byte(to))
+	for fileID, b := range blocks {
+		fBlocks := &control_pb.FileBlocks{
+			Blocks: b,
 		}
+		bytes, _ := fBlocks.Marshal()
+		strBytes := util.Base64Encode(bytes)
 
-		return nil
-	})
+		data[fileID] = strBytes
+	}
 
-	return err
+	r := NewStoreRequest(dataOpStoreBatchBlocks, data)
+
+	select {
+	case s.blocksReqC <- r:
+	default:
+		timer := timers.SetTimer(time.Second * time.Duration(s.config.WriteTimeoutS))
+		defer timers.ReleaseTimer(timer)
+		select {
+		case s.fileReqC <- r:
+		case <-timer.C:
+			return ErrWriteTimeout
+		}
+	}
+
+	res := r.result()
+	return res.err
 }
 
-func (s *Storage) GetBlocks(uids []string) (map[string]Block, error) {
+func (s *Storage) GetBlocks(fileID []string) ([]*control_pb.BlockInfo, error) {
 
-	blocks := make(map[string]Block, len(uids))
-	err := s.db.Batch(func(tx *bolt.Tx) error {
+	s.mu.RLock()
+	if s.shutdown {
+		s.mu.RUnlock()
+		return nil, ErrShutdown
+	}
+	s.mu.RUnlock()
 
-		b := tx.Bucket([]byte(blocksStorageBucketName))
+	r := NewStoreRequest(dataOpGetBlocks, fileID)
 
-		for _, uid := range uids {
-
-			block := Block{}
-			block.From, _ = strconv.ParseUint(string(b.Get([]byte(blockFromKey(uid)))), 10, 64)
-			block.To, _ = strconv.ParseUint(string(b.Get([]byte(blockToKey(uid)))), 10, 64)
-			blocks[uid] = block
-
+	select {
+	case s.blocksReqC <- r:
+	default:
+		timer := timers.SetTimer(time.Second * time.Duration(s.config.WriteTimeoutS))
+		defer timers.ReleaseTimer(timer)
+		select {
+		case s.fileReqC <- r:
+		case <-timer.C:
+			return nil, ErrWriteTimeout
 		}
+	}
 
-		return nil
-	})
+	res := r.result()
+	if res.err != nil {
+		return nil, res.err
+	}
 
-	return blocks, err
+	bytes, err := util.Base64Decode(res.reply.(string))
+	if err != nil {
+		return nil, err
+	}
+
+	var fBlocks control_pb.FileBlocks
+	err = fBlocks.Unmarshal(bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return fBlocks.Blocks, nil
 }
 
-func (s *Storage) RemoveBlocks(blocks []string) error {
+func (s *Storage) RemoveBlocks(fileID string) error {
 
-	err := s.db.Update(func(tx *bolt.Tx) error {
+	s.mu.RLock()
+	if s.shutdown {
+		s.mu.RUnlock()
+		return ErrShutdown
+	}
+	s.mu.RUnlock()
 
-		b := tx.Bucket([]byte(blocksStorageBucketName))
+	r := NewStoreRequest(dataOpDeleteBlocks, fileID)
 
-		for _, uid := range blocks {
-			err := b.DeleteBucket([]byte(uid))
-			if err != nil {
-				// todo something more thought out
-				continue
-			}
+	select {
+	case s.blocksReqC <- r:
+	default:
+		timer := timers.SetTimer(time.Second * time.Duration(s.config.WriteTimeoutS))
+		defer timers.ReleaseTimer(timer)
+		select {
+		case s.fileReqC <- r:
+		case <-timer.C:
+			return ErrWriteTimeout
 		}
+	}
 
-		return nil
-	})
-
-	return err
+	res := r.result()
+	return res.err
 }
 
 ////////////////////////////
@@ -395,6 +466,7 @@ const (
 	dataOpDeleteFile
 
 	dataOpStoreBlocks
+	dataOpStoreBatchBlocks
 	dataOpGetBlocks
 	dataOpDeleteBlocks
 )
