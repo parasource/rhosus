@@ -159,17 +159,28 @@ message FileInfo {
     FILE = 1;
     SYMLINK = 3;
   }
-  FileType type = 1;
-  bytes path = 2;
-  uint64 length = 3;
+  string id = 1;
+  FileType type = 2;
+  string path = 3;
+  uint64 size = 4;
   message FsPermission {
     uint32 perm = 1;
   }
-  FsPermission permission = 4;
-  string owner = 5;
-  string group = 6;
+  FsPermission permission = 5;
+  string owner = 6;
+  string group = 7;
 
-  bytes symlink = 7; // Optional. Used only for symlinks
+  string symlink = 8; // Optional. Used only for symlinks
+}
+
+message FileBlocks {
+  repeated BlockInfo blocks = 1;
+}
+
+message BlockInfo {
+  uint64 index = 1;
+  string nodeID = 2;
+  uint64 size = 3;
 }
 
 message DirectoryListing {

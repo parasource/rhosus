@@ -5,7 +5,6 @@ import (
 	"github.com/parasource/rhosus/rhosus/backend"
 	rhosus_etcd "github.com/parasource/rhosus/rhosus/etcd"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
-	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/parasource/rhosus/rhosus/registry/cluster"
 	file_server "github.com/parasource/rhosus/rhosus/server"
@@ -107,25 +106,40 @@ func NewRegistry(config Config) (*Registry, error) {
 
 	go func() {
 
-		batch := make(map[string]*fs_pb.File, 1000)
+		batch := make(map[string]*control_pb.FileInfo, 1000)
+		blocks := make(map[string][]*control_pb.BlockInfo, 10000)
 
 		for i := 1; i <= 1000; i++ {
 
-			batch[fmt.Sprintf("index_%v.html", i)] = &fs_pb.File{
-				Uid:       "123123",
-				Name:      fmt.Sprintf("index_%v.html", i),
-				DirID:     "321321",
-				FullPath:  fmt.Sprintf("Desktop/index_%v.html", i),
-				Timestamp: time.Now().Unix(),
-				Size_:     64,
-				Blocks:    2,
+			fileId := fmt.Sprintf("index_%v.html", i)
+
+			batch[fileId] = &control_pb.FileInfo{
+				Type:  control_pb.FileInfo_FILE,
+				Id:    "123123",
+				Path:  fmt.Sprintf("Desktop/index_%v.html", i),
+				Size_: 64,
+				Owner: "eovchinnikov",
+				Group: "admin",
+			}
+
+			for j := 0; j < 10; j++ {
+				blocks[fileId] = append(blocks[fileId], &control_pb.BlockInfo{
+					Index:  uint64(j),
+					NodeID: "test_data_node",
+					Size_:  10,
+				})
 			}
 		}
 
 		start := time.Now()
 		err := s.StoreBatch(batch)
 		if err != nil {
-			logrus.Errorf("error storing batch: %v", err)
+			logrus.Errorf("error storing files batch: %v", err)
+		}
+
+		err = s.PutBatchBlocks(blocks)
+		if err != nil {
+			logrus.Errorf("error storing blocks batch: %v", err)
 		}
 
 		logrus.Infof("storage done in %v", time.Since(start).String())
