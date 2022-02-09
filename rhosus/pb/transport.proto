@@ -74,20 +74,21 @@ message NodeMetrics {
 
 // Information about node
 message NodeInfo {
-  string name = 1;
+  string id = 1;
+  string name = 2;
   message Address {
     string host = 1;
     string port = 2;
   }
-  Address address = 2;
-  string location = 3;
+  Address address = 3;
+  string location = 4;
   enum State {
     NORMAL = 0;
     DECOMMISSION_IN_PROGRESS = 1;
     DECOMMISSIONED = 2;
   }
-  State state = 4;
-  NodeMetrics metrics = 5;
+  State state = 5;
+  NodeMetrics metrics = 6;
 }
 
 

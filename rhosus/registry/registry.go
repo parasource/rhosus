@@ -45,7 +45,7 @@ type Registry struct {
 
 	IsLeader bool
 
-	NodesManager   *NodesManager
+	NodesManager   *NodesMap
 	FileServer     *file_server.Server
 	Backend        *backend.Storage
 	MemoryStorage  *MemoryStorage
@@ -76,15 +76,6 @@ func NewRegistry(config Config) (*Registry, error) {
 		readyC:    make(chan struct{}, 1),
 	}
 
-	//storage, err := NewStorage(StorageConfig{}, r)
-	//if err != nil {
-	//	logrus.Fatalf("error creating etcd storage: %v", err)
-	//}
-	//r.Backend = storage
-
-	nMap := NewNodesMap(r)
-	r.NodesManager = nMap
-
 	statsCollector := NewStatsCollector(r, 5)
 	r.StatsCollector = statsCollector
 
@@ -111,37 +102,18 @@ func NewRegistry(config Config) (*Registry, error) {
 	}
 	r.MemoryStorage = memStorage
 
-	err = r.MemoryStorage.StoreFile(&control_pb.FileInfo{
-		Type:  control_pb.FileInfo_FILE,
-		Id:    "123123",
-		Path:  fmt.Sprintf("Desktop/index.html"),
-		Size_: 64,
-		Owner: "eovchinnikov",
-		Group: "admin",
-	})
-	if err != nil {
-		logrus.Errorf("error storing file in memory: %v", err)
-	}
-
-	file, err := r.MemoryStorage.GetFile("123123")
-	if err != nil {
-		logrus.Errorf("unable to get file: %v", err)
-	}
-	logrus.Infof("file from memory: %v", file)
-
 	// Here we load all the existing nodes and registries from etcd
 	// Error occurs only in non-usual conditions, so we kill process
 	regs, err := r.getExistingRegistries()
 	if err != nil {
-		logrus.Fatalf("error loading existing registries from etcd: %v", err)
+		logrus.Fatalf("error getting existing registries from etcd: %v", err)
 	}
 
-	err = r.loadExistingNodes()
+	nodes, err := r.getExistingNodes()
 	if err != nil {
-		logrus.Fatalf("error loading existing nodes from etcd: %v", err)
+		logrus.Fatalf("error getting existing nodes from etcd: %v", err)
 	}
 
-	// Registering itself in etcd cluster
 	port, err := util.GetFreePort()
 	if err != nil {
 		logrus.Fatalf("couldn't get free port: %v", err)
@@ -164,6 +136,11 @@ func NewRegistry(config Config) (*Registry, error) {
 	}, regs)
 	r.Cluster = c
 
+	// Setting up nodes map from existing nodes
+	nMap, err := NewNodesMap(r, nodes)
+	r.NodesManager = nMap
+
+	// Registering itself in etcd cluster
 	err = r.registerItself(info)
 	if err != nil {
 		logrus.Fatalf("%v", err)
@@ -357,6 +334,30 @@ func (r *Registry) getExistingRegistries() (map[string]*control_pb.RegistryInfo,
 		result[info.Id] = &info
 
 		logrus.Infof("registry %v added from existing map", info.Name)
+	}
+
+	return result, nil
+}
+
+func (r *Registry) getExistingNodes() (map[string]*transport_pb.NodeInfo, error) {
+
+	nodes, err := r.etcdClient.GetExistingNodes()
+	if err != nil {
+		logrus.Fatalf("error getting existing registries: %v", err)
+	}
+
+	result := make(map[string]*transport_pb.NodeInfo)
+
+	for _, bytes := range nodes {
+
+		var info transport_pb.NodeInfo
+		err := info.Unmarshal(bytes)
+		if err != nil {
+			logrus.Errorf("error unmarshaling node info: %v", err)
+			continue
+		}
+
+		result[info.Id] = &info
 	}
 
 	return result, nil
