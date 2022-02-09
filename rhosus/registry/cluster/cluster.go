@@ -350,7 +350,7 @@ func (c *Cluster) dispatchEntries() {
 			entries := peer.buffer.Read()
 			req := &control_pb.AppendEntriesRequest{
 				Term:         c.currentTerm,
-				LeaderUid:    c.ID,
+				LeaderId:     c.ID,
 				Entries:      entries,
 				LeaderCommit: true,
 			}
@@ -400,7 +400,7 @@ func (c *Cluster) startLogRecovering(uid string, from uint64) error {
 
 			res, err := c.service.AppendEntries(uid, &control_pb.AppendEntriesRequest{
 				Term:         c.currentTerm,
-				LeaderUid:    c.ID,
+				LeaderId:     c.ID,
 				Entries:      []*control_pb.Entry{&entry},
 				LeaderCommit: true,
 			})
@@ -493,7 +493,7 @@ func (c *Cluster) StartElection() error {
 			if res.VoteGranted {
 				atomic.AddInt32(&voted, 1)
 			}
-		}(peer.info.Uid)
+		}(peer.info.Id)
 	}
 	wg.Wait()
 

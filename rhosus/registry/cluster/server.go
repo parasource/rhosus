@@ -72,7 +72,7 @@ func (s *ControlServer) RequestVote(c context.Context, req *control_pb.RequestVo
 	}
 
 	if req.Term < currentTerm {
-		logrus.Debugf("declined request vote from a node %v with less term", req.CandidateUid)
+		logrus.Debugf("declined request vote from a node %v with less term", req.CandidateId)
 		return &control_pb.RequestVoteResponse{
 			From:        s.cluster.ID,
 			Term:        s.cluster.currentTerm,
@@ -91,7 +91,7 @@ func (s *ControlServer) RequestVote(c context.Context, req *control_pb.RequestVo
 	}
 
 	if req.LastLogIndex < s.cluster.lastLogIndex {
-		logrus.Debugf("declined request vote from a node %v with less last log index", req.CandidateUid)
+		logrus.Debugf("declined request vote from a node %v with less last log index", req.CandidateId)
 		return &control_pb.RequestVoteResponse{
 			From:        s.cluster.ID,
 			Term:        s.cluster.currentTerm,
@@ -120,7 +120,7 @@ func (s *ControlServer) AppendEntries(c context.Context, req *control_pb.AppendE
 	}
 
 	if req.Term < currentTerm {
-		logrus.Debugf("declined append entries from node %v with less term", req.LeaderUid)
+		logrus.Debugf("declined append entries from node %v with less term", req.LeaderId)
 		return &control_pb.AppendEntriesResponse{
 			From:               s.cluster.ID,
 			Term:               s.cluster.currentTerm,

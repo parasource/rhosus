@@ -42,7 +42,7 @@ message AssignBlocksRequest {
 message AssignBlocksResponse {}
 
 message RemoveBlocksRequest {
-  repeated string uids = 1;
+  repeated string ids = 1;
 }
 
 message RemoveBlocksResponse {}

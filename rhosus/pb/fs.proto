@@ -12,7 +12,7 @@ option go_package = "github.com/parasource/rhosus/rhosus/pb/fs_pb";
 // page can be transferred to another node for load balancing
 
 message Page {
-  string uid = 1;
+  string id = 1;
   uint64 usedSpace = 2;
   map<string, Block> blocks = 3;
   ChecksumType checksum_type = 4;
@@ -21,7 +21,7 @@ message Page {
 }
 
 message File {
-  string uid = 1;
+  string id = 1;
   string name = 2;
   string dirID = 3;
   string fullPath = 4;
@@ -31,7 +31,7 @@ message File {
 }
 
 message Block {
-  string uid = 1;
+  string id = 1;
   string file_id = 2;
   uint64 size = 3;
   bytes data = 4;
