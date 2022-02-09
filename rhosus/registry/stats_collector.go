@@ -1,10 +1,8 @@
 package registry
 
 import (
-	"context"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/parasource/rhosus/rhosus/util/tickers"
-	"github.com/sirupsen/logrus"
 	"sync"
 	"time"
 )
@@ -36,38 +34,6 @@ func (s *StatsCollector) Run() {
 		select {
 		case <-ticker.C:
 
-			nodes := make(map[string]*NodeInfo)
-
-			s.mu.RLock()
-			for uid, info := range s.registry.NodesManager.nodes {
-				nodes[uid] = info
-			}
-			s.mu.RUnlock()
-
-			for name := range nodes {
-				client, err := s.registry.NodesManager.GetGrpcClient(name)
-				if err != nil {
-					logrus.Errorf("error getting node grpc conn: %v", err)
-					continue
-				}
-
-				res, err := client.FetchMetrics(context.Background(), &transport_pb.FetchMetricsRequest{})
-				if err != nil {
-					logrus.Errorf("error fetching node metrics: %v", err)
-					continue
-				}
-
-				logrus.Infof("%v stats: %v", res.Name, res.Metrics)
-
-				s.mu.Lock()
-				if res.Name == name {
-					s.metrics[name] = res.Metrics
-					s.metricsUpdatedAt[name] = time.Unix(res.Metrics.LastUpdate, 0)
-				}
-				s.mu.Unlock()
-
-				logrus.Debugf("metrics has been updated for node %v", res.Name)
-			}
 		}
 	}
 }

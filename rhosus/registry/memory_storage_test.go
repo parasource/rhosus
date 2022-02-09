@@ -5,7 +5,13 @@ import (
 	"github.com/parasource/rhosus/rhosus/backend"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	"github.com/stretchr/testify/assert"
+	"os"
+	"path"
 	"testing"
+)
+
+var (
+	dbPath = path.Join(os.TempDir(), "test.db")
 )
 
 const (
@@ -16,7 +22,7 @@ func mockRegistry(t *testing.T) *Registry {
 	t.Helper()
 
 	b, err := backend.NewStorage(backend.Config{
-		DbFilePath:    "test.db",
+		DbFilePath:    dbPath,
 		WriteTimeoutS: 1,
 		NumWorkers:    1,
 	})
@@ -49,6 +55,7 @@ func TestMemoryStorage_FlushFiles(t *testing.T) {
 	assert.Nil(t, err)
 
 	r.Backend.Shutdown()
+	os.Remove(dbPath)
 }
 
 func TestMemoryStorage_FlushBlocks(t *testing.T) {
@@ -79,4 +86,5 @@ func TestMemoryStorage_FlushBlocks(t *testing.T) {
 	assert.Nil(t, err)
 
 	r.Backend.Shutdown()
+	os.Remove(dbPath)
 }

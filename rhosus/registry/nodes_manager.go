@@ -2,8 +2,8 @@ package registry
 
 import (
 	"context"
-	"errors"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
+	"github.com/parasource/rhosus/rhosus/registry/transport"
 	"github.com/parasource/rhosus/rhosus/util/tickers"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -12,43 +12,77 @@ import (
 	"time"
 )
 
-type NodesManager struct {
+type NodesMap struct {
 	registry *Registry
 
-	mu              sync.RWMutex
-	nodes           map[string]*NodeInfo
-	nodesConns      map[string]*NodeGrpcConn
-	nodesProbeTries map[string]int
-	onNodeDown      func(ctx context.Context)
+	mu        sync.RWMutex
+	nodes     map[string]*Node
+	transport *transport.Transport
 
-	noAliveNodesCh chan struct{}
-
-	RecoveryManager *Manager
+	// max number of ping retries, before the node is marked as unavailable
+	maxPingRetries int
 }
 
-type NodeInfo transport_pb.NodeInfo
-type NodeGrpcConn grpc.ClientConn
+type Node struct {
+	info    *transport_pb.NodeInfo
+	metrics *transport_pb.NodeMetrics
 
-func NewNodesMap(registry *Registry) *NodesManager {
-	return &NodesManager{
+	conn         *transport_pb.TransportServiceClient
+	mu           sync.RWMutex
+	pingRetries  int
+	lastActivity time.Time
+	recovering   bool
+	unavailable  bool
+}
+
+func NewNodesMap(registry *Registry, nodes map[string]*transport_pb.NodeInfo) (*NodesMap, error) {
+	n := &NodesMap{
 		registry: registry,
-
-		noAliveNodesCh:  make(chan struct{}, 1),
-		nodes:           make(map[string]*NodeInfo),
-		nodesProbeTries: make(map[string]int),
-		nodesConns:      make(map[string]*NodeGrpcConn),
+		nodes:    make(map[string]*Node),
 	}
+
+	for id, info := range nodes {
+		address := net.JoinHostPort(info.Address.Host, info.Address.Port)
+
+		conn, err := grpc.Dial(address, grpc.WithInsecure())
+		if err != nil {
+			logrus.Errorf("error connnecting to node %v: %v", info.Id, err)
+			continue
+		}
+
+		// ping new node
+		client := transport_pb.NewTransportServiceClient(conn)
+		_, err = client.Ping(context.Background(), &transport_pb.PingRequest{})
+		if err != nil {
+			logrus.Errorf("error pinging node %v: %v", info.Id, err)
+			continue
+		}
+
+		n.nodes[id] = &Node{
+			info:         info,
+			conn:         &client,
+			lastActivity: time.Now(),
+			recovering:   false,
+		}
+
+		logrus.Infof("added existing node %v on %v", info.Id, address)
+	}
+
+	conns := make(map[string]*transport_pb.TransportServiceClient)
+	for id, node := range n.nodes {
+		conns[id] = node.conn
+	}
+	t := transport.NewTransport(transport.Config{
+		WriteTimeoutMs: 800,
+	}, conns)
+	n.transport = t
+
+	return n, nil
 }
 
-func (m *NodesManager) SetOnNodeDown(fun func(c context.Context)) {
-	m.onNodeDown = fun
-}
-
-func (m *NodesManager) AddNode(name string, info *transport_pb.NodeInfo) error {
+func (m *NodesMap) AddNode(name string, info *transport_pb.NodeInfo) error {
 
 	address := net.JoinHostPort(info.Address.Host, info.Address.Port)
-
-	logrus.Infof("establishing grpc connection with a new node on: %v", address)
 
 	conn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
@@ -62,37 +96,41 @@ func (m *NodesManager) AddNode(name string, info *transport_pb.NodeInfo) error {
 	}
 
 	m.mu.Lock()
-	//if _, ok := m.nodes[name]; !ok {
-	m.nodes[name] = (*NodeInfo)(info)
-	//}
-	//if _, ok := m.nodesConns[name]; !ok {
-	m.nodesConns[name] = (*NodeGrpcConn)(conn)
-	//}
-	m.nodesProbeTries[name] = 0
+	m.nodes[name] = &Node{
+		info: info,
+
+		conn:         &client,
+		lastActivity: time.Now(),
+		recovering:   false,
+	}
 	m.mu.Unlock()
+
+	logrus.Infof("added new node to nodes map: %v %v", info.Id, address)
 
 	return nil
 }
 
-func (m *NodesManager) RemoveNode(name string) {
+// RemoveNode is called only when node is gracefully shut down
+// otherwise it is just marked as temporarily unavailable
+func (m *NodesMap) RemoveNode(id string) {
 	m.mu.Lock()
-	delete(m.nodes, name)
-	delete(m.nodesProbeTries, name)
-	if _, ok := m.nodesConns[name]; ok {
-		delete(m.nodesProbeTries, name)
+	defer m.mu.Unlock()
+
+	if _, ok := m.nodes[id]; ok {
+		delete(m.nodes, id)
 	}
-	m.mu.Unlock()
 }
 
-func (m *NodesManager) UpdateNodeInfo(name string, info *transport_pb.NodeInfo) {
+func (m *NodesMap) UpdateNodeInfo(id string, info *transport_pb.NodeInfo) {
 	m.mu.Lock()
-	if _, ok := m.nodes[name]; ok {
-		m.nodes[name] = (*NodeInfo)(info)
+	defer m.mu.Unlock()
+
+	if node, ok := m.nodes[id]; ok {
+		node.info = info
 	}
-	m.mu.Unlock()
 }
 
-func (m *NodesManager) NodeExists(name string) bool {
+func (m *NodesMap) NodeExists(name string) bool {
 	m.mu.RLock()
 	_, ok := m.nodes[name]
 	m.mu.RUnlock()
@@ -100,31 +138,18 @@ func (m *NodesManager) NodeExists(name string) bool {
 	return ok
 }
 
-func (m *NodesManager) GetGrpcClient(name string) (transport_pb.TransportServiceClient, error) {
-	m.mu.RLock()
-	conn, ok := m.nodesConns[name]
-	m.mu.RUnlock()
-
-	if !ok {
-		return nil, errors.New("undefined name. node does not persist in node map")
-	}
-
-	client := transport_pb.NewTransportServiceClient((*grpc.ClientConn)(conn))
-	return client, nil
-}
-
-func (m *NodesManager) WatchNodes() {
+func (m *NodesMap) WatchNodes() {
 
 	ticker := tickers.SetTicker(time.Second * 5)
 
 	for {
 		select {
 		case <-ticker.C:
-			nodes := make(map[string]*transport_pb.NodeInfo, len(m.nodes))
+			nodes := make(map[string]*Node, len(m.nodes))
 
 			m.mu.RLock()
-			for uid, info := range m.nodes {
-				nodes[uid] = (*transport_pb.NodeInfo)(info)
+			for uid, node := range m.nodes {
+				nodes[uid] = node
 			}
 			m.mu.RUnlock()
 
@@ -133,37 +158,28 @@ func (m *NodesManager) WatchNodes() {
 
 			for uid, node := range nodes {
 				wg.Add(1)
-				go func(uid string, node *transport_pb.NodeInfo) {
+				go func(id string, node *Node) {
+					conn := *node.conn
 
-					err := m.ProbeNode(node)
+					_, err := conn.Ping(context.Background(), &transport_pb.PingRequest{})
 					if err != nil {
 						// Node does not respond to health probes
 
 						m.mu.RLock()
-						tries, ok := m.nodesProbeTries[uid]
+						tries := m.nodes[id].pingRetries
 						m.mu.RUnlock()
 
-						if (ok && tries >= 6) || !ok {
-
-							if m.onNodeDown != nil {
-								m.onNodeDown(context.Background())
-							}
-
-							err := m.StartRecoveryProcess(node)
-							if err != nil {
-								logrus.Errorf("error starting node recoverying proccess: %v", err)
-								return
-							}
+						if tries >= m.maxPingRetries {
+							m.mu.Lock()
+							m.nodes[id].unavailable = true
+							m.mu.Unlock()
 						}
 
 						m.mu.Lock()
-						if ok {
-							tries++
-						} else {
-							m.nodesProbeTries[uid] = 0
-						}
+						m.nodes[id].pingRetries++
 						m.mu.Unlock()
 
+						return
 					}
 
 					m.mu.Lock()
@@ -176,7 +192,7 @@ func (m *NodesManager) WatchNodes() {
 			wg.Wait()
 
 			if aliveNodes <= 1 {
-				m.noAliveNodesCh <- struct{}{}
+				// todo
 			}
 
 		}
@@ -184,20 +200,9 @@ func (m *NodesManager) WatchNodes() {
 
 }
 
-func (m *NodesManager) ProbeNode(node *transport_pb.NodeInfo) error {
+func (m *NodesMap) StartRecoveryProcess(node *transport_pb.NodeInfo) error {
 
 	// todo
 
 	return nil
-}
-
-func (m *NodesManager) StartRecoveryProcess(node *transport_pb.NodeInfo) error {
-
-	// todo
-
-	return nil
-}
-
-func (m *NodesManager) NotifyNoAliveNodes() <-chan struct{} {
-	return m.noAliveNodesCh
 }

@@ -15,7 +15,6 @@ import (
 const (
 	serviceDiscoveryRegistriesPath = "rhosus/service_discovery/registries/"
 	serviceDiscoveryNodesPath      = "rhosus/service_discovery/nodes/"
-	BlocksIndexesPath              = "rhosus/data/"
 )
 
 type EtcdClientConfig struct {
