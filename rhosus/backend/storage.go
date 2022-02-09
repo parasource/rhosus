@@ -3,7 +3,6 @@ package backend
 import (
 	"errors"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
-	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/parasource/rhosus/rhosus/util/timers"
 	"github.com/sirupsen/logrus"
@@ -13,8 +12,8 @@ import (
 )
 
 var (
-	ErrWriteTimeout = errors.New("etcd storage write timeout")
-	ErrShutdown     = errors.New("storage is shut down")
+	ErrWriteTimeout = errors.New("backend storage write timeout")
+	ErrShutdown     = errors.New("backend storage is shut down")
 )
 
 const (
@@ -122,39 +121,7 @@ func (s *Storage) start() {
 // File methods
 // ---------------------------
 
-func (s *Storage) StoreFile(path string, file *fs_pb.File) error {
-
-	s.mu.RLock()
-	if s.shutdown {
-		s.mu.RUnlock()
-		return ErrShutdown
-	}
-	s.mu.RUnlock()
-
-	bytes, err := file.Marshal()
-	if err != nil {
-		return err
-	}
-	strBytes := util.Base64Encode(bytes)
-	r := NewStoreRequest(dataOpStoreFile, path, strBytes)
-
-	select {
-	case s.fileReqC <- r:
-	default:
-		timer := timers.SetTimer(time.Second * time.Duration(s.config.WriteTimeoutS))
-		defer timers.ReleaseTimer(timer)
-		select {
-		case s.fileReqC <- r:
-		case <-timer.C:
-			return ErrWriteTimeout
-		}
-	}
-
-	res := r.result()
-	return res.err
-}
-
-func (s *Storage) StoreBatch(files map[string]*control_pb.FileInfo) error {
+func (s *Storage) StoreFilesBatch(files map[string]*control_pb.FileInfo) error {
 
 	s.mu.RLock()
 	if s.shutdown {
@@ -175,7 +142,7 @@ func (s *Storage) StoreBatch(files map[string]*control_pb.FileInfo) error {
 		batch[path] = strBytes
 	}
 
-	r := NewStoreRequest(dataOpStoreBatch, batch)
+	r := NewStoreRequest(dataOpStoreFiles, batch)
 
 	select {
 	case s.fileReqC <- r:
@@ -193,7 +160,7 @@ func (s *Storage) StoreBatch(files map[string]*control_pb.FileInfo) error {
 	return res.err
 }
 
-func (s *Storage) GetFile(path string) (*fs_pb.File, error) {
+func (s *Storage) GetFile(path string) (*control_pb.FileInfo, error) {
 
 	s.mu.RLock()
 	if s.shutdown {
@@ -202,7 +169,27 @@ func (s *Storage) GetFile(path string) (*fs_pb.File, error) {
 	}
 	s.mu.RUnlock()
 
-	r := NewStoreRequest(dataOpGetFile, path)
+	res, err := s.GetFilesBatch([]string{path})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(res) < 1 {
+		return nil, errors.New("wrong result length")
+	}
+
+	return res[0], nil
+}
+
+func (s *Storage) GetFilesBatch(paths []string) ([]*control_pb.FileInfo, error) {
+	s.mu.RLock()
+	if s.shutdown {
+		s.mu.RUnlock()
+		return nil, ErrShutdown
+	}
+	s.mu.RUnlock()
+
+	r := NewStoreRequest(dataOpGetFilesBatch, paths)
 	select {
 	case s.fileReqC <- r:
 	default:
@@ -216,21 +203,32 @@ func (s *Storage) GetFile(path string) (*fs_pb.File, error) {
 	}
 
 	res := r.result()
-	bytes, err := util.Base64Decode(res.reply.(string))
-	if err != nil {
-		return nil, err
+	if res.err != nil {
+		return nil, res.err
 	}
 
-	var file fs_pb.File
-	err = file.Unmarshal(bytes)
-	if err != nil {
-		return nil, err
+	var files []*control_pb.FileInfo
+
+	for _, data := range res.reply.([]string) {
+
+		bytes, err := util.Base64Decode(data)
+		if err != nil {
+
+		}
+
+		var file control_pb.FileInfo
+		err = file.Unmarshal(bytes)
+		if err != nil {
+			logrus.Errorf("error unmarshaling file info: %v", err)
+		}
+
+		files = append(files, &file)
 	}
 
-	return &file, res.err
+	return files, nil
 }
 
-func (s *Storage) DeleteFile(path string) error {
+func (s *Storage) RemoveFilesBatch(fileIDs []string) error {
 
 	s.mu.RLock()
 	if s.shutdown {
@@ -239,7 +237,7 @@ func (s *Storage) DeleteFile(path string) error {
 	}
 	s.mu.RUnlock()
 
-	r := NewStoreRequest(dataOpDeleteFile, path)
+	r := NewStoreRequest(dataOpDeleteFiles, fileIDs)
 	select {
 	case s.fileReqC <- r:
 	default:
@@ -260,39 +258,6 @@ func (s *Storage) DeleteFile(path string) error {
 // --------------------------
 // Blocks methods
 // --------------------------
-
-func (s *Storage) PutBlocks(fileID string, blocks []*control_pb.BlockInfo) error {
-
-	s.mu.RLock()
-	if s.shutdown {
-		s.mu.RUnlock()
-		return ErrShutdown
-	}
-	s.mu.RUnlock()
-
-	fBlocks := &control_pb.FileBlocks{
-		Blocks: blocks,
-	}
-	bytes, _ := fBlocks.Marshal()
-	strBytes := util.Base64Encode(bytes)
-
-	r := NewStoreRequest(dataOpStoreBlocks, fileID, strBytes)
-
-	select {
-	case s.fileReqC <- r:
-	default:
-		timer := timers.SetTimer(time.Second * time.Duration(s.config.WriteTimeoutS))
-		defer timers.ReleaseTimer(timer)
-		select {
-		case s.blocksReqC <- r:
-		case <-timer.C:
-			return ErrWriteTimeout
-		}
-	}
-
-	res := r.result()
-	return res.err
-}
 
 func (s *Storage) PutBatchBlocks(blocks map[string][]*control_pb.BlockInfo) error {
 
@@ -375,7 +340,7 @@ func (s *Storage) GetBlocks(fileID []string) ([]*control_pb.BlockInfo, error) {
 	return fBlocks.Blocks, nil
 }
 
-func (s *Storage) RemoveBlocks(fileID string) error {
+func (s *Storage) RemoveBlocksBatch(fileIDs []string) error {
 
 	s.mu.RLock()
 	if s.shutdown {
@@ -384,7 +349,7 @@ func (s *Storage) RemoveBlocks(fileID string) error {
 	}
 	s.mu.RUnlock()
 
-	r := NewStoreRequest(dataOpDeleteBlocks, fileID)
+	r := NewStoreRequest(dataOpDeleteBlocks, fileIDs)
 
 	select {
 	case s.blocksReqC <- r:
@@ -460,10 +425,9 @@ func (dr *StoreReq) result() *StoreResp {
 type dataOp int
 
 const (
-	dataOpStoreFile dataOp = iota
-	dataOpStoreBatch
-	dataOpGetFile
-	dataOpDeleteFile
+	dataOpStoreFiles dataOp = iota
+	dataOpGetFilesBatch
+	dataOpDeleteFiles
 
 	dataOpStoreBlocks
 	dataOpStoreBatchBlocks

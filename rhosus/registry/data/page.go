@@ -73,7 +73,7 @@ func (p *Page) appendToDataFile(data []byte) error {
 
 func (p *Page) Marshal() ([]byte, error) {
 	page := &fs_pb.Page{
-		Uid:          p.Uid,
+		Id:           p.Uid,
 		UsedSpace:    0,
 		Blocks:       nil,
 		ChecksumType: 0,

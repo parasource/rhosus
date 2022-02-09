@@ -2,8 +2,8 @@ package rhosus_node
 
 import (
 	"fmt"
+	"github.com/parasource/rhosus/rhosus/backend"
 	rhosus_etcd "github.com/parasource/rhosus/rhosus/etcd"
-	"github.com/parasource/rhosus/rhosus/node/backend"
 	"github.com/parasource/rhosus/rhosus/node/profiler"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/parasource/rhosus/rhosus/util"
@@ -50,29 +50,24 @@ func NewNode(config Config) (*Node, error) {
 		readyCh:    make(chan struct{}),
 	}
 
-	b, err := backend.NewBackend(backend.StorageConfig{})
-	if err != nil {
-		logrus.Fatalf("error creating backend storage: %v", err)
-	}
-	node.Backend = b
+	//b, err := backend.NewBackend(backend.StorageConfig{})
+	//if err != nil {
+	//	logrus.Fatalf("error creating backend storage: %v", err)
+	//}
+	//node.Backend = b
 
-	err = node.Backend.PutBlocks(map[string]backend.Block{"testblock1": {
-		From: 0,
-		To:   63,
-		Size: 64,
-	}, "testblock2": {
-		From: 64,
-		To:   127,
-		Size: 64,
-	}})
-	if err != nil {
-		logrus.Errorf("error putting blocks: %v", err)
-	}
-
-	block, _ := node.Backend.GetBlocks([]string{"testblock1", "testblock2"})
-	for uid, b := range block {
-		logrus.Infof("block %v: %v:%v", uid, b.From, b.To)
-	}
+	//err = node.Backend.PutBlocks(map[string]backend.Block{"testblock1": {
+	//	From: 0,
+	//	To:   63,
+	//	Size: 64,
+	//}, "testblock2": {
+	//	From: 64,
+	//	To:   127,
+	//	Size: 64,
+	//}})
+	//if err != nil {
+	//	logrus.Errorf("error putting blocks: %v", err)
+	//}
 
 	statsManager := NewStatsManager(node)
 	node.StatsManager = statsManager

@@ -38,7 +38,7 @@ type Config struct {
 }
 
 type Registry struct {
-	Uid    string
+	Id     string
 	Name   string
 	mu     sync.RWMutex
 	Config Config
@@ -47,7 +47,8 @@ type Registry struct {
 
 	NodesManager   *NodesManager
 	FileServer     *file_server.Server
-	Storage        *backend.Storage
+	Backend        *backend.Storage
+	MemoryStorage  *MemoryStorage
 	StatsCollector *StatsCollector
 
 	// Cluster is used to control over other registries
@@ -63,10 +64,10 @@ type Registry struct {
 
 func NewRegistry(config Config) (*Registry, error) {
 
-	uid := getUid()
+	id := getId()
 
 	r := &Registry{
-		Uid:     uid,
+		Id:      id,
 		Name:    util.GenerateRandomName(2),
 		Config:  config,
 		readyWg: sync.WaitGroup{},
@@ -79,7 +80,7 @@ func NewRegistry(config Config) (*Registry, error) {
 	//if err != nil {
 	//	logrus.Fatalf("error creating etcd storage: %v", err)
 	//}
-	//r.Storage = storage
+	//r.Backend = storage
 
 	nMap := NewNodesMap(r)
 	r.NodesManager = nMap
@@ -102,48 +103,31 @@ func NewRegistry(config Config) (*Registry, error) {
 	if err != nil {
 		logrus.Fatalf("error creating storage: %v", err)
 	}
-	r.Storage = s
+	r.Backend = s
 
-	go func() {
+	memStorage, err := NewMemoryStorage(r)
+	if err != nil {
+		logrus.Fatalf("error creating memory storage: %v", err)
+	}
+	r.MemoryStorage = memStorage
 
-		batch := make(map[string]*control_pb.FileInfo, 1000)
-		blocks := make(map[string][]*control_pb.BlockInfo, 10000)
+	err = r.MemoryStorage.StoreFile(&control_pb.FileInfo{
+		Type:  control_pb.FileInfo_FILE,
+		Id:    "123123",
+		Path:  fmt.Sprintf("Desktop/index.html"),
+		Size_: 64,
+		Owner: "eovchinnikov",
+		Group: "admin",
+	})
+	if err != nil {
+		logrus.Errorf("error storing file in memory: %v", err)
+	}
 
-		for i := 1; i <= 1000; i++ {
-
-			fileId := fmt.Sprintf("index_%v.html", i)
-
-			batch[fileId] = &control_pb.FileInfo{
-				Type:  control_pb.FileInfo_FILE,
-				Id:    "123123",
-				Path:  fmt.Sprintf("Desktop/index_%v.html", i),
-				Size_: 64,
-				Owner: "eovchinnikov",
-				Group: "admin",
-			}
-
-			for j := 0; j < 10; j++ {
-				blocks[fileId] = append(blocks[fileId], &control_pb.BlockInfo{
-					Index:  uint64(j),
-					NodeID: "test_data_node",
-					Size_:  10,
-				})
-			}
-		}
-
-		start := time.Now()
-		err := s.StoreBatch(batch)
-		if err != nil {
-			logrus.Errorf("error storing files batch: %v", err)
-		}
-
-		err = s.PutBatchBlocks(blocks)
-		if err != nil {
-			logrus.Errorf("error storing blocks batch: %v", err)
-		}
-
-		logrus.Infof("storage done in %v", time.Since(start).String())
-	}()
+	file, err := r.MemoryStorage.GetFile("123123")
+	if err != nil {
+		logrus.Errorf("unable to get file: %v", err)
+	}
+	logrus.Infof("file from memory: %v", file)
 
 	// Here we load all the existing nodes and registries from etcd
 	// Error occurs only in non-usual conditions, so we kill process
@@ -163,7 +147,7 @@ func NewRegistry(config Config) (*Registry, error) {
 		logrus.Fatalf("couldn't get free port: %v", err)
 	}
 	info := &control_pb.RegistryInfo{
-		Uid:  r.Uid,
+		Id:   r.Id,
 		Name: r.Name,
 		Address: &control_pb.RegistryInfo_Address{
 			Host:     "localhost",
@@ -175,7 +159,7 @@ func NewRegistry(config Config) (*Registry, error) {
 
 	// Setting up registries cluster from existing peers
 	c := cluster.NewCluster(cluster.Config{
-		ID:           r.Uid,
+		ID:           r.Id,
 		RegistryInfo: info,
 	}, regs)
 	r.Cluster = c
@@ -198,11 +182,11 @@ func NewRegistry(config Config) (*Registry, error) {
 	return r, nil
 }
 
-func getUid() string {
-	var uid string
+func getId() string {
+	var id string
 
-	v4uid, _ := uuid.NewV4()
-	return v4uid.String()
+	v4id, _ := uuid.NewV4()
+	return v4id.String()
 
 	// since we are just testing, we don't need that yet
 	if util.FileExists(uuidFilePath) {
@@ -217,10 +201,10 @@ func getUid() string {
 
 		}
 
-		uid = string(data)
+		id = string(data)
 	} else {
 		v4uid, _ := uuid.NewV4()
-		uid = v4uid.String()
+		id = v4uid.String()
 
 		file, err := os.Create(uuidFilePath)
 		defer file.Close()
@@ -228,10 +212,10 @@ func getUid() string {
 		if err != nil {
 
 		}
-		file.Write([]byte(uid))
+		file.Write([]byte(id))
 	}
 
-	return uid
+	return id
 }
 
 ///////////////////////////////////////////
@@ -247,12 +231,13 @@ func (r *Registry) Start() {
 	go r.StatsCollector.Run()
 
 	go r.RunServiceDiscovery()
+	go r.MemoryStorage.Start()
 
 	go r.handleSignals()
 
 	r.readyC <- struct{}{}
 
-	logrus.Infof("Registry %v:%v is ready", r.Name, r.Uid)
+	logrus.Infof("Registry %v:%v is ready", r.Name, r.Id)
 
 	if <-r.NotifyShutdown(); true {
 
@@ -264,7 +249,7 @@ func (r *Registry) Start() {
 		}
 
 		r.FileServer.Shutdown()
-		r.Storage.Shutdown()
+		r.Backend.Shutdown()
 		r.Cluster.Shutdown()
 
 		if pidFile != "" {
@@ -280,11 +265,11 @@ func (r *Registry) Start() {
 }
 
 func (r *Registry) registerItself(info *control_pb.RegistryInfo) error {
-	return r.etcdClient.RegisterRegistry(info.Uid, info)
+	return r.etcdClient.RegisterRegistry(info.Id, info)
 }
 
 func (r *Registry) unregisterItself() error {
-	return r.etcdClient.UnregisterRegistry(r.Uid)
+	return r.etcdClient.UnregisterRegistry(r.Id)
 }
 
 func (r *Registry) NotifyShutdown() <-chan struct{} {
@@ -369,7 +354,7 @@ func (r *Registry) getExistingRegistries() (map[string]*control_pb.RegistryInfo,
 			continue
 		}
 
-		result[info.Uid] = &info
+		result[info.Id] = &info
 
 		logrus.Infof("registry %v added from existing map", info.Name)
 	}
@@ -479,7 +464,7 @@ func (r *Registry) RunServiceDiscovery() {
 						logrus.Errorf("error unmarshaling registry info: %v", err)
 					}
 
-					err = r.Cluster.DiscoverOrUpdate(info.Uid, &info)
+					err = r.Cluster.DiscoverOrUpdate(info.Id, &info)
 					if err != nil {
 						logrus.Errorf("error discovering registry: %v", err)
 					}

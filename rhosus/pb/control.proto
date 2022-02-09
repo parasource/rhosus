@@ -32,7 +32,7 @@ enum State {
 
 message RequestVoteRequest {
   uint32 term = 1;
-  string candidateUid = 2;
+  string candidateId = 2;
   uint64 lastLogIndex = 3;
   uint32 lastLogTerm = 4;
 }
@@ -45,7 +45,7 @@ message RequestVoteResponse {
 
 message AppendEntriesRequest {
   uint32 term = 1;
-  string leaderUid = 2;
+  string leaderId = 2;
   int64 prevLogIndex = 3;
   uint32 prevLogTerm = 4;
   repeated Entry entries = 6;
@@ -91,12 +91,12 @@ message OffsetRange {
 }
 
 message EntryAssign {
-  string nodeUid = 1;
+  string nodeId = 1;
   map<string, OffsetRange> blocks = 2;
 }
 
 message EntryDelete {
-  string nodeUid = 1;
+  string nodeId = 1;
   repeated string blocks = 2;
 }
 
@@ -106,7 +106,7 @@ message EntryDelete {
 // <------------------------->
 
 message RegistryInfo {
-  string uid = 1;
+  string Id = 1;
   string name = 2;
   message Address {
     string host = 1;
@@ -130,22 +130,22 @@ message Event {
 }
 
 message EventFileRegistered {
-  string uid = 1;
+  string id = 1;
   fs_pb.File file = 2;
 }
 
 message EventFileDeleted {
-  string uid = 1;
+  string id = 1;
   fs_pb.File file = 2;
 }
 
 message EventFileModified {
-  string uid = 1;
+  string id = 1;
   fs_pb.File file = 2;
 }
 
 message EventRegistryShutdown {
-  string uid = 1;
+  string id = 1;
   enum ShutdownReason {
     FORCE = 0;
     FATAL_ERROR = 1;
@@ -178,9 +178,11 @@ message FileBlocks {
 }
 
 message BlockInfo {
-  uint64 index = 1;
-  string nodeID = 2;
-  uint64 size = 3;
+  string id = 1;
+  uint64 index = 2;
+  string fileID = 3;
+  string nodeID = 4;
+  uint64 size = 5;
 }
 
 message DirectoryListing {
