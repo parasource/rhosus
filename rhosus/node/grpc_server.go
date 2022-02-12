@@ -22,8 +22,8 @@ type GrpcServer struct {
 	Config GrpcServerConfig
 	server *grpc.Server
 
-	shutdownCh chan struct{}
-	readyCh    chan struct{}
+	shutdownC chan struct{}
+	readyC    chan struct{}
 
 	registerNodeFun func()
 }
@@ -35,14 +35,15 @@ func NewGrpcServer(config GrpcServerConfig, node *Node) (*GrpcServer, error) {
 		Config: config,
 		node:   node,
 
-		shutdownCh: make(chan struct{}, 1),
-		readyCh:    make(chan struct{}, 1),
+		shutdownC: make(chan struct{}),
+		readyC:    make(chan struct{}, 1),
 	}
 
 	return server, err
 }
 
 func (s *GrpcServer) Ping(c context.Context, r *transport_pb.PingRequest) (*transport_pb.PingResponse, error) {
+	logrus.Infof("PINGED")
 	return &transport_pb.PingResponse{}, nil
 }
 
@@ -92,24 +93,21 @@ func (s *GrpcServer) Run() {
 		}
 	}()
 
-	s.readyCh <- struct{}{}
+	s.readyC <- struct{}{}
 	logrus.Infof("node service server successfully started on %v", address)
 
-	for {
-		select {
-		case <-s.NotifyShutdown():
-			err := lis.Close()
-			if err != nil {
-				logrus.Errorf("error closing tcp connection: %v", err)
-			}
+	if <-s.NotifyShutdown(); true {
+		err := lis.Close()
+		if err != nil {
+			logrus.Errorf("error closing tcp connection: %v", err)
 		}
 	}
 }
 
 func (s *GrpcServer) NotifyShutdown() <-chan struct{} {
-	return s.shutdownCh
+	return s.shutdownC
 }
 
 func (s *GrpcServer) NotifyReady() <-chan struct{} {
-	return s.readyCh
+	return s.readyC
 }

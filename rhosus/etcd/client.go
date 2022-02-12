@@ -126,8 +126,8 @@ func (c *EtcdClient) RegisterRegistry(uid string, info *control_pb.RegistryInfo)
 	return nil
 }
 
-func (c *EtcdClient) RegisterNode(name string, info *transport_pb.NodeInfo) error {
-	path := serviceDiscoveryNodesPath + name
+func (c *EtcdClient) RegisterNode(id string, info *transport_pb.NodeInfo) error {
+	path := serviceDiscoveryNodesPath + id
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
@@ -155,8 +155,8 @@ func (c *EtcdClient) UnregisterRegistry(uid string) error {
 	return err
 }
 
-func (c *EtcdClient) UnregisterNode(name string) error {
-	path := serviceDiscoveryNodesPath + name
+func (c *EtcdClient) UnregisterNode(id string) error {
+	path := serviceDiscoveryNodesPath + id
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()

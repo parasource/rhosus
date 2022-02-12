@@ -7,6 +7,7 @@ import (
 	"github.com/parasource/rhosus/rhosus/node/profiler"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/parasource/rhosus/rhosus/util"
+	"github.com/parasource/rhosus/rhosus/util/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"os"
@@ -25,38 +26,42 @@ type Config struct {
 }
 
 type Node struct {
+	ID     string
 	Name   string
 	Config Config
 
 	mu sync.RWMutex
 
-	StatsManager *StatsManager
-	Profiler     *profiler.Profiler
-	GrpcServer   *GrpcServer
-	EtcdClient   *rhosus_etcd.EtcdClient
-	Backend      *backend.Storage
+	stats    *StatsManager
+	profiler *profiler.Profiler
+	server   *GrpcServer
+	etcd     *rhosus_etcd.EtcdClient
+	backend  *backend.Storage
 
-	shutdownCh chan struct{}
-	readyCh    chan struct{}
+	shutdownC chan struct{}
+	readyC    chan struct{}
 }
 
 func NewNode(config Config) (*Node, error) {
 
+	v4uuid, _ := uuid.NewV4()
+
 	node := &Node{
+		ID:     v4uuid.String(),
 		Name:   util.GenerateRandomName(3),
 		Config: config,
 
-		shutdownCh: make(chan struct{}, 1),
-		readyCh:    make(chan struct{}),
+		shutdownC: make(chan struct{}),
+		readyC:    make(chan struct{}, 1),
 	}
 
 	//b, err := backend.NewBackend(backend.StorageConfig{})
 	//if err != nil {
 	//	logrus.Fatalf("error creating backend storage: %v", err)
 	//}
-	//node.Backend = b
+	//node.backend = b
 
-	//err = node.Backend.PutBlocks(map[string]backend.Block{"testblock1": {
+	//err = node.backend.PutBlocks(map[string]backend.Block{"testblock1": {
 	//	From: 0,
 	//	To:   63,
 	//	Size: 64,
@@ -70,13 +75,13 @@ func NewNode(config Config) (*Node, error) {
 	//}
 
 	statsManager := NewStatsManager(node)
-	node.StatsManager = statsManager
+	node.stats = statsManager
 
 	nodeProfiler, err := profiler.NewProfiler()
 	if err != nil {
 		logrus.Fatalf("error creating profiler: %v", err)
 	}
-	node.Profiler = nodeProfiler
+	node.profiler = nodeProfiler
 
 	etcdClient, err := rhosus_etcd.NewEtcdClient(rhosus_etcd.EtcdClientConfig{
 		Host: "localhost",
@@ -85,7 +90,7 @@ func NewNode(config Config) (*Node, error) {
 	if err != nil {
 		logrus.Fatalf("error connecting to etcd: %v", err)
 	}
-	node.EtcdClient = etcdClient
+	node.etcd = etcdClient
 
 	freePortForGrpc, err := util.GetFreePort()
 	if err != nil {
@@ -98,19 +103,19 @@ func NewNode(config Config) (*Node, error) {
 	if err != nil {
 		logrus.Errorf("error creating node grpc server: %v", err)
 	}
-	node.GrpcServer = grpcServer
+	node.server = grpcServer
 
 	return node, nil
 }
 
 func (n *Node) CollectMetrics() (*transport_pb.NodeMetrics, error) {
 
-	v, err := n.Profiler.GetMem()
+	v, err := n.profiler.GetMem()
 	if err != nil {
 		logrus.Errorf("error getting memory stats: %v", err)
 	}
 
-	usage := n.Profiler.GetPathDiskUsage("/")
+	usage := n.profiler.GetPathDiskUsage("/")
 
 	metrics := &transport_pb.NodeMetrics{
 		Capacity:       usage.Total,
@@ -125,38 +130,34 @@ func (n *Node) CollectMetrics() (*transport_pb.NodeMetrics, error) {
 
 func (n *Node) Start() {
 
-	go n.GrpcServer.Run()
-
+	go n.server.Run()
 	go n.handleSignals()
 
-	err := n.Register()
+	err := n.registerItself()
 	if err != nil {
 		logrus.Fatalf("can't register node in etcd: %v", err)
 	}
 
-	logrus.Infof("Node %v is ready", n.Name)
+	logrus.Infof("Node %v : %v is ready", n.Name, n.ID)
 
-	for {
-		select {
-		case <-n.NotifyShutdown():
+	if <-n.NotifyShutdown(); true {
 
-			//err := n.Unregister()
-			//if err != nil {
-			//	logrus.Errorf("error unregistering node: %v", err)
-			//}
-			//return
-
+		err := n.unregisterItself()
+		if err != nil {
+			logrus.Errorf("error unregistering node: %v", err)
 		}
+		return
 	}
 
 }
 
-func (n *Node) Register() error {
+func (n *Node) registerItself() error {
 	info := &transport_pb.NodeInfo{
+		Id:   n.ID,
 		Name: n.Name,
 		Address: &transport_pb.NodeInfo_Address{
-			Host: n.GrpcServer.Config.Host,
-			Port: n.GrpcServer.Config.Port,
+			Host: n.server.Config.Host,
+			Port: n.server.Config.Port,
 		},
 		Metrics: &transport_pb.NodeMetrics{
 			Capacity:   10000,
@@ -165,15 +166,15 @@ func (n *Node) Register() error {
 		},
 		Location: "/dir/1",
 	}
-	return n.EtcdClient.RegisterNode(n.Name, info)
+	return n.etcd.RegisterNode(n.ID, info)
 }
 
-func (n *Node) Unregister() error {
-	return n.EtcdClient.UnregisterNode(n.Name)
+func (n *Node) unregisterItself() error {
+	return n.etcd.UnregisterNode(n.ID)
 }
 
 func (n *Node) NotifyShutdown() <-chan struct{} {
-	return n.shutdownCh
+	return n.shutdownC
 }
 
 func (n *Node) handleSignals() {
@@ -186,7 +187,7 @@ func (n *Node) handleSignals() {
 		case syscall.SIGHUP:
 
 		case syscall.SIGINT, os.Interrupt, syscall.SIGTERM:
-			logrus.Infof("shutting down registry")
+			logrus.Infof("shutting down node")
 			pidFile := viper.GetString("pid_file")
 			shutdownTimeout := time.Duration(viper.GetInt("shutdown_timeout")) * time.Second
 			go time.AfterFunc(shutdownTimeout, func() {
@@ -196,12 +197,12 @@ func (n *Node) handleSignals() {
 				os.Exit(1)
 			})
 
-			err := n.Unregister()
+			err := n.unregisterItself()
 			if err != nil {
 				logrus.Errorf("error unregistering node: %v", err)
 			}
 
-			n.shutdownCh <- struct{}{}
+			close(n.shutdownC)
 
 			if pidFile != "" {
 				err := os.Remove(pidFile)

@@ -2,6 +2,7 @@ package registry
 
 import (
 	"context"
+	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/parasource/rhosus/rhosus/registry/transport"
 	"github.com/parasource/rhosus/rhosus/util/tickers"
@@ -20,6 +21,7 @@ type NodesMap struct {
 	transport *transport.Transport
 
 	// max number of ping retries, before the node is marked as unavailable
+	pingIntervalMs int
 	maxPingRetries int
 }
 
@@ -39,6 +41,9 @@ func NewNodesMap(registry *Registry, nodes map[string]*transport_pb.NodeInfo) (*
 	n := &NodesMap{
 		registry: registry,
 		nodes:    make(map[string]*Node),
+
+		pingIntervalMs: 500,
+		maxPingRetries: 3,
 	}
 
 	for id, info := range nodes {
@@ -116,9 +121,7 @@ func (m *NodesMap) RemoveNode(id string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if _, ok := m.nodes[id]; ok {
-		delete(m.nodes, id)
-	}
+	delete(m.nodes, id)
 }
 
 func (m *NodesMap) UpdateNodeInfo(id string, info *transport_pb.NodeInfo) {
@@ -140,10 +143,12 @@ func (m *NodesMap) NodeExists(name string) bool {
 
 func (m *NodesMap) WatchNodes() {
 
-	ticker := tickers.SetTicker(time.Second * 5)
+	ticker := tickers.SetTicker(time.Millisecond * time.Duration(m.pingIntervalMs))
 
 	for {
 		select {
+		case <-m.registry.NotifyShutdown():
+			return
 		case <-ticker.C:
 			nodes := make(map[string]*Node, len(m.nodes))
 
@@ -159,6 +164,7 @@ func (m *NodesMap) WatchNodes() {
 			for uid, node := range nodes {
 				wg.Add(1)
 				go func(id string, node *Node) {
+					defer wg.Done()
 					conn := *node.conn
 
 					_, err := conn.Ping(context.Background(), &transport_pb.PingRequest{})
@@ -197,6 +203,9 @@ func (m *NodesMap) WatchNodes() {
 
 		}
 	}
+}
+
+func (m *NodesMap) AssignBlocks(fileID string, blocks []*fs_pb.Block) {
 
 }
 
