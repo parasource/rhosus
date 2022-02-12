@@ -83,8 +83,7 @@ func (s *Server) RunHTTP() {
 	logrus.Infof("HTTP file server is up and running on %v", net.JoinHostPort(s.Config.Host, s.Config.Port))
 	s.readyC <- struct{}{}
 
-	select {
-	case <-s.NotifyShutdown():
+	if <-s.NotifyShutdown(); true {
 		logrus.Infof("shutting down HTTP server")
 		err := s.http.Shutdown(context.Background())
 		if err != nil {

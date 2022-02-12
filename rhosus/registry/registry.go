@@ -24,8 +24,7 @@ import (
 
 const (
 	etcdPingInterval = 3
-
-	uuidFilePath = "uuid"
+	uuidFilePath     = "uuid"
 )
 
 type Config struct {
@@ -64,7 +63,7 @@ type Registry struct {
 
 func NewRegistry(config Config) (*Registry, error) {
 
-	id := getId()
+	id := getId(false)
 
 	r := &Registry{
 		Id:      id,
@@ -159,11 +158,13 @@ func NewRegistry(config Config) (*Registry, error) {
 	return r, nil
 }
 
-func getId() string {
+func getId(persistent bool) string {
 	var id string
 
-	v4id, _ := uuid.NewV4()
-	return v4id.String()
+	if !persistent {
+		v4id, _ := uuid.NewV4()
+		return v4id.String()
+	}
 
 	// since we are just testing, we don't need that yet
 	if util.FileExists(uuidFilePath) {
@@ -394,7 +395,6 @@ func (r *Registry) RunServiceDiscovery() {
 				// Node added or updated
 				case clientv3.EventTypePut:
 
-					name := rhosus_etcd.ParseNodeName(string(event.Kv.Key))
 					data := string(event.Kv.Value)
 
 					bytes, err := util.Base64Decode(data)
@@ -408,12 +408,12 @@ func (r *Registry) RunServiceDiscovery() {
 						logrus.Errorf("error unmarshaling node info: %v", err)
 					}
 
-					if r.NodesManager.NodeExists(name) {
+					if r.NodesManager.NodeExists(info.Id) {
 						// If node already exists in a node map => updating node info
 
-						r.NodesManager.UpdateNodeInfo(name, &info)
+						r.NodesManager.UpdateNodeInfo(info.Id, &info)
 					} else {
-						err := r.NodesManager.AddNode(name, &info)
+						err := r.NodesManager.AddNode(info.Id, &info)
 						if err != nil {
 							logrus.Errorf("error adding node: %v", err)
 							continue
