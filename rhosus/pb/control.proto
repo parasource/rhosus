@@ -3,8 +3,6 @@ syntax = "proto3";
 package control_pb;
 option go_package = "github.com/parasource/rhosus/rhosus/pb/control_pb";
 
-import "fs.proto";
-
 // <---------------------------------->
 // Control service is an implementation
 // of a RAFT consensus algorithm.
@@ -13,7 +11,6 @@ import "fs.proto";
 service Control {
   rpc RequestVote (RequestVoteRequest) returns (RequestVoteResponse);
   rpc AppendEntries (AppendEntriesRequest) returns (AppendEntriesResponse);
-  rpc EntryCommitted (EntryCommittedRequest) returns (EntryCommittedResponse);
   rpc Shutdown (Void) returns (Void) {}
   rpc Alive (Void) returns (Void) {}
   rpc Offline (Void) returns (Void) {}
@@ -60,14 +57,6 @@ message AppendEntriesResponse {
   uint64 lastCommittedIndex = 5;
 }
 
-message EntryCommittedRequest {
-  uint32 term = 1;
-}
-
-message EntryCommittedResponse {
-
-}
-
 message Entry {
   uint64 index = 1;
   uint32 term = 2;
@@ -81,18 +70,15 @@ message Entry {
   bytes data = 4;
   int64 timestamp = 5;
 
-  // magic number ;)
-  float version = 69;
+  float version = 99;
 }
 
-message OffsetRange {
-  uint64 from = 1;
-  uint64 to = 2;
-}
 
 message EntryAssign {
   string nodeId = 1;
-  map<string, OffsetRange> blocks = 2;
+  FileInfo file = 2;
+  map<string, BlockInfo> blocks = 3; // Map blocks to pages on node
+  string rack = 4;
 }
 
 message EntryDelete {
@@ -101,8 +87,7 @@ message EntryDelete {
 }
 
 // <------------------------->
-// Main registry communication
-// messages
+// Main registry types
 // <------------------------->
 
 message RegistryInfo {
@@ -115,42 +100,6 @@ message RegistryInfo {
     string password = 4;
   }
   Address address = 3;
-}
-
-message Event {
-  enum EventType {
-    FILE_REGISTERED = 0;
-    FILE_DELETED = 1;
-    FILE_MODIFIED = 2;
-
-    REGISTRY_SHUTDOWN = 3;
-  }
-  EventType type = 1;
-  bytes data = 2;
-}
-
-message EventFileRegistered {
-  string id = 1;
-  fs_pb.File file = 2;
-}
-
-message EventFileDeleted {
-  string id = 1;
-  fs_pb.File file = 2;
-}
-
-message EventFileModified {
-  string id = 1;
-  fs_pb.File file = 2;
-}
-
-message EventRegistryShutdown {
-  string id = 1;
-  enum ShutdownReason {
-    FORCE = 0;
-    FATAL_ERROR = 1;
-  }
-  ShutdownReason reason = 2;
 }
 
 message FileInfo {
@@ -171,6 +120,22 @@ message FileInfo {
   string group = 7;
 
   string symlink = 8; // Optional. Used only for symlinks
+}
+
+// Partition is a set of blocks
+// partition can be transferred to another node for load balancing
+message Partition {
+  string id = 1;
+  uint64 usedSpace = 2;
+  map<string, BlockInfo> blocks = 3;
+  enum ChecksumType {
+    CHECKSUM_NULL = 0;
+    CHECKSUM_CRC32 = 1;
+    CHECKSUM_CRC32C = 2;
+  }
+  ChecksumType checksum_type = 4;
+  string checksum = 5;
+  int64 updated_at = 6;
 }
 
 message FileBlocks {

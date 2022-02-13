@@ -142,29 +142,29 @@ func NewCluster(config Config, peers map[string]*control_pb.RegistryInfo) *Clust
 
 	go c.Run()
 
-	go func() {
-		for {
-			time.Sleep(time.Second * 2)
-
-			if !c.isLeader() {
-				continue
-			}
-
-			err := c.WriteEntries([]*control_pb.Entry{
-				{
-					Index:     c.lastLogIndex + 1,
-					Term:      c.GetCurrentTerm(),
-					Type:      control_pb.Entry_ASSIGN,
-					Data:      []byte("azazazaza"),
-					Timestamp: time.Now().Unix(),
-				},
-			})
-			if err != nil {
-				logrus.Errorf("error writing entries: %v", err)
-			}
-		}
-
-	}()
+	//go func() {
+	//	for {
+	//		time.Sleep(time.Second * 2)
+	//
+	//		if !c.isLeader() {
+	//			continue
+	//		}
+	//
+	//		err := c.WriteEntries([]*control_pb.Entry{
+	//			{
+	//				Index:     c.lastLogIndex + 1,
+	//				Term:      c.GetCurrentTerm(),
+	//				Type:      control_pb.Entry_ASSIGN,
+	//				Data:      []byte("azazazaza"),
+	//				Timestamp: time.Now().Unix(),
+	//			},
+	//		})
+	//		if err != nil {
+	//			logrus.Errorf("error writing entries: %v", err)
+	//		}
+	//	}
+	//
+	//}()
 
 	return c
 }

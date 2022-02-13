@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	etcdPingInterval = 3
+	etcdPingInterval = 1
 	uuidFilePath     = "uuid"
 )
 

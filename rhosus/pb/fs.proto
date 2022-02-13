@@ -6,20 +6,6 @@ option go_package = "github.com/parasource/rhosus/rhosus/pb/fs_pb";
 ////////////////////
 // FS base messages
 
-
-// Page is a set of blocks
-// Page has a fixed size. If it is full, another Page is being created
-// page can be transferred to another node for load balancing
-
-message Page {
-  string id = 1;
-  uint64 usedSpace = 2;
-  map<string, Block> blocks = 3;
-  ChecksumType checksum_type = 4;
-  string checksum = 5;
-  int64 updated_at = 6;
-}
-
 message File {
   string id = 1;
   string name = 2;
@@ -35,11 +21,5 @@ message Block {
   string file_id = 2;
   uint64 size = 3;
   bytes data = 4;
-}
-
-enum ChecksumType {
-  CHECKSUM_NULL = 0;
-  CHECKSUM_CRC32 = 1;
-  CHECKSUM_CRC32C = 2;
 }
 
