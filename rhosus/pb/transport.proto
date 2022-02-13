@@ -48,7 +48,6 @@ message RemoveBlocksRequest {
 message RemoveBlocksResponse {}
 
 message PlacePagesRequest {
-  repeated fs_pb.Page pages = 1;
 }
 
 message PlacePagesResponse {}
@@ -72,7 +71,9 @@ message NodeMetrics {
   float memUsedPercent = 7;
 }
 
-// Information about node
+///////////////////////////////
+// All information about node
+// that registry needs
 message NodeInfo {
   string id = 1;
   string name = 2;
@@ -88,7 +89,8 @@ message NodeInfo {
     DECOMMISSIONED = 2;
   }
   State state = 5;
-  NodeMetrics metrics = 6;
+  int32 pagesCapacity = 6;
+  NodeMetrics metrics = 7;
 }
 
 

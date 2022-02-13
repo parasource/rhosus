@@ -26,9 +26,8 @@ COPY --from=builder /go/src/github.com/parasource/rhosus .
 
 EXPOSE 8000
 
-ENV HOST 127.0.0.0
-ENV PORT 8000
-ENV REDIS_HOST 127.0.0.1
-ENV REDIS_PORT 6379
+ENV HTTP_HOST 127.0.0.0
+ENV HTTP_PORT 8000
+ENV WAL_PATH "./wal"
 
-CMD ["/usr/bin/redis-server --daemonize", ";", "./bin/rhosusr"]
+CMD ["./bin/rhosusr"]

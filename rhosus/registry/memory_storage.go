@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	defaultFilesTableName  = "files"
-	defaultBlocksTableName = "blocks"
+	defaultFilesTableName  = "__files"
+	defaultBlocksTableName = "__blocks"
 )
 
 type MemoryStorage struct {

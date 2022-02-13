@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/parasource/rhosus/rhosus/backend"
 	rhosus_etcd "github.com/parasource/rhosus/rhosus/etcd"
+	"github.com/parasource/rhosus/rhosus/node/data"
 	"github.com/parasource/rhosus/rhosus/node/profiler"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/parasource/rhosus/rhosus/util"
@@ -12,7 +13,6 @@ import (
 	"github.com/spf13/viper"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 )
@@ -30,8 +30,7 @@ type Node struct {
 	Name   string
 	Config Config
 
-	mu sync.RWMutex
-
+	data     *data.Manager
 	stats    *StatsManager
 	profiler *profiler.Profiler
 	server   *GrpcServer
@@ -73,6 +72,12 @@ func NewNode(config Config) (*Node, error) {
 	//if err != nil {
 	//	logrus.Errorf("error putting blocks: %v", err)
 	//}
+
+	dataManager, err := data.NewManager()
+	if err != nil {
+		logrus.Fatalf("error creating data manager: %v", err)
+	}
+	node.data = dataManager
 
 	statsManager := NewStatsManager(node)
 	node.stats = statsManager

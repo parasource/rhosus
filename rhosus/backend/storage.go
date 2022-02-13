@@ -17,7 +17,7 @@ var (
 )
 
 const (
-	defaultDbFilePath = "indices.data"
+	defaultDbFilePath = "data.db"
 
 	filesStorageBucketName  = "__files"
 	blocksStorageBucketName = "__blocks"
