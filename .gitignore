@@ -1,3 +1,5 @@
 .idea
 wal
 parts
+indices.db
+data.db

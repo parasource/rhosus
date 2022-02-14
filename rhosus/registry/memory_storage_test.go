@@ -57,34 +57,3 @@ func TestMemoryStorage_FlushFiles(t *testing.T) {
 	r.Backend.Shutdown()
 	os.Remove(dbPath)
 }
-
-func TestMemoryStorage_FlushBlocks(t *testing.T) {
-	r := mockRegistry(t)
-	s, err := NewMemoryStorage(r)
-	assert.Nil(t, err)
-
-	for i := 1; i <= filesCount; i++ {
-		fileID := fmt.Sprintf("index_%v.html", i)
-
-		var blocks []*control_pb.BlockInfo
-		for j := 0; j < 10; j++ {
-			blocks = append(blocks, &control_pb.BlockInfo{
-				Id:     fmt.Sprintf("%v-%v", fileID, j),
-				FileID: fileID,
-				Index:  uint64(j),
-				NodeID: "testnode123",
-				Size_:  10,
-			})
-		}
-
-		err := s.PutBlocks(blocks)
-		assert.Nil(t, err)
-	}
-
-	txn := s.db.Txn(false)
-	err = s.flushBlocksToBackend(txn)
-	assert.Nil(t, err)
-
-	r.Backend.Shutdown()
-	os.Remove(dbPath)
-}

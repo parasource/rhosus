@@ -125,22 +125,6 @@ func (s *Storage) loopBlocksHandlers() {
 			// ------------------
 			// File handlers
 			// ------------------
-			case dataOpStoreBlocks:
-
-				fileId := reqs[i].args[0].(string)
-				blocks := reqs[i].args[1].(string)
-
-				err := s.db.Update(func(tx *bolt.Tx) error {
-					var err error
-
-					b := tx.Bucket([]byte(blocksStorageBucketName))
-
-					err = b.Put([]byte(fileId), []byte(blocks))
-
-					return err
-				})
-
-				reqs[i].done(nil, err)
 
 			case dataOpStoreBatchBlocks:
 
@@ -149,10 +133,10 @@ func (s *Storage) loopBlocksHandlers() {
 				err := s.db.Batch(func(tx *bolt.Tx) error {
 					var err error
 
-					for fileID, fBlocks := range data {
+					for blockID, partitionID := range data {
 						b := tx.Bucket([]byte(blocksStorageBucketName))
 
-						err = b.Put([]byte(fileID), []byte(fBlocks))
+						err = b.Put([]byte(blockID), []byte(partitionID))
 					}
 
 					return err
@@ -162,29 +146,31 @@ func (s *Storage) loopBlocksHandlers() {
 
 			case dataOpGetBlocks:
 
-				fileId := reqs[i].args[0].(string)
-				var res []byte
+				blockIDs := reqs[i].args[0].([]string)
+				var res map[string]string
 
 				err := s.db.View(func(tx *bolt.Tx) error {
 					var err error
 
 					b := tx.Bucket([]byte(blocksStorageBucketName))
-					res = b.Get([]byte(fileId))
+					for _, id := range blockIDs {
+						res[id] = string(b.Get([]byte(id)))
+					}
 
 					return err
 				})
 
-				reqs[i].done(string(res), err)
+				reqs[i].done(res, err)
 
 			case dataOpDeleteBlocks:
 
-				fileIds := reqs[i].args[0].([]string)
+				blockIDs := reqs[i].args[0].([]string)
 
 				err := s.db.Update(func(tx *bolt.Tx) error {
 					var err error
 
 					b := tx.Bucket([]byte(blocksStorageBucketName))
-					for _, id := range fileIds {
+					for _, id := range blockIDs {
 						err = b.Delete([]byte(id))
 					}
 

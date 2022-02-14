@@ -39,7 +39,15 @@ message AssignBlocksRequest {
   repeated fs_pb.Block blocks = 1;
 }
 
-message AssignBlocksResponse {}
+message AssignBlocksResponse {
+  repeated BlockPlacementInfo placement = 1;
+}
+
+message BlockPlacementInfo {
+  repeated
+      string blockID = 1;
+  string partitionID = 2;
+}
 
 message RemoveBlocksRequest {
   repeated string ids = 1;

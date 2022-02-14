@@ -14,5 +14,5 @@ make something out of it.
 
 ### Rhosus architecture
 
-In Rhosus there are two types of working units: Registry and Node. Node's only purpose is to store raw data on machine.
-The main complexity is on Registry, which decides, where to store data, how to store it and so on. 
+In Rhosus there are two types of working units: Registry and Node. Node's only purpose is to store raw blocks on
+machine. The main complexity is on Registry, which decides, where to store blocks, how to store it and so on. 

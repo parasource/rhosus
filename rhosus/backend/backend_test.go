@@ -34,6 +34,14 @@ func TestBackend_writeAndReadFiles(t *testing.T) {
 			Owner: "eovchinnikov",
 			Group: "admin",
 		}
+
+		//for j := 0; j < 10; j++ {
+		//	blocks[fileId] = append(blocks[fileId], &control_pb.BlockInfo{
+		//		Index:  uint64(j),
+		//		NodeID: "test_data_node",
+		//		Size_:  10,
+		//	})
+		//}
 	}
 
 	defer os.Remove(dbPath)
@@ -58,7 +66,7 @@ func TestBackend_writeAndReadFiles(t *testing.T) {
 
 func TestBackend_writeBlocks(t *testing.T) {
 
-	dbPath := path.Join(os.TempDir(), "test_blocks.db")
+	dbPath := "./test_blocks.db"
 
 	b, err := NewStorage(Config{
 		DbFilePath:    dbPath,
@@ -67,23 +75,14 @@ func TestBackend_writeBlocks(t *testing.T) {
 	})
 	assert.Nil(t, err)
 
-	blocks := make(map[string][]*control_pb.BlockInfo, 10000)
+	blocks := make(map[string]string, 10000)
 
 	for i := 1; i <= 1000; i++ {
-
-		fileId := fmt.Sprintf("index_%v.html", i)
-
-		for j := 0; j < 10; j++ {
-			blocks[fileId] = append(blocks[fileId], &control_pb.BlockInfo{
-				Index:  uint64(j),
-				NodeID: "test_data_node",
-				Size_:  10,
-			})
-		}
+		blocks[fmt.Sprintf("block_%v", i)] = fmt.Sprintf("partition_%v", i)
 	}
 	defer os.Remove(dbPath)
 
-	assert.Nil(t, b.PutBatchBlocks(blocks))
+	assert.Nil(t, b.PutBlocksBatch(blocks))
 
 	var toDelete []string
 	for id := range blocks {
