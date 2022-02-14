@@ -259,7 +259,8 @@ func (s *Storage) RemoveFilesBatch(fileIDs []string) error {
 // Blocks methods
 // --------------------------
 
-func (s *Storage) PutBatchBlocks(blocks map[string][]*control_pb.BlockInfo) error {
+// PutBlocksBatch is used by node to map block ids to partitions
+func (s *Storage) PutBlocksBatch(blocks map[string]string) error {
 
 	s.mu.RLock()
 	if s.shutdown {
@@ -268,19 +269,7 @@ func (s *Storage) PutBatchBlocks(blocks map[string][]*control_pb.BlockInfo) erro
 	}
 	s.mu.RUnlock()
 
-	data := make(map[string]string)
-
-	for fileID, b := range blocks {
-		fBlocks := &control_pb.FileBlocks{
-			Blocks: b,
-		}
-		bytes, _ := fBlocks.Marshal()
-		strBytes := util.Base64Encode(bytes)
-
-		data[fileID] = strBytes
-	}
-
-	r := NewStoreRequest(dataOpStoreBatchBlocks, data)
+	r := NewStoreRequest(dataOpStoreBatchBlocks, blocks)
 
 	select {
 	case s.blocksReqC <- r:
@@ -298,7 +287,7 @@ func (s *Storage) PutBatchBlocks(blocks map[string][]*control_pb.BlockInfo) erro
 	return res.err
 }
 
-func (s *Storage) GetBlocks(fileID []string) ([]*control_pb.BlockInfo, error) {
+func (s *Storage) GetBlocksBatch(blocks []string) (map[string]string, error) {
 
 	s.mu.RLock()
 	if s.shutdown {
@@ -307,7 +296,7 @@ func (s *Storage) GetBlocks(fileID []string) ([]*control_pb.BlockInfo, error) {
 	}
 	s.mu.RUnlock()
 
-	r := NewStoreRequest(dataOpGetBlocks, fileID)
+	r := NewStoreRequest(dataOpGetBlocks, blocks)
 
 	select {
 	case s.blocksReqC <- r:
@@ -322,25 +311,10 @@ func (s *Storage) GetBlocks(fileID []string) ([]*control_pb.BlockInfo, error) {
 	}
 
 	res := r.result()
-	if res.err != nil {
-		return nil, res.err
-	}
-
-	bytes, err := util.Base64Decode(res.reply.(string))
-	if err != nil {
-		return nil, err
-	}
-
-	var fBlocks control_pb.FileBlocks
-	err = fBlocks.Unmarshal(bytes)
-	if err != nil {
-		return nil, err
-	}
-
-	return fBlocks.Blocks, nil
+	return res.reply.(map[string]string), res.err
 }
 
-func (s *Storage) RemoveBlocksBatch(fileIDs []string) error {
+func (s *Storage) RemoveBlocksBatch(blocks []string) error {
 
 	s.mu.RLock()
 	if s.shutdown {
@@ -349,7 +323,7 @@ func (s *Storage) RemoveBlocksBatch(fileIDs []string) error {
 	}
 	s.mu.RUnlock()
 
-	r := NewStoreRequest(dataOpDeleteBlocks, fileIDs)
+	r := NewStoreRequest(dataOpDeleteBlocks, blocks)
 
 	select {
 	case s.blocksReqC <- r:
@@ -429,7 +403,6 @@ const (
 	dataOpGetFilesBatch
 	dataOpDeleteFiles
 
-	dataOpStoreBlocks
 	dataOpStoreBatchBlocks
 	dataOpGetBlocks
 	dataOpDeleteBlocks

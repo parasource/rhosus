@@ -71,21 +71,6 @@ func (p *Page) appendToDataFile(data []byte) error {
 	return nil
 }
 
-func (p *Page) Marshal() ([]byte, error) {
-	page := &fs_pb.Page{
-		Id:           p.Uid,
-		UsedSpace:    0,
-		Blocks:       nil,
-		ChecksumType: 0,
-		Checksum:     "",
-		UpdatedAt:    0,
-	}
-
-	bytes, err := page.Marshal()
-
-	return bytes, err
-}
-
 func (p *Page) HasFreeSpace() bool {
 	return true
 }

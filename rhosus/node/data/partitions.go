@@ -9,6 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"sync"
@@ -21,41 +22,136 @@ var bufPool = sync.Pool{
 	},
 }
 
+func init() {
+	rand.Seed(time.Now().Unix())
+}
+
 var (
-	ErrShutdown = errors.New("partitions map is shut down")
-	ErrNotFound = errors.New("error partition not found")
+	ErrShutdown     = errors.New("parts map is shut down")
+	ErrNotFound     = errors.New("error partition not found")
+	ErrCorruptWrite = errors.New("partition corrupted writing")
 )
 
 const (
+	partitionHeaderSize = 36 * 256
+
 	defaultPartitionsDir      = "./parts"
 	defaultMinPartitionsCount = 1
-	defaultPartitionSizeMb    = 1 * 1000         // default partition size is 4gb
-	defaultBlockSize          = 16 * 1000 * 1000 // by default, one partition fits 256 blocks
+	defaultPartitionSize      = partitionHeaderSize + (1 * 1024 * 1000) // default partition size is header + 1gb
+	defaultBlockSize          = 16 * 1000 * 1000                        // by default, one partition fits 256 blocks
 )
 
 type Partition struct {
+	file *os.File
+
+	blocksMap      map[string]int
+	occupiedBlocks []int
+
 	ID           string
 	checksumType control_pb.Partition_ChecksumType
 	checksum     string
-
-	file *os.File
+	full         bool
 }
 
-func (p *Partition) getBlockContents(block int) (int, []byte, error) {
-	offset := int64(block * defaultBlockSize)
+func newPartition(id string, file *os.File) *Partition {
+	return &Partition{
+		file:           file,
+		blocksMap:      make(map[string]int, 256),
+		occupiedBlocks: []int{},
+		ID:             id,
+		checksumType:   control_pb.Partition_CHECKSUM_CRC32,
+		checksum:       "",
+		full:           false,
+	}
+}
 
-	data := make([]byte, defaultBlockSize)
-	n, err := p.file.ReadAt(data, offset)
-	if err != nil {
-		logrus.Errorf("error reading block from file: %v", err)
-		return 0, nil, err
+func (p *Partition) isBlockAllocated(n int) bool {
+	for _, el := range p.occupiedBlocks {
+		if el == n {
+			return true
+		}
+	}
+	return false
+}
+
+// writeBlocks writes blocks to partitions
+func (p *Partition) writeBlocks(blocks map[string][]byte) (error, map[string]error) {
+
+	errs := make(map[string]error, len(blocks))
+	headerRecs := make(map[string]int, len(blocks)) // header file for each block
+
+	for id, data := range blocks {
+		// getting number of first available block
+		var blockN int
+		for n := 0; n < 256; n++ {
+			if !p.isBlockAllocated(n) {
+				blockN = n
+				break
+			}
+		}
+
+		n, err := p.writeBlockContents(blockN, data)
+		if err != nil {
+			errs[id] = err
+			continue
+		}
+		if len(data) != n {
+			errs[id] = ErrCorruptWrite
+			continue
+		}
+
+		p.occupiedBlocks = append(p.occupiedBlocks, blockN)
+		headerRecs[id] = blockN
 	}
 
-	return n, data, err
+	err := p.writeHeaderRecs(headerRecs)
+	if err != nil {
+		return err, errs
+	}
+
+	return nil, errs
+}
+
+func (p *Partition) writeHeaderRecs(recs map[string]int) error {
+	for id, n := range recs {
+		n, err := p.file.WriteAt([]byte(id), int64(36*n))
+		if err != nil || n != 36 {
+			// todo: maybe retry?
+		}
+	}
+	err := p.file.Sync()
+
+	return err
+}
+
+func (p *Partition) loadHeader() error {
+	headerSizeBytes := 36 * 256
+
+	data := make([]byte, headerSizeBytes)
+	n, err := p.file.Read(data)
+	if err != nil {
+		return err
+	}
+	if n != headerSizeBytes {
+		return ErrCorruptWrite
+	}
+
+	headerSecSize := 36
+	offset := 0
+	for i := 0; i < 256; i++ {
+		id := data[offset : offset+headerSecSize]
+		if !isIdAllZeros(id) {
+			p.blocksMap[string(id)] = i
+			p.occupiedBlocks = append(p.occupiedBlocks, i)
+		}
+		offset += headerSecSize
+	}
+
+	return nil
 }
 
 func (p *Partition) writeBlockContents(block int, data []byte) (int, error) {
-	offset := int64(block * defaultBlockSize)
+	offset := int64(partitionHeaderSize + block*defaultBlockSize)
 
 	n, err := p.file.WriteAt(data, offset)
 	if err != nil {
@@ -68,20 +164,29 @@ func (p *Partition) writeBlockContents(block int, data []byte) (int, error) {
 	return n, err
 }
 
+func (p *Partition) readBlockContents(blockN int) (int, []byte, error) {
+	offset := int64(partitionHeaderSize + blockN*defaultBlockSize)
+
+	data := make([]byte, defaultBlockSize)
+	n, err := p.file.ReadAt(data, offset)
+	if err != nil {
+		logrus.Errorf("error reading blockN from file: %v", err)
+		return 0, nil, err
+	}
+
+	return n, data, err
+}
+
 func (p *Partition) GetFile() io.Reader {
 	return p.file
 }
 
 type PartitionsMap struct {
-	mu         sync.RWMutex
-	partitions map[string]*Partition
+	parts map[string]*Partition
 
-	dir                string // directory where to store partitions files
-	minPartitionsCount int    // to minimize hotspots each node starts with fixed number of partitions
-	partitionSizeMb    int64
-
-	shutdown         bool
-	isReceivingPages bool
+	dir                string // directory where to store parts files
+	minPartitionsCount int    // to minimize hotspots each node starts with fixed number of parts
+	partitionSize      int64
 }
 
 func NewPartitionsMap(dir string, size uint64) (*PartitionsMap, error) {
@@ -96,11 +201,11 @@ func NewPartitionsMap(dir string, size uint64) (*PartitionsMap, error) {
 	}
 
 	p := &PartitionsMap{
-		partitions: make(map[string]*Partition),
-		dir:        path,
+		parts: make(map[string]*Partition),
+		dir:   path,
 
 		minPartitionsCount: defaultMinPartitionsCount,
-		partitionSizeMb:    defaultPartitionSizeMb,
+		partitionSize:      defaultPartitionSize,
 	}
 
 	if err = os.MkdirAll(path, 0750); err != nil {
@@ -111,36 +216,64 @@ func NewPartitionsMap(dir string, size uint64) (*PartitionsMap, error) {
 		return nil, err
 	}
 
-	// testing
-	for _, part := range p.partitions {
-		var block []byte
-		for i := 0; i < 100*1024*1000/2; i++ {
-			block = append(block, byte('a'))
-			block = append(block, byte('b'))
-		}
-		start := time.Now()
-		n, err := part.writeBlockContents(0, block)
-		if err != nil {
-			logrus.Fatalf("error putting contents: %v", err)
-		}
-		logrus.Infof("put 100mb in %v", time.Since(start).String())
-
-		n, block2, err := part.getBlockContents(0)
-		if err != nil {
-			logrus.Fatalf("error reading block: %v", err)
-		}
-		logrus.Info(n, block2[:16])
-	}
-
 	return p, nil
 }
 
-func (p *PartitionsMap) GetPartitionsIDs() []string {
-	//p.mu.Lock()
-	//defer p.mu.Unlock()
+func (p *PartitionsMap) getRandomPartition() (*Partition, error) {
+	var availableParts []string
 
-	parts := make([]string, len(p.partitions))
-	for id := range p.partitions {
+	for id, partition := range p.parts {
+		if !partition.full && len(partition.occupiedBlocks) != 256 {
+			availableParts = append(availableParts, id)
+		}
+	}
+
+	// All existing partitions are full, so we create a new one
+	if len(availableParts) == 0 {
+		id, err := p.createPartition()
+		if err != nil {
+			return nil, err
+		}
+		availableParts = append(availableParts, id)
+	}
+	partID := availableParts[rand.Intn(len(availableParts))]
+
+	return p.parts[partID], nil
+}
+
+func (p *PartitionsMap) createPartition() (string, error) {
+	v4uuid, _ := uuid.NewV4()
+	id := v4uuid.String()
+
+	path := filepath.Join(p.dir, id)
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0666)
+	if err != nil {
+		return "", err
+	}
+
+	err = fileutil.Preallocate(file, p.partitionSize, true)
+	if err != nil {
+		_ = file.Close()
+		_ = os.Remove(path)
+		return "", err
+	}
+
+	err = file.Sync()
+	if err != nil {
+		_ = file.Close()
+		_ = os.Remove(path)
+		return "", err
+	}
+
+	p.parts[id] = newPartition(id, file)
+
+	return id, nil
+}
+
+func (p *PartitionsMap) GetPartitionIDs() []string {
+
+	parts := make([]string, len(p.parts))
+	for id := range p.parts {
 		parts = append(parts, id)
 	}
 
@@ -159,8 +292,8 @@ func (p *PartitionsMap) loadPartitions() error {
 
 		file, err := os.OpenFile(filepath.Join(p.dir, name), os.O_RDWR, 0777)
 		if err != nil {
-			// closing all previously opened partitions
-			//for _, partition := range p.partitions {
+			// closing all previously opened parts
+			//for _, partition := range p.parts {
 			//	err := partition.file.Close()
 			//	if err != nil {
 			//		logrus.Errorf("error closing partition file: %v", err)
@@ -169,16 +302,18 @@ func (p *PartitionsMap) loadPartitions() error {
 			return err
 		}
 
-		p.partitions[name] = &Partition{
-			ID:           name,
-			checksumType: control_pb.Partition_CHECKSUM_CRC32,
-			checksum:     "",
-			file:         file,
+		part := newPartition(name, file)
+		err = part.loadHeader()
+		if err != nil {
+			logrus.Errorf("error loading headers: %v", err)
+			file.Close()
+			continue
 		}
+		p.parts[name] = part
 	}
-	if len(p.partitions) == 0 {
+	if len(p.parts) == 0 {
 		start := time.Now()
-		for len(p.partitions) < p.minPartitionsCount {
+		for len(p.parts) < p.minPartitionsCount {
 			v4uuid, _ := uuid.NewV4()
 			name := v4uuid.String()
 
@@ -189,7 +324,7 @@ func (p *PartitionsMap) loadPartitions() error {
 				continue
 			}
 
-			err = fileutil.Preallocate(file, p.partitionSizeMb*1024*1024, true)
+			err = fileutil.Preallocate(file, p.partitionSize, true)
 			if err != nil {
 				logrus.Errorf("error preallocating file: %v", err)
 			}
@@ -199,49 +334,26 @@ func (p *PartitionsMap) loadPartitions() error {
 				logrus.Errorf("error sync: %v", err)
 			}
 
-			p.partitions[name] = &Partition{
-				ID:           name,
-				checksumType: control_pb.Partition_CHECKSUM_CRC32,
-				checksum:     "",
-				file:         file,
-			}
+			p.parts[name] = newPartition(name, file)
 		}
-		logrus.Infof("partitions created in %v", time.Since(start).String())
+		logrus.Infof("parts created in %v", time.Since(start).String())
 	}
 
 	return err
 }
 
-func (p *PartitionsMap) GetPartition(id string) (*Partition, error) {
+func (p *PartitionsMap) getPartition(id string) (*Partition, error) {
 
-	//p.mu.RLock()
-	//if p.shutdown {
-	//	p.mu.RUnlock()
-	//	return nil, ErrShutdown
-	//}
-	//p.mu.RUnlock()
-
-	if _, ok := p.partitions[id]; !ok {
+	if _, ok := p.parts[id]; !ok {
 		return nil, ErrNotFound
 	}
 
-	return p.partitions[id], nil
+	return p.parts[id], nil
 }
 
 func (p *PartitionsMap) Shutdown() error {
 
-	p.mu.RLock()
-	if p.shutdown {
-		p.mu.RUnlock()
-		return nil
-	}
-	p.mu.RUnlock()
-
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	p.shutdown = true
-	for _, partition := range p.partitions {
+	for _, partition := range p.parts {
 		err := partition.file.Close()
 		if err != nil {
 			logrus.Errorf("error while closing partition file: %v", err)
