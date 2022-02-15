@@ -2,6 +2,7 @@ package registry
 
 import (
 	"context"
+	"errors"
 	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/parasource/rhosus/rhosus/registry/transport"
@@ -11,6 +12,10 @@ import (
 	"net"
 	"sync"
 	"time"
+)
+
+var (
+	ErrNotFound = errors.New("node is not found")
 )
 
 type NodesMap struct {
@@ -205,8 +210,44 @@ func (m *NodesMap) WatchNodes() {
 	}
 }
 
-func (m *NodesMap) AssignBlocks(fileID string, blocks []*fs_pb.Block) {
+func (m *NodesMap) GetNode(id string) *Node {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 
+	return m.getNode(id)
+}
+
+func (m *NodesMap) getNode(id string) *Node {
+	return m.nodes[id]
+}
+
+func (m *NodesMap) AssignBlocks(nodeID string, blocks []*fs_pb.Block) ([]*transport_pb.BlockPlacementInfo, error) {
+	node := m.GetNode(nodeID)
+	if node == nil {
+		return nil, ErrNotFound
+	}
+
+	stream, err := (*node.conn).AssignBlocks(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	// Sending blocks
+	for _, block := range blocks {
+		err := stream.Send(&transport_pb.AssignBlockRequest{
+			Block: block,
+		})
+		if err != nil {
+			logrus.Errorf("error sending block: %v", err)
+		}
+	}
+
+	res, err := stream.CloseAndRecv()
+	if err != nil {
+		logrus.Errorf("lksjdflkjs: %v", err)
+	}
+
+	return res.Placement, nil
 }
 
 func (m *NodesMap) StartRecoveryProcess(node *transport_pb.NodeInfo) error {

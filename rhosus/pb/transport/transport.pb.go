@@ -81,7 +81,7 @@ func (x NodeInfo_State) String() string {
 }
 
 func (NodeInfo_State) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_a97e32c760ec1b28, []int{14, 0}
+	return fileDescriptor_a97e32c760ec1b28, []int{18, 0}
 }
 
 type PingRequest struct {
@@ -256,25 +256,25 @@ func (m *ShutdownNodeResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ShutdownNodeResponse proto.InternalMessageInfo
 
-type AssignBlocksRequest struct {
-	Blocks               []*fs_pb.Block `protobuf:"bytes,1,rep,name=blocks,proto3" json:"blocks,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
-	XXX_unrecognized     []byte         `json:"-"`
-	XXX_sizecache        int32          `json:"-"`
+type AssignBlockRequest struct {
+	Block                *fs_pb.Block `protobuf:"bytes,1,opt,name=block,proto3" json:"block,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
+	XXX_unrecognized     []byte       `json:"-"`
+	XXX_sizecache        int32        `json:"-"`
 }
 
-func (m *AssignBlocksRequest) Reset()         { *m = AssignBlocksRequest{} }
-func (m *AssignBlocksRequest) String() string { return proto.CompactTextString(m) }
-func (*AssignBlocksRequest) ProtoMessage()    {}
-func (*AssignBlocksRequest) Descriptor() ([]byte, []int) {
+func (m *AssignBlockRequest) Reset()         { *m = AssignBlockRequest{} }
+func (m *AssignBlockRequest) String() string { return proto.CompactTextString(m) }
+func (*AssignBlockRequest) ProtoMessage()    {}
+func (*AssignBlockRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_a97e32c760ec1b28, []int{4}
 }
-func (m *AssignBlocksRequest) XXX_Unmarshal(b []byte) error {
+func (m *AssignBlockRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *AssignBlocksRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *AssignBlockRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_AssignBlocksRequest.Marshal(b, m, deterministic)
+		return xxx_messageInfo_AssignBlockRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -284,21 +284,21 @@ func (m *AssignBlocksRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte,
 		return b[:n], nil
 	}
 }
-func (m *AssignBlocksRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_AssignBlocksRequest.Merge(m, src)
+func (m *AssignBlockRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AssignBlockRequest.Merge(m, src)
 }
-func (m *AssignBlocksRequest) XXX_Size() int {
+func (m *AssignBlockRequest) XXX_Size() int {
 	return m.Size()
 }
-func (m *AssignBlocksRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_AssignBlocksRequest.DiscardUnknown(m)
+func (m *AssignBlockRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_AssignBlockRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_AssignBlocksRequest proto.InternalMessageInfo
+var xxx_messageInfo_AssignBlockRequest proto.InternalMessageInfo
 
-func (m *AssignBlocksRequest) GetBlocks() []*fs_pb.Block {
+func (m *AssignBlockRequest) GetBlock() *fs_pb.Block {
 	if m != nil {
-		return m.Blocks
+		return m.Block
 	}
 	return nil
 }
@@ -353,6 +353,8 @@ func (m *AssignBlocksResponse) GetPlacement() []*BlockPlacementInfo {
 type BlockPlacementInfo struct {
 	BlockID              string   `protobuf:"bytes,1,opt,name=blockID,proto3" json:"blockID,omitempty"`
 	PartitionID          string   `protobuf:"bytes,2,opt,name=partitionID,proto3" json:"partitionID,omitempty"`
+	Success              bool     `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
+	Error                string   `protobuf:"bytes,4,opt,name=error,proto3" json:"error,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -401,6 +403,20 @@ func (m *BlockPlacementInfo) GetBlockID() string {
 func (m *BlockPlacementInfo) GetPartitionID() string {
 	if m != nil {
 		return m.PartitionID
+	}
+	return ""
+}
+
+func (m *BlockPlacementInfo) GetSuccess() bool {
+	if m != nil {
+		return m.Success
+	}
+	return false
+}
+
+func (m *BlockPlacementInfo) GetError() string {
+	if m != nil {
+		return m.Error
 	}
 	return ""
 }
@@ -491,24 +507,24 @@ func (m *RemoveBlocksResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_RemoveBlocksResponse proto.InternalMessageInfo
 
-type PlacePagesRequest struct {
+type PlacePartitionRequest struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *PlacePagesRequest) Reset()         { *m = PlacePagesRequest{} }
-func (m *PlacePagesRequest) String() string { return proto.CompactTextString(m) }
-func (*PlacePagesRequest) ProtoMessage()    {}
-func (*PlacePagesRequest) Descriptor() ([]byte, []int) {
+func (m *PlacePartitionRequest) Reset()         { *m = PlacePartitionRequest{} }
+func (m *PlacePartitionRequest) String() string { return proto.CompactTextString(m) }
+func (*PlacePartitionRequest) ProtoMessage()    {}
+func (*PlacePartitionRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_a97e32c760ec1b28, []int{9}
 }
-func (m *PlacePagesRequest) XXX_Unmarshal(b []byte) error {
+func (m *PlacePartitionRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *PlacePagesRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *PlacePartitionRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_PlacePagesRequest.Marshal(b, m, deterministic)
+		return xxx_messageInfo_PlacePartitionRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -518,36 +534,36 @@ func (m *PlacePagesRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, e
 		return b[:n], nil
 	}
 }
-func (m *PlacePagesRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PlacePagesRequest.Merge(m, src)
+func (m *PlacePartitionRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PlacePartitionRequest.Merge(m, src)
 }
-func (m *PlacePagesRequest) XXX_Size() int {
+func (m *PlacePartitionRequest) XXX_Size() int {
 	return m.Size()
 }
-func (m *PlacePagesRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_PlacePagesRequest.DiscardUnknown(m)
+func (m *PlacePartitionRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_PlacePartitionRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_PlacePagesRequest proto.InternalMessageInfo
+var xxx_messageInfo_PlacePartitionRequest proto.InternalMessageInfo
 
-type PlacePagesResponse struct {
+type PlacePartitionResponse struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *PlacePagesResponse) Reset()         { *m = PlacePagesResponse{} }
-func (m *PlacePagesResponse) String() string { return proto.CompactTextString(m) }
-func (*PlacePagesResponse) ProtoMessage()    {}
-func (*PlacePagesResponse) Descriptor() ([]byte, []int) {
+func (m *PlacePartitionResponse) Reset()         { *m = PlacePartitionResponse{} }
+func (m *PlacePartitionResponse) String() string { return proto.CompactTextString(m) }
+func (*PlacePartitionResponse) ProtoMessage()    {}
+func (*PlacePartitionResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_a97e32c760ec1b28, []int{10}
 }
-func (m *PlacePagesResponse) XXX_Unmarshal(b []byte) error {
+func (m *PlacePartitionResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *PlacePagesResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *PlacePartitionResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_PlacePagesResponse.Marshal(b, m, deterministic)
+		return xxx_messageInfo_PlacePartitionResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -557,17 +573,173 @@ func (m *PlacePagesResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, 
 		return b[:n], nil
 	}
 }
-func (m *PlacePagesResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PlacePagesResponse.Merge(m, src)
+func (m *PlacePartitionResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PlacePartitionResponse.Merge(m, src)
 }
-func (m *PlacePagesResponse) XXX_Size() int {
+func (m *PlacePartitionResponse) XXX_Size() int {
 	return m.Size()
 }
-func (m *PlacePagesResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_PlacePagesResponse.DiscardUnknown(m)
+func (m *PlacePartitionResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_PlacePartitionResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_PlacePagesResponse proto.InternalMessageInfo
+var xxx_messageInfo_PlacePartitionResponse proto.InternalMessageInfo
+
+type GetPartitionRequest struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *GetPartitionRequest) Reset()         { *m = GetPartitionRequest{} }
+func (m *GetPartitionRequest) String() string { return proto.CompactTextString(m) }
+func (*GetPartitionRequest) ProtoMessage()    {}
+func (*GetPartitionRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a97e32c760ec1b28, []int{11}
+}
+func (m *GetPartitionRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *GetPartitionRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_GetPartitionRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *GetPartitionRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetPartitionRequest.Merge(m, src)
+}
+func (m *GetPartitionRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *GetPartitionRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetPartitionRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetPartitionRequest proto.InternalMessageInfo
+
+type GetPartitionResponse struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *GetPartitionResponse) Reset()         { *m = GetPartitionResponse{} }
+func (m *GetPartitionResponse) String() string { return proto.CompactTextString(m) }
+func (*GetPartitionResponse) ProtoMessage()    {}
+func (*GetPartitionResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a97e32c760ec1b28, []int{12}
+}
+func (m *GetPartitionResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *GetPartitionResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_GetPartitionResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *GetPartitionResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetPartitionResponse.Merge(m, src)
+}
+func (m *GetPartitionResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *GetPartitionResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetPartitionResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetPartitionResponse proto.InternalMessageInfo
+
+type RemovePartitionRequest struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *RemovePartitionRequest) Reset()         { *m = RemovePartitionRequest{} }
+func (m *RemovePartitionRequest) String() string { return proto.CompactTextString(m) }
+func (*RemovePartitionRequest) ProtoMessage()    {}
+func (*RemovePartitionRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a97e32c760ec1b28, []int{13}
+}
+func (m *RemovePartitionRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *RemovePartitionRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_RemovePartitionRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *RemovePartitionRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RemovePartitionRequest.Merge(m, src)
+}
+func (m *RemovePartitionRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *RemovePartitionRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_RemovePartitionRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RemovePartitionRequest proto.InternalMessageInfo
+
+type RemovePartitionResponse struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *RemovePartitionResponse) Reset()         { *m = RemovePartitionResponse{} }
+func (m *RemovePartitionResponse) String() string { return proto.CompactTextString(m) }
+func (*RemovePartitionResponse) ProtoMessage()    {}
+func (*RemovePartitionResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a97e32c760ec1b28, []int{14}
+}
+func (m *RemovePartitionResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *RemovePartitionResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_RemovePartitionResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *RemovePartitionResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RemovePartitionResponse.Merge(m, src)
+}
+func (m *RemovePartitionResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *RemovePartitionResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_RemovePartitionResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RemovePartitionResponse proto.InternalMessageInfo
 
 type FetchMetricsRequest struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -579,7 +751,7 @@ func (m *FetchMetricsRequest) Reset()         { *m = FetchMetricsRequest{} }
 func (m *FetchMetricsRequest) String() string { return proto.CompactTextString(m) }
 func (*FetchMetricsRequest) ProtoMessage()    {}
 func (*FetchMetricsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a97e32c760ec1b28, []int{11}
+	return fileDescriptor_a97e32c760ec1b28, []int{15}
 }
 func (m *FetchMetricsRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -620,7 +792,7 @@ func (m *FetchMetricsResponse) Reset()         { *m = FetchMetricsResponse{} }
 func (m *FetchMetricsResponse) String() string { return proto.CompactTextString(m) }
 func (*FetchMetricsResponse) ProtoMessage()    {}
 func (*FetchMetricsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a97e32c760ec1b28, []int{12}
+	return fileDescriptor_a97e32c760ec1b28, []int{16}
 }
 func (m *FetchMetricsResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -680,7 +852,7 @@ func (m *NodeMetrics) Reset()         { *m = NodeMetrics{} }
 func (m *NodeMetrics) String() string { return proto.CompactTextString(m) }
 func (*NodeMetrics) ProtoMessage()    {}
 func (*NodeMetrics) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a97e32c760ec1b28, []int{13}
+	return fileDescriptor_a97e32c760ec1b28, []int{17}
 }
 func (m *NodeMetrics) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -778,7 +950,7 @@ func (m *NodeInfo) Reset()         { *m = NodeInfo{} }
 func (m *NodeInfo) String() string { return proto.CompactTextString(m) }
 func (*NodeInfo) ProtoMessage()    {}
 func (*NodeInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a97e32c760ec1b28, []int{14}
+	return fileDescriptor_a97e32c760ec1b28, []int{18}
 }
 func (m *NodeInfo) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -868,7 +1040,7 @@ func (m *NodeInfo_Address) Reset()         { *m = NodeInfo_Address{} }
 func (m *NodeInfo_Address) String() string { return proto.CompactTextString(m) }
 func (*NodeInfo_Address) ProtoMessage()    {}
 func (*NodeInfo_Address) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a97e32c760ec1b28, []int{14, 0}
+	return fileDescriptor_a97e32c760ec1b28, []int{18, 0}
 }
 func (m *NodeInfo_Address) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -918,13 +1090,17 @@ func init() {
 	proto.RegisterType((*PingResponse)(nil), "transport_pb.PingResponse")
 	proto.RegisterType((*ShutdownNodeRequest)(nil), "transport_pb.ShutdownNodeRequest")
 	proto.RegisterType((*ShutdownNodeResponse)(nil), "transport_pb.ShutdownNodeResponse")
-	proto.RegisterType((*AssignBlocksRequest)(nil), "transport_pb.AssignBlocksRequest")
+	proto.RegisterType((*AssignBlockRequest)(nil), "transport_pb.AssignBlockRequest")
 	proto.RegisterType((*AssignBlocksResponse)(nil), "transport_pb.AssignBlocksResponse")
 	proto.RegisterType((*BlockPlacementInfo)(nil), "transport_pb.BlockPlacementInfo")
 	proto.RegisterType((*RemoveBlocksRequest)(nil), "transport_pb.RemoveBlocksRequest")
 	proto.RegisterType((*RemoveBlocksResponse)(nil), "transport_pb.RemoveBlocksResponse")
-	proto.RegisterType((*PlacePagesRequest)(nil), "transport_pb.PlacePagesRequest")
-	proto.RegisterType((*PlacePagesResponse)(nil), "transport_pb.PlacePagesResponse")
+	proto.RegisterType((*PlacePartitionRequest)(nil), "transport_pb.PlacePartitionRequest")
+	proto.RegisterType((*PlacePartitionResponse)(nil), "transport_pb.PlacePartitionResponse")
+	proto.RegisterType((*GetPartitionRequest)(nil), "transport_pb.GetPartitionRequest")
+	proto.RegisterType((*GetPartitionResponse)(nil), "transport_pb.GetPartitionResponse")
+	proto.RegisterType((*RemovePartitionRequest)(nil), "transport_pb.RemovePartitionRequest")
+	proto.RegisterType((*RemovePartitionResponse)(nil), "transport_pb.RemovePartitionResponse")
 	proto.RegisterType((*FetchMetricsRequest)(nil), "transport_pb.FetchMetricsRequest")
 	proto.RegisterType((*FetchMetricsResponse)(nil), "transport_pb.FetchMetricsResponse")
 	proto.RegisterType((*NodeMetrics)(nil), "transport_pb.NodeMetrics")
@@ -935,59 +1111,65 @@ func init() {
 func init() { proto.RegisterFile("transport.proto", fileDescriptor_a97e32c760ec1b28) }
 
 var fileDescriptor_a97e32c760ec1b28 = []byte{
-	// 824 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x55, 0xcd, 0x6e, 0xeb, 0x44,
-	0x18, 0xbd, 0xce, 0x6f, 0xf3, 0x25, 0x37, 0x37, 0x4c, 0x02, 0x0a, 0x51, 0x15, 0x8c, 0x75, 0x05,
-	0x59, 0xe5, 0x42, 0xba, 0x41, 0x20, 0x90, 0xda, 0x26, 0xa5, 0x91, 0x48, 0x1c, 0x8d, 0x1b, 0x90,
-	0xd8, 0x44, 0x8e, 0x3d, 0x4d, 0x2c, 0xe2, 0x1f, 0x3c, 0x93, 0x22, 0x1e, 0x82, 0x3d, 0xcf, 0xc3,
-	0x8a, 0x25, 0x8f, 0x80, 0xca, 0x33, 0xb0, 0x45, 0x68, 0xc6, 0x3f, 0x19, 0xbb, 0x2e, 0xdc, 0x55,
-	0x67, 0xce, 0x9c, 0xf9, 0xe6, 0x7c, 0x27, 0x9f, 0x4f, 0xe1, 0x15, 0x0b, 0x4d, 0x8f, 0x06, 0x7e,
-	0xc8, 0xc6, 0x41, 0xe8, 0x33, 0x1f, 0xb5, 0x52, 0x60, 0x13, 0x6c, 0x07, 0x67, 0xf7, 0x34, 0xc2,
-	0xb5, 0x97, 0xd0, 0x5c, 0x39, 0xde, 0x0e, 0x93, 0x1f, 0x8f, 0x84, 0x32, 0xad, 0x0d, 0xad, 0x68,
-	0x4b, 0x03, 0xdf, 0xa3, 0x44, 0xfb, 0x4d, 0x81, 0xae, 0xb1, 0x3f, 0x32, 0xdb, 0xff, 0xc9, 0x5b,
-	0xfa, 0x36, 0x89, 0x79, 0x08, 0x41, 0xc5, 0x33, 0x5d, 0xd2, 0x57, 0x54, 0x65, 0xd4, 0xc0, 0x62,
-	0x8d, 0x6e, 0xa1, 0x16, 0x12, 0x93, 0xfa, 0x5e, 0xbf, 0xa4, 0x2a, 0xa3, 0xf6, 0xe4, 0x93, 0xb1,
-	0xfc, 0xe6, 0xb8, 0xa0, 0x4c, 0x8a, 0x61, 0x71, 0x0f, 0xc7, 0xf7, 0xb5, 0x05, 0xb4, 0xb3, 0x27,
-	0xa8, 0x0b, 0xaf, 0x8c, 0xdb, 0xf5, 0xdd, 0x54, 0xff, 0x6e, 0xb9, 0x59, 0xea, 0x78, 0x71, 0xf9,
-	0x4d, 0xe7, 0x05, 0x42, 0xd0, 0x4e, 0xc1, 0x19, 0xc6, 0x3a, 0xee, 0x28, 0x19, 0xec, 0x46, 0xc7,
-	0xd7, 0xb3, 0x4e, 0x49, 0x7b, 0x0f, 0x7a, 0xd9, 0xc7, 0xe3, 0xe6, 0xbe, 0x80, 0xee, 0x25, 0xa5,
-	0xce, 0xce, 0xbb, 0x3a, 0xf8, 0xd6, 0x0f, 0x34, 0xe9, 0xed, 0x35, 0xd4, 0xb6, 0x02, 0xe8, 0x2b,
-	0x6a, 0x79, 0xd4, 0x9c, 0xb4, 0xc6, 0xf7, 0x94, 0x37, 0x20, 0x58, 0x38, 0x3e, 0xd3, 0xbe, 0x85,
-	0x5e, 0xf6, 0x72, 0x54, 0x14, 0x7d, 0x05, 0x8d, 0xe0, 0x60, 0x5a, 0xc4, 0x25, 0x1e, 0x8b, 0x0b,
-	0xa8, 0x59, 0x23, 0xc4, 0x85, 0x55, 0xc2, 0x99, 0x7b, 0xf7, 0x3e, 0x3e, 0x5d, 0xd1, 0x56, 0x80,
-	0x9e, 0x12, 0x50, 0x1f, 0xea, 0xe2, 0xdd, 0xf9, 0x34, 0xb6, 0x3c, 0xd9, 0x22, 0x15, 0x9a, 0x81,
-	0x19, 0x32, 0x87, 0x39, 0xbe, 0x37, 0x9f, 0x0a, 0xeb, 0x1b, 0x58, 0x86, 0xb4, 0x8f, 0xa1, 0x8b,
-	0x89, 0xeb, 0x3f, 0x90, 0x6c, 0x9b, 0x1d, 0x28, 0x3b, 0x76, 0xd4, 0x63, 0x03, 0xf3, 0x25, 0xf7,
-	0x29, 0x4b, 0x8c, 0x7d, 0xea, 0xc2, 0x3b, 0x42, 0xcd, 0xca, 0xdc, 0x91, 0xe4, 0xba, 0xd6, 0x03,
-	0x24, 0x83, 0x31, 0xf5, 0x5d, 0xe8, 0xde, 0x10, 0x66, 0xed, 0x17, 0x84, 0x85, 0x8e, 0x95, 0x92,
-	0x37, 0xd0, 0xcb, 0xc2, 0xb1, 0x59, 0x45, 0x63, 0x74, 0x01, 0x75, 0x37, 0xa2, 0x89, 0x66, 0x9a,
-	0x93, 0xf7, 0xb3, 0xf6, 0xf1, 0x9f, 0x30, 0xa9, 0x93, 0x30, 0xb5, 0xbf, 0x15, 0x68, 0x4a, 0x07,
-	0x68, 0x00, 0x67, 0x96, 0x19, 0x98, 0x96, 0xc3, 0x7e, 0x16, 0xc5, 0x2b, 0x38, 0xdd, 0xa3, 0x73,
-	0x68, 0x84, 0xc4, 0x35, 0x1d, 0xcf, 0xf1, 0x76, 0xe2, 0x89, 0x0a, 0x3e, 0x01, 0xdc, 0xcf, 0x23,
-	0x25, 0xf6, 0x8a, 0x84, 0x16, 0xff, 0x05, 0xcb, 0xaa, 0x32, 0x2a, 0x61, 0x19, 0x42, 0x43, 0x80,
-	0x83, 0x49, 0xd9, 0x3a, 0xb0, 0x4d, 0x46, 0xfa, 0x15, 0x55, 0x19, 0x95, 0xb1, 0x84, 0xa0, 0xd7,
-	0xf0, 0xd2, 0x32, 0xad, 0x3d, 0xb9, 0x4e, 0x04, 0x54, 0xc5, 0x1b, 0x59, 0x90, 0xab, 0x10, 0xc0,
-	0x9a, 0x12, 0xbb, 0x5f, 0x8b, 0x54, 0xa4, 0x00, 0xfa, 0x08, 0xda, 0x2e, 0x71, 0xd7, 0x92, 0x90,
-	0xba, 0x10, 0x92, 0x43, 0xb5, 0x5f, 0xca, 0x70, 0xc6, 0xfb, 0x16, 0x43, 0xd2, 0x86, 0x92, 0x63,
-	0xc7, 0x5e, 0x96, 0x1c, 0x3b, 0x75, 0xb7, 0x24, 0xb9, 0xfb, 0x19, 0xd4, 0x4d, 0xdb, 0x0e, 0x09,
-	0xa5, 0xa2, 0xb5, 0xe6, 0x64, 0xf8, 0xd4, 0x5d, 0x5e, 0x6c, 0x7c, 0x19, 0xb1, 0x70, 0x42, 0xe7,
-	0x96, 0x1e, 0x7c, 0xcb, 0xe4, 0x43, 0x25, 0x9a, 0x6e, 0xe0, 0x74, 0x8f, 0x26, 0x50, 0xa5, 0x8c,
-	0xbb, 0x51, 0x15, 0x5f, 0xfe, 0xf9, 0x33, 0x35, 0x0d, 0xce, 0xc1, 0x11, 0x95, 0xdb, 0x14, 0xf0,
-	0xd9, 0x49, 0x6d, 0xe2, 0x26, 0x54, 0x71, 0x16, 0x94, 0xa7, 0xa1, 0xfe, 0xb6, 0xd3, 0x30, 0xf8,
-	0x14, 0xea, 0xb1, 0x7c, 0xee, 0xc1, 0xde, 0xa7, 0x2c, 0x99, 0x30, 0xbe, 0xe6, 0x18, 0xbf, 0x9e,
-	0xf8, 0xc2, 0xd7, 0xda, 0x0c, 0xaa, 0x42, 0x1d, 0x02, 0xa8, 0xa5, 0x01, 0x73, 0x0e, 0xfd, 0xe9,
-	0xec, 0x5a, 0x5f, 0x2c, 0xe6, 0x86, 0x31, 0xd7, 0x97, 0x9b, 0xf9, 0x72, 0xb3, 0xc2, 0xfa, 0xd7,
-	0x78, 0x66, 0x18, 0x51, 0xd4, 0xc8, 0xa7, 0xb3, 0x69, 0xa7, 0x34, 0xf9, 0xa7, 0x0c, 0x9d, 0xbb,
-	0x44, 0x9f, 0x41, 0xc2, 0x07, 0xc7, 0x22, 0xe8, 0x4b, 0xa8, 0xf0, 0x50, 0x45, 0x39, 0xe9, 0x52,
-	0xee, 0x0e, 0x06, 0x45, 0x47, 0xf1, 0x47, 0xb2, 0x86, 0x96, 0x1c, 0x5f, 0xe8, 0xc3, 0xff, 0xcd,
-	0xd5, 0x81, 0xf6, 0x5f, 0x94, 0x53, 0x59, 0x39, 0xc0, 0xf2, 0x65, 0x0b, 0x92, 0x31, 0x5f, 0xb6,
-	0x30, 0xff, 0xd6, 0xd0, 0x92, 0x43, 0x24, 0x5f, 0xb6, 0x20, 0x89, 0xf2, 0x65, 0x8b, 0x32, 0x08,
-	0xe9, 0x00, 0xa7, 0xb8, 0x41, 0x1f, 0xe4, 0xec, 0xca, 0xa7, 0xd3, 0x40, 0x7d, 0x9e, 0x70, 0xd2,
-	0x29, 0x47, 0x52, 0x5e, 0x67, 0x41, 0x8a, 0xe5, 0x75, 0x16, 0x25, 0xda, 0xd5, 0xe7, 0xbf, 0x3f,
-	0x0e, 0x95, 0x3f, 0x1e, 0x87, 0xca, 0x9f, 0x8f, 0x43, 0xe5, 0xd7, 0xbf, 0x86, 0x2f, 0xbe, 0x1f,
-	0xed, 0x1c, 0xb6, 0x3f, 0x6e, 0xc7, 0x96, 0xef, 0xbe, 0x09, 0xf7, 0x3e, 0x3d, 0xd2, 0xe4, 0x4f,
-	0xb0, 0x7d, 0x23, 0x17, 0xdc, 0xd6, 0xc4, 0xbf, 0xe4, 0x8b, 0x7f, 0x03, 0x00, 0x00, 0xff, 0xff,
-	0x14, 0x6a, 0xb1, 0x93, 0xbd, 0x07, 0x00, 0x00,
+	// 922 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x56, 0xcb, 0x6e, 0xdb, 0x46,
+	0x14, 0x0d, 0xf5, 0xb0, 0xac, 0x2b, 0x45, 0x16, 0xc6, 0x8a, 0xc3, 0x08, 0x86, 0xa0, 0xb2, 0x6e,
+	0xab, 0x95, 0x92, 0x2a, 0x9b, 0xa0, 0x40, 0x0b, 0x38, 0x96, 0x92, 0x08, 0xa8, 0x1e, 0x18, 0x45,
+	0x29, 0x5a, 0xa0, 0x10, 0x28, 0x72, 0x2c, 0x11, 0xb5, 0x38, 0x2c, 0x67, 0x94, 0xa2, 0xbb, 0xfe,
+	0x40, 0xf7, 0xfd, 0x9e, 0xae, 0xba, 0xe8, 0xa2, 0x9f, 0x50, 0xb8, 0xdf, 0xd0, 0x7d, 0x31, 0x43,
+	0x0e, 0x3d, 0xa4, 0xd8, 0x24, 0x2b, 0x73, 0xce, 0xdc, 0xc7, 0xb9, 0x67, 0xae, 0x8f, 0x0d, 0x27,
+	0x3c, 0xb4, 0x7d, 0x16, 0xd0, 0x90, 0xf7, 0x83, 0x90, 0x72, 0x8a, 0xea, 0x09, 0xb0, 0x0a, 0xd6,
+	0xed, 0xe3, 0x6b, 0x16, 0xe1, 0xd6, 0x7d, 0xa8, 0xcd, 0x3d, 0x7f, 0x83, 0xc9, 0x8f, 0x7b, 0xc2,
+	0xb8, 0xd5, 0x80, 0x7a, 0x74, 0x64, 0x01, 0xf5, 0x19, 0xb1, 0x7e, 0x37, 0xe0, 0x74, 0xb1, 0xdd,
+	0x73, 0x97, 0xfe, 0xe4, 0x4f, 0xa9, 0x4b, 0xe2, 0x38, 0x84, 0xa0, 0xe4, 0xdb, 0x3b, 0x62, 0x1a,
+	0x5d, 0xa3, 0x57, 0xc5, 0xf2, 0x1b, 0xbd, 0x82, 0xa3, 0x90, 0xd8, 0x8c, 0xfa, 0x66, 0xa1, 0x6b,
+	0xf4, 0x1a, 0x83, 0x27, 0x7d, 0xbd, 0x67, 0x3f, 0xa7, 0x4c, 0x82, 0x61, 0x99, 0x87, 0xe3, 0x7c,
+	0x6b, 0x02, 0x8d, 0xf4, 0x0d, 0x3a, 0x85, 0x93, 0xc5, 0xab, 0xe5, 0xeb, 0xe1, 0xec, 0x9b, 0xe9,
+	0x6a, 0x3a, 0xc3, 0x93, 0xcb, 0xaf, 0x9b, 0xf7, 0x10, 0x82, 0x46, 0x02, 0x8e, 0x30, 0x9e, 0xe1,
+	0xa6, 0x91, 0xc2, 0x5e, 0xcc, 0xf0, 0xd5, 0xa8, 0x59, 0xb0, 0xce, 0xa0, 0x95, 0x6e, 0x1e, 0x0f,
+	0xf7, 0x0c, 0xd0, 0x25, 0x63, 0xde, 0xc6, 0x7f, 0x7e, 0x43, 0x9d, 0x1f, 0xd4, 0x68, 0x16, 0x94,
+	0xd7, 0xe2, 0x2c, 0x67, 0xab, 0x0d, 0xea, 0xfd, 0x6b, 0x26, 0xe8, 0x47, 0x31, 0xd1, 0x95, 0xf5,
+	0x06, 0x5a, 0x5a, 0x26, 0x53, 0x15, 0xd1, 0x57, 0x50, 0x0d, 0x6e, 0x6c, 0x87, 0xec, 0x88, 0xcf,
+	0x4d, 0xa3, 0x5b, 0xec, 0xd5, 0x06, 0xdd, 0xb4, 0x0a, 0x32, 0x61, 0xae, 0x62, 0xc6, 0xfe, 0x35,
+	0xc5, 0x77, 0x29, 0xd6, 0x2f, 0x06, 0xa0, 0xc3, 0x08, 0x64, 0x42, 0x45, 0xf6, 0x1d, 0x0f, 0x63,
+	0xc1, 0xd5, 0x11, 0x75, 0xa1, 0x16, 0xd8, 0x21, 0xf7, 0xb8, 0x47, 0xfd, 0xf1, 0x50, 0x0a, 0x5f,
+	0xc5, 0x3a, 0x24, 0x72, 0xd9, 0xde, 0x71, 0x08, 0x63, 0x66, 0xb1, 0x6b, 0xf4, 0x8e, 0xb1, 0x3a,
+	0xa2, 0x16, 0x94, 0x49, 0x18, 0xd2, 0xd0, 0x2c, 0xc9, 0xac, 0xe8, 0x60, 0x7d, 0x06, 0xa7, 0x98,
+	0xec, 0xe8, 0x5b, 0xa2, 0x46, 0x8b, 0x54, 0x69, 0x42, 0xd1, 0x73, 0x99, 0x9c, 0xa9, 0x8a, 0xc5,
+	0xa7, 0x50, 0x35, 0x1d, 0x18, 0xab, 0xfa, 0x10, 0x1e, 0x48, 0xf6, 0x73, 0x45, 0x42, 0xed, 0x96,
+	0x09, 0x67, 0xd9, 0x8b, 0x38, 0xe5, 0x01, 0x9c, 0xbe, 0x24, 0xfc, 0x20, 0xe1, 0x0c, 0x5a, 0x69,
+	0x38, 0x0e, 0x37, 0xe1, 0x2c, 0xea, 0x7c, 0x90, 0xf1, 0x08, 0x1e, 0x1e, 0xdc, 0xdc, 0xf5, 0x78,
+	0x41, 0xb8, 0xb3, 0x9d, 0x10, 0x1e, 0x7a, 0x8e, 0x9a, 0xcb, 0x5a, 0x41, 0x2b, 0x0d, 0xc7, 0x2f,
+	0x99, 0xb7, 0xe0, 0x4f, 0xa1, 0xb2, 0x8b, 0xc2, 0xa4, 0xd0, 0xb5, 0xc1, 0xa3, 0xf4, 0xdb, 0x8a,
+	0xe5, 0x52, 0x75, 0x54, 0xa4, 0xf5, 0xaf, 0x01, 0x35, 0xed, 0x02, 0xb5, 0xe1, 0xd8, 0xb1, 0x03,
+	0xdb, 0xf1, 0xf8, 0xcf, 0xb2, 0x78, 0x09, 0x27, 0x67, 0x74, 0x0e, 0xd5, 0x90, 0xec, 0x6c, 0xcf,
+	0xf7, 0xfc, 0x8d, 0x6c, 0x51, 0xc2, 0x77, 0x80, 0x78, 0xeb, 0x3d, 0x23, 0xee, 0x9c, 0x84, 0x8e,
+	0x58, 0x2f, 0xf1, 0x9a, 0x05, 0xac, 0x43, 0xa8, 0x03, 0x70, 0x63, 0x33, 0xbe, 0x0c, 0x5c, 0x9b,
+	0x13, 0xf9, 0xac, 0x45, 0xac, 0x21, 0xe8, 0x02, 0xee, 0x3b, 0xb6, 0xb3, 0x25, 0x57, 0x8a, 0x40,
+	0x59, 0xf6, 0x48, 0x83, 0x82, 0x85, 0x04, 0x96, 0x8c, 0xb8, 0xe6, 0x51, 0xc4, 0x22, 0x01, 0xd0,
+	0xa7, 0xd0, 0xd8, 0x91, 0xdd, 0x52, 0x23, 0x52, 0x91, 0x44, 0x32, 0xa8, 0xf5, 0x6b, 0x11, 0x8e,
+	0xc5, 0xdc, 0x72, 0x81, 0x1b, 0x50, 0xf0, 0xdc, 0x58, 0xcb, 0x82, 0xe7, 0x26, 0xea, 0x16, 0x34,
+	0x75, 0x9f, 0x41, 0xc5, 0x76, 0xdd, 0x50, 0x2d, 0x6a, 0x6d, 0xd0, 0x39, 0x54, 0x57, 0x14, 0xeb,
+	0x5f, 0x46, 0x51, 0x58, 0x85, 0x0b, 0x49, 0x6f, 0xa8, 0x63, 0x8b, 0xe7, 0x8e, 0x77, 0x39, 0x39,
+	0xa3, 0x01, 0x94, 0x19, 0x17, 0x6a, 0x94, 0xa5, 0x27, 0x9d, 0xff, 0x4f, 0xcd, 0x85, 0x88, 0xc1,
+	0x51, 0xa8, 0x90, 0x29, 0xb0, 0x37, 0x84, 0x25, 0x32, 0x09, 0x11, 0xca, 0x38, 0x0d, 0xea, 0xdb,
+	0x50, 0xf9, 0xd0, 0x6d, 0x68, 0x7f, 0x0e, 0x95, 0x98, 0xbe, 0xd0, 0x60, 0x4b, 0x19, 0x57, 0x1b,
+	0x26, 0xbe, 0x05, 0x26, 0xd2, 0x95, 0x2e, 0xe2, 0xdb, 0x1a, 0x41, 0x59, 0xb2, 0x43, 0x00, 0x47,
+	0x89, 0xf5, 0x9d, 0x83, 0x39, 0x1c, 0x5d, 0xcd, 0x26, 0x93, 0xf1, 0x62, 0x31, 0x9e, 0x4d, 0x57,
+	0xe3, 0xe9, 0x6a, 0x8e, 0x67, 0x2f, 0xf1, 0x68, 0xb1, 0x88, 0x4c, 0x50, 0xbf, 0x1d, 0x0d, 0x9b,
+	0x85, 0xc1, 0x9f, 0x65, 0x68, 0xbe, 0x56, 0xfc, 0x16, 0x24, 0x7c, 0xeb, 0x39, 0x04, 0x7d, 0x09,
+	0x25, 0x61, 0xf7, 0x28, 0x43, 0x5d, 0xfb, 0x8b, 0xd0, 0x6e, 0xe7, 0x5d, 0xc5, 0xbf, 0x24, 0x4b,
+	0xa8, 0xeb, 0xc6, 0x8a, 0x3e, 0x7a, 0xaf, 0xe3, 0xb7, 0xad, 0x77, 0x85, 0xc4, 0x65, 0xdf, 0x40,
+	0x5d, 0x77, 0x57, 0x94, 0xb1, 0xd0, 0x43, 0xcf, 0xce, 0x56, 0xcd, 0xf3, 0xe6, 0x9e, 0x21, 0xe8,
+	0xea, 0x8e, 0x95, 0xa5, 0x9b, 0x63, 0x7b, 0xd9, 0xc2, 0x79, 0x86, 0x87, 0xbe, 0x87, 0x46, 0xda,
+	0xd7, 0xd0, 0xc7, 0x19, 0xcd, 0xf2, 0xec, 0xb0, 0x7d, 0xf1, 0xee, 0xa0, 0x84, 0xf5, 0xb7, 0x50,
+	0xd7, 0x5d, 0x30, 0xcb, 0x3a, 0xc7, 0x38, 0xb3, 0xac, 0xf3, 0x4c, 0xb4, 0x67, 0x3c, 0x31, 0xd0,
+	0x1a, 0x4e, 0x32, 0x76, 0x89, 0x2e, 0xf2, 0x06, 0x3e, 0x68, 0xf0, 0xc9, 0x7b, 0xa2, 0xb4, 0x1e,
+	0x4b, 0xa8, 0xeb, 0x06, 0x9b, 0xa5, 0x9f, 0xe3, 0xc9, 0x59, 0xfa, 0x79, 0xfe, 0xfc, 0xfc, 0x8b,
+	0x3f, 0x6e, 0x3b, 0xc6, 0x5f, 0xb7, 0x1d, 0xe3, 0xef, 0xdb, 0x8e, 0xf1, 0xdb, 0x3f, 0x9d, 0x7b,
+	0xdf, 0xf5, 0x36, 0x1e, 0xdf, 0xee, 0xd7, 0x7d, 0x87, 0xee, 0x1e, 0x87, 0x5b, 0xca, 0xf6, 0x4c,
+	0xfd, 0x08, 0xd6, 0x8f, 0xf5, 0x82, 0xeb, 0x23, 0xf9, 0xaf, 0xcf, 0xd3, 0xff, 0x02, 0x00, 0x00,
+	0xff, 0xff, 0x0b, 0x42, 0xb4, 0x14, 0x25, 0x09, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -1004,9 +1186,11 @@ const _ = grpc.SupportPackageIsVersion4
 type TransportServiceClient interface {
 	Ping(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (*PingResponse, error)
 	ShutdownNode(ctx context.Context, in *ShutdownNodeRequest, opts ...grpc.CallOption) (*ShutdownNodeResponse, error)
-	AssignBlocks(ctx context.Context, in *AssignBlocksRequest, opts ...grpc.CallOption) (*AssignBlocksResponse, error)
+	AssignBlocks(ctx context.Context, opts ...grpc.CallOption) (TransportService_AssignBlocksClient, error)
 	RemoveBlocks(ctx context.Context, in *RemoveBlocksRequest, opts ...grpc.CallOption) (*RemoveBlocksResponse, error)
-	PlacePages(ctx context.Context, in *PlacePagesRequest, opts ...grpc.CallOption) (*PlacePagesResponse, error)
+	PlacePartition(ctx context.Context, opts ...grpc.CallOption) (TransportService_PlacePartitionClient, error)
+	GetPartition(ctx context.Context, opts ...grpc.CallOption) (TransportService_GetPartitionClient, error)
+	RemovePartition(ctx context.Context, opts ...grpc.CallOption) (TransportService_RemovePartitionClient, error)
 	FetchMetrics(ctx context.Context, in *FetchMetricsRequest, opts ...grpc.CallOption) (*FetchMetricsResponse, error)
 }
 
@@ -1036,13 +1220,38 @@ func (c *transportServiceClient) ShutdownNode(ctx context.Context, in *ShutdownN
 	return out, nil
 }
 
-func (c *transportServiceClient) AssignBlocks(ctx context.Context, in *AssignBlocksRequest, opts ...grpc.CallOption) (*AssignBlocksResponse, error) {
-	out := new(AssignBlocksResponse)
-	err := c.cc.Invoke(ctx, "/transport_pb.TransportService/AssignBlocks", in, out, opts...)
+func (c *transportServiceClient) AssignBlocks(ctx context.Context, opts ...grpc.CallOption) (TransportService_AssignBlocksClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_TransportService_serviceDesc.Streams[0], "/transport_pb.TransportService/AssignBlocks", opts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &transportServiceAssignBlocksClient{stream}
+	return x, nil
+}
+
+type TransportService_AssignBlocksClient interface {
+	Send(*AssignBlockRequest) error
+	CloseAndRecv() (*AssignBlocksResponse, error)
+	grpc.ClientStream
+}
+
+type transportServiceAssignBlocksClient struct {
+	grpc.ClientStream
+}
+
+func (x *transportServiceAssignBlocksClient) Send(m *AssignBlockRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *transportServiceAssignBlocksClient) CloseAndRecv() (*AssignBlocksResponse, error) {
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	m := new(AssignBlocksResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func (c *transportServiceClient) RemoveBlocks(ctx context.Context, in *RemoveBlocksRequest, opts ...grpc.CallOption) (*RemoveBlocksResponse, error) {
@@ -1054,13 +1263,100 @@ func (c *transportServiceClient) RemoveBlocks(ctx context.Context, in *RemoveBlo
 	return out, nil
 }
 
-func (c *transportServiceClient) PlacePages(ctx context.Context, in *PlacePagesRequest, opts ...grpc.CallOption) (*PlacePagesResponse, error) {
-	out := new(PlacePagesResponse)
-	err := c.cc.Invoke(ctx, "/transport_pb.TransportService/PlacePages", in, out, opts...)
+func (c *transportServiceClient) PlacePartition(ctx context.Context, opts ...grpc.CallOption) (TransportService_PlacePartitionClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_TransportService_serviceDesc.Streams[1], "/transport_pb.TransportService/PlacePartition", opts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &transportServicePlacePartitionClient{stream}
+	return x, nil
+}
+
+type TransportService_PlacePartitionClient interface {
+	Send(*PlacePartitionRequest) error
+	CloseAndRecv() (*PlacePartitionResponse, error)
+	grpc.ClientStream
+}
+
+type transportServicePlacePartitionClient struct {
+	grpc.ClientStream
+}
+
+func (x *transportServicePlacePartitionClient) Send(m *PlacePartitionRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *transportServicePlacePartitionClient) CloseAndRecv() (*PlacePartitionResponse, error) {
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	m := new(PlacePartitionResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *transportServiceClient) GetPartition(ctx context.Context, opts ...grpc.CallOption) (TransportService_GetPartitionClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_TransportService_serviceDesc.Streams[2], "/transport_pb.TransportService/GetPartition", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &transportServiceGetPartitionClient{stream}
+	return x, nil
+}
+
+type TransportService_GetPartitionClient interface {
+	Send(*GetPartitionRequest) error
+	Recv() (*GetPartitionResponse, error)
+	grpc.ClientStream
+}
+
+type transportServiceGetPartitionClient struct {
+	grpc.ClientStream
+}
+
+func (x *transportServiceGetPartitionClient) Send(m *GetPartitionRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *transportServiceGetPartitionClient) Recv() (*GetPartitionResponse, error) {
+	m := new(GetPartitionResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *transportServiceClient) RemovePartition(ctx context.Context, opts ...grpc.CallOption) (TransportService_RemovePartitionClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_TransportService_serviceDesc.Streams[3], "/transport_pb.TransportService/RemovePartition", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &transportServiceRemovePartitionClient{stream}
+	return x, nil
+}
+
+type TransportService_RemovePartitionClient interface {
+	Send(*RemovePartitionRequest) error
+	Recv() (*RemovePartitionResponse, error)
+	grpc.ClientStream
+}
+
+type transportServiceRemovePartitionClient struct {
+	grpc.ClientStream
+}
+
+func (x *transportServiceRemovePartitionClient) Send(m *RemovePartitionRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *transportServiceRemovePartitionClient) Recv() (*RemovePartitionResponse, error) {
+	m := new(RemovePartitionResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func (c *transportServiceClient) FetchMetrics(ctx context.Context, in *FetchMetricsRequest, opts ...grpc.CallOption) (*FetchMetricsResponse, error) {
@@ -1076,9 +1372,11 @@ func (c *transportServiceClient) FetchMetrics(ctx context.Context, in *FetchMetr
 type TransportServiceServer interface {
 	Ping(context.Context, *PingRequest) (*PingResponse, error)
 	ShutdownNode(context.Context, *ShutdownNodeRequest) (*ShutdownNodeResponse, error)
-	AssignBlocks(context.Context, *AssignBlocksRequest) (*AssignBlocksResponse, error)
+	AssignBlocks(TransportService_AssignBlocksServer) error
 	RemoveBlocks(context.Context, *RemoveBlocksRequest) (*RemoveBlocksResponse, error)
-	PlacePages(context.Context, *PlacePagesRequest) (*PlacePagesResponse, error)
+	PlacePartition(TransportService_PlacePartitionServer) error
+	GetPartition(TransportService_GetPartitionServer) error
+	RemovePartition(TransportService_RemovePartitionServer) error
 	FetchMetrics(context.Context, *FetchMetricsRequest) (*FetchMetricsResponse, error)
 }
 
@@ -1092,14 +1390,20 @@ func (*UnimplementedTransportServiceServer) Ping(ctx context.Context, req *PingR
 func (*UnimplementedTransportServiceServer) ShutdownNode(ctx context.Context, req *ShutdownNodeRequest) (*ShutdownNodeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ShutdownNode not implemented")
 }
-func (*UnimplementedTransportServiceServer) AssignBlocks(ctx context.Context, req *AssignBlocksRequest) (*AssignBlocksResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method AssignBlocks not implemented")
+func (*UnimplementedTransportServiceServer) AssignBlocks(srv TransportService_AssignBlocksServer) error {
+	return status.Errorf(codes.Unimplemented, "method AssignBlocks not implemented")
 }
 func (*UnimplementedTransportServiceServer) RemoveBlocks(ctx context.Context, req *RemoveBlocksRequest) (*RemoveBlocksResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RemoveBlocks not implemented")
 }
-func (*UnimplementedTransportServiceServer) PlacePages(ctx context.Context, req *PlacePagesRequest) (*PlacePagesResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method PlacePages not implemented")
+func (*UnimplementedTransportServiceServer) PlacePartition(srv TransportService_PlacePartitionServer) error {
+	return status.Errorf(codes.Unimplemented, "method PlacePartition not implemented")
+}
+func (*UnimplementedTransportServiceServer) GetPartition(srv TransportService_GetPartitionServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetPartition not implemented")
+}
+func (*UnimplementedTransportServiceServer) RemovePartition(srv TransportService_RemovePartitionServer) error {
+	return status.Errorf(codes.Unimplemented, "method RemovePartition not implemented")
 }
 func (*UnimplementedTransportServiceServer) FetchMetrics(ctx context.Context, req *FetchMetricsRequest) (*FetchMetricsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FetchMetrics not implemented")
@@ -1145,22 +1449,30 @@ func _TransportService_ShutdownNode_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
-func _TransportService_AssignBlocks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AssignBlocksRequest)
-	if err := dec(in); err != nil {
+func _TransportService_AssignBlocks_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(TransportServiceServer).AssignBlocks(&transportServiceAssignBlocksServer{stream})
+}
+
+type TransportService_AssignBlocksServer interface {
+	SendAndClose(*AssignBlocksResponse) error
+	Recv() (*AssignBlockRequest, error)
+	grpc.ServerStream
+}
+
+type transportServiceAssignBlocksServer struct {
+	grpc.ServerStream
+}
+
+func (x *transportServiceAssignBlocksServer) SendAndClose(m *AssignBlocksResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *transportServiceAssignBlocksServer) Recv() (*AssignBlockRequest, error) {
+	m := new(AssignBlockRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
-	if interceptor == nil {
-		return srv.(TransportServiceServer).AssignBlocks(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/transport_pb.TransportService/AssignBlocks",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(TransportServiceServer).AssignBlocks(ctx, req.(*AssignBlocksRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+	return m, nil
 }
 
 func _TransportService_RemoveBlocks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -1181,22 +1493,82 @@ func _TransportService_RemoveBlocks_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
-func _TransportService_PlacePages_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(PlacePagesRequest)
-	if err := dec(in); err != nil {
+func _TransportService_PlacePartition_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(TransportServiceServer).PlacePartition(&transportServicePlacePartitionServer{stream})
+}
+
+type TransportService_PlacePartitionServer interface {
+	SendAndClose(*PlacePartitionResponse) error
+	Recv() (*PlacePartitionRequest, error)
+	grpc.ServerStream
+}
+
+type transportServicePlacePartitionServer struct {
+	grpc.ServerStream
+}
+
+func (x *transportServicePlacePartitionServer) SendAndClose(m *PlacePartitionResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *transportServicePlacePartitionServer) Recv() (*PlacePartitionRequest, error) {
+	m := new(PlacePartitionRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
-	if interceptor == nil {
-		return srv.(TransportServiceServer).PlacePages(ctx, in)
+	return m, nil
+}
+
+func _TransportService_GetPartition_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(TransportServiceServer).GetPartition(&transportServiceGetPartitionServer{stream})
+}
+
+type TransportService_GetPartitionServer interface {
+	Send(*GetPartitionResponse) error
+	Recv() (*GetPartitionRequest, error)
+	grpc.ServerStream
+}
+
+type transportServiceGetPartitionServer struct {
+	grpc.ServerStream
+}
+
+func (x *transportServiceGetPartitionServer) Send(m *GetPartitionResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *transportServiceGetPartitionServer) Recv() (*GetPartitionRequest, error) {
+	m := new(GetPartitionRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
 	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/transport_pb.TransportService/PlacePages",
+	return m, nil
+}
+
+func _TransportService_RemovePartition_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(TransportServiceServer).RemovePartition(&transportServiceRemovePartitionServer{stream})
+}
+
+type TransportService_RemovePartitionServer interface {
+	Send(*RemovePartitionResponse) error
+	Recv() (*RemovePartitionRequest, error)
+	grpc.ServerStream
+}
+
+type transportServiceRemovePartitionServer struct {
+	grpc.ServerStream
+}
+
+func (x *transportServiceRemovePartitionServer) Send(m *RemovePartitionResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *transportServiceRemovePartitionServer) Recv() (*RemovePartitionRequest, error) {
+	m := new(RemovePartitionRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(TransportServiceServer).PlacePages(ctx, req.(*PlacePagesRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+	return m, nil
 }
 
 func _TransportService_FetchMetrics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -1230,23 +1602,38 @@ var _TransportService_serviceDesc = grpc.ServiceDesc{
 			Handler:    _TransportService_ShutdownNode_Handler,
 		},
 		{
-			MethodName: "AssignBlocks",
-			Handler:    _TransportService_AssignBlocks_Handler,
-		},
-		{
 			MethodName: "RemoveBlocks",
 			Handler:    _TransportService_RemoveBlocks_Handler,
-		},
-		{
-			MethodName: "PlacePages",
-			Handler:    _TransportService_PlacePages_Handler,
 		},
 		{
 			MethodName: "FetchMetrics",
 			Handler:    _TransportService_FetchMetrics_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "AssignBlocks",
+			Handler:       _TransportService_AssignBlocks_Handler,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "PlacePartition",
+			Handler:       _TransportService_PlacePartition_Handler,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "GetPartition",
+			Handler:       _TransportService_GetPartition_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "RemovePartition",
+			Handler:       _TransportService_RemovePartition_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+	},
 	Metadata: "transport.proto",
 }
 
@@ -1370,7 +1757,7 @@ func (m *ShutdownNodeResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *AssignBlocksRequest) Marshal() (dAtA []byte, err error) {
+func (m *AssignBlockRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1380,12 +1767,12 @@ func (m *AssignBlocksRequest) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *AssignBlocksRequest) MarshalTo(dAtA []byte) (int, error) {
+func (m *AssignBlockRequest) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *AssignBlocksRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *AssignBlockRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1394,19 +1781,17 @@ func (m *AssignBlocksRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if len(m.Blocks) > 0 {
-		for iNdEx := len(m.Blocks) - 1; iNdEx >= 0; iNdEx-- {
-			{
-				size, err := m.Blocks[iNdEx].MarshalToSizedBuffer(dAtA[:i])
-				if err != nil {
-					return 0, err
-				}
-				i -= size
-				i = encodeVarintTransport(dAtA, i, uint64(size))
+	if m.Block != nil {
+		{
+			size, err := m.Block.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
 			}
-			i--
-			dAtA[i] = 0xa
+			i -= size
+			i = encodeVarintTransport(dAtA, i, uint64(size))
 		}
+		i--
+		dAtA[i] = 0xa
 	}
 	return len(dAtA) - i, nil
 }
@@ -1475,6 +1860,23 @@ func (m *BlockPlacementInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	if m.XXX_unrecognized != nil {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Error) > 0 {
+		i -= len(m.Error)
+		copy(dAtA[i:], m.Error)
+		i = encodeVarintTransport(dAtA, i, uint64(len(m.Error)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if m.Success {
+		i--
+		if m.Success {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x18
 	}
 	if len(m.PartitionID) > 0 {
 		i -= len(m.PartitionID)
@@ -1556,7 +1958,7 @@ func (m *RemoveBlocksResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *PlacePagesRequest) Marshal() (dAtA []byte, err error) {
+func (m *PlacePartitionRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1566,12 +1968,12 @@ func (m *PlacePagesRequest) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *PlacePagesRequest) MarshalTo(dAtA []byte) (int, error) {
+func (m *PlacePartitionRequest) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *PlacePagesRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *PlacePartitionRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1583,7 +1985,7 @@ func (m *PlacePagesRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *PlacePagesResponse) Marshal() (dAtA []byte, err error) {
+func (m *PlacePartitionResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1593,12 +1995,120 @@ func (m *PlacePagesResponse) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *PlacePagesResponse) MarshalTo(dAtA []byte) (int, error) {
+func (m *PlacePartitionResponse) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *PlacePagesResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *PlacePartitionResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *GetPartitionRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GetPartitionRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GetPartitionRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *GetPartitionResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GetPartitionResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GetPartitionResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *RemovePartitionRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *RemovePartitionRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *RemovePartitionRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *RemovePartitionResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *RemovePartitionResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *RemovePartitionResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1936,17 +2446,15 @@ func (m *ShutdownNodeResponse) Size() (n int) {
 	return n
 }
 
-func (m *AssignBlocksRequest) Size() (n int) {
+func (m *AssignBlockRequest) Size() (n int) {
 	if m == nil {
 		return 0
 	}
 	var l int
 	_ = l
-	if len(m.Blocks) > 0 {
-		for _, e := range m.Blocks {
-			l = e.Size()
-			n += 1 + l + sovTransport(uint64(l))
-		}
+	if m.Block != nil {
+		l = m.Block.Size()
+		n += 1 + l + sovTransport(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -1986,6 +2494,13 @@ func (m *BlockPlacementInfo) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovTransport(uint64(l))
 	}
+	if m.Success {
+		n += 2
+	}
+	l = len(m.Error)
+	if l > 0 {
+		n += 1 + l + sovTransport(uint64(l))
+	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -2022,7 +2537,7 @@ func (m *RemoveBlocksResponse) Size() (n int) {
 	return n
 }
 
-func (m *PlacePagesRequest) Size() (n int) {
+func (m *PlacePartitionRequest) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -2034,7 +2549,55 @@ func (m *PlacePagesRequest) Size() (n int) {
 	return n
 }
 
-func (m *PlacePagesResponse) Size() (n int) {
+func (m *PlacePartitionResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *GetPartitionRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *GetPartitionResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *RemovePartitionRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *RemovePartitionResponse) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -2430,7 +2993,7 @@ func (m *ShutdownNodeResponse) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *AssignBlocksRequest) Unmarshal(dAtA []byte) error {
+func (m *AssignBlockRequest) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -2453,15 +3016,15 @@ func (m *AssignBlocksRequest) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: AssignBlocksRequest: wiretype end group for non-group")
+			return fmt.Errorf("proto: AssignBlockRequest: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: AssignBlocksRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: AssignBlockRequest: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Blocks", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Block", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -2488,8 +3051,10 @@ func (m *AssignBlocksRequest) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Blocks = append(m.Blocks, &fs_pb.Block{})
-			if err := m.Blocks[len(m.Blocks)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			if m.Block == nil {
+				m.Block = &fs_pb.Block{}
+			}
+			if err := m.Block.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -2693,6 +3258,58 @@ func (m *BlockPlacementInfo) Unmarshal(dAtA []byte) error {
 			}
 			m.PartitionID = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Success", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTransport
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Success = bool(v != 0)
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Error", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTransport
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTransport
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTransport
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Error = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipTransport(dAtA[iNdEx:])
@@ -2849,7 +3466,7 @@ func (m *RemoveBlocksResponse) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *PlacePagesRequest) Unmarshal(dAtA []byte) error {
+func (m *PlacePartitionRequest) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -2872,10 +3489,10 @@ func (m *PlacePagesRequest) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: PlacePagesRequest: wiretype end group for non-group")
+			return fmt.Errorf("proto: PlacePartitionRequest: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: PlacePagesRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: PlacePartitionRequest: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		default:
@@ -2900,7 +3517,7 @@ func (m *PlacePagesRequest) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *PlacePagesResponse) Unmarshal(dAtA []byte) error {
+func (m *PlacePartitionResponse) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -2923,10 +3540,214 @@ func (m *PlacePagesResponse) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: PlacePagesResponse: wiretype end group for non-group")
+			return fmt.Errorf("proto: PlacePartitionResponse: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: PlacePagesResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: PlacePartitionResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTransport(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTransport
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GetPartitionRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTransport
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GetPartitionRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GetPartitionRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTransport(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTransport
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GetPartitionResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTransport
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GetPartitionResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GetPartitionResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTransport(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTransport
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *RemovePartitionRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTransport
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: RemovePartitionRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: RemovePartitionRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTransport(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTransport
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *RemovePartitionResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTransport
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: RemovePartitionResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: RemovePartitionResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		default:

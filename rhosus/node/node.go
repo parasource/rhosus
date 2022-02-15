@@ -6,6 +6,7 @@ import (
 	rhosus_etcd "github.com/parasource/rhosus/rhosus/etcd"
 	"github.com/parasource/rhosus/rhosus/node/data"
 	"github.com/parasource/rhosus/rhosus/node/profiler"
+	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/parasource/rhosus/rhosus/util/uuid"
@@ -131,6 +132,18 @@ func (n *Node) CollectMetrics() (*transport_pb.NodeMetrics, error) {
 	}
 
 	return metrics, nil
+}
+
+func (n *Node) HandleAssignBlocks(blocks []*fs_pb.Block) ([]*transport_pb.BlockPlacementInfo, error) {
+
+	logrus.Infof("handling assign blocks request")
+
+	info, err := n.data.WriteBlocks(blocks)
+	if err != nil {
+		return nil, err
+	}
+
+	return info, nil
 }
 
 func (n *Node) Start() {

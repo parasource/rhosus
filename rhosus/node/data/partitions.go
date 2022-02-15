@@ -38,7 +38,7 @@ const (
 	defaultPartitionsDir      = "./parts"
 	defaultMinPartitionsCount = 1
 	defaultPartitionSize      = partitionHeaderSize + (1 * 1024 * 1000) // default partition size is header + 1gb
-	defaultBlockSize          = 16 * 1000 * 1000                        // by default, one partition fits 256 blocks
+	defaultBlockSize          = 16 << 20                                // by default, block size is 16mb so one partition fits 256 blocks
 )
 
 type Partition struct {
@@ -109,7 +109,16 @@ func (p *Partition) writeBlocks(blocks map[string][]byte) (error, map[string]err
 		return err, errs
 	}
 
+	err = p.file.Sync()
+	if err != nil {
+
+	}
+
 	return nil, errs
+}
+
+func (p *Partition) Sync() error {
+	return p.file.Sync()
 }
 
 func (p *Partition) writeHeaderRecs(recs map[string]int) error {
@@ -119,9 +128,8 @@ func (p *Partition) writeHeaderRecs(recs map[string]int) error {
 			// todo: maybe retry?
 		}
 	}
-	err := p.file.Sync()
 
-	return err
+	return nil
 }
 
 func (p *Partition) loadHeader() error {
@@ -268,6 +276,18 @@ func (p *PartitionsMap) createPartition() (string, error) {
 	p.parts[id] = newPartition(id, file)
 
 	return id, nil
+}
+
+func (p *PartitionsMap) GetAvailablePartitions() map[string]*Partition {
+	parts := make(map[string]*Partition, len(p.parts))
+
+	for id, part := range p.parts {
+		if !part.full {
+			parts[id] = part
+		}
+	}
+
+	return parts
 }
 
 func (p *PartitionsMap) GetPartitionIDs() []string {

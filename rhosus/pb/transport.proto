@@ -6,13 +6,14 @@ option go_package = "github.com/rhosus/rhosus/pb/transport_pb";
 import "fs.proto";
 
 service TransportService {
-
   rpc Ping (PingRequest) returns (PingResponse);
   rpc ShutdownNode (ShutdownNodeRequest) returns (ShutdownNodeResponse);
 
-  rpc AssignBlocks (AssignBlocksRequest) returns (AssignBlocksResponse);
+  rpc AssignBlocks (stream AssignBlockRequest) returns (AssignBlocksResponse);
   rpc RemoveBlocks (RemoveBlocksRequest) returns (RemoveBlocksResponse);
-  rpc PlacePages(PlacePagesRequest) returns (PlacePagesResponse);
+  rpc PlacePartition(stream PlacePartitionRequest) returns (PlacePartitionResponse);
+  rpc GetPartition(stream GetPartitionRequest) returns (stream GetPartitionResponse);
+  rpc RemovePartition(stream RemovePartitionRequest) returns (stream RemovePartitionResponse);
 
   rpc FetchMetrics(FetchMetricsRequest) returns (FetchMetricsResponse);
 }
@@ -35,8 +36,8 @@ message ShutdownNodeRequest {
 
 message ShutdownNodeResponse {}
 
-message AssignBlocksRequest {
-  repeated fs_pb.Block blocks = 1;
+message AssignBlockRequest {
+  fs_pb.Block block = 1;
 }
 
 message AssignBlocksResponse {
@@ -44,9 +45,10 @@ message AssignBlocksResponse {
 }
 
 message BlockPlacementInfo {
-  repeated
-      string blockID = 1;
+  string blockID = 1;
   string partitionID = 2;
+  bool success = 3;
+  string error = 4;
 }
 
 message RemoveBlocksRequest {
@@ -55,10 +57,20 @@ message RemoveBlocksRequest {
 
 message RemoveBlocksResponse {}
 
-message PlacePagesRequest {
+message PlacePartitionRequest {
 }
 
-message PlacePagesResponse {}
+message PlacePartitionResponse {}
+
+message GetPartitionRequest {
+}
+
+message GetPartitionResponse {}
+
+message RemovePartitionRequest {
+}
+
+message RemovePartitionResponse {}
 
 
 
