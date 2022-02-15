@@ -4,12 +4,13 @@ import (
 	"github.com/parasource/rhosus/rhosus/backend"
 	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
+	"github.com/sirupsen/logrus"
 	"sync"
 )
 
 type Manager struct {
 	parts   *PartitionsMap
-	backend *backend.Storage
+	backend *backend.Storage // for now it is not useful, but i guess i will use it later
 
 	mu               sync.RWMutex
 	shutdown         bool
@@ -58,13 +59,14 @@ func NewManager() (*Manager, error) {
 	//		Data:    data,
 	//	}
 	//}
-	//_, err = m.WriteBlocks(blocks)
+	//res, err := m.WriteBlocks(blocks)
+	//logrus.Info(res)
 	//logrus.Infof("wrote 4gb in %v", time.Since(start).String())
 
 	return m, err
 }
 
-func (m *Manager) WriteBlocks(blocks map[string]*fs_pb.Block) ([]*transport_pb.BlockPlacementInfo, error) {
+func (m *Manager) WriteBlocks(blocks []*fs_pb.Block) ([]*transport_pb.BlockPlacementInfo, error) {
 	m.mu.RLock()
 	if m.shutdown {
 		m.mu.RUnlock()
@@ -75,34 +77,45 @@ func (m *Manager) WriteBlocks(blocks map[string]*fs_pb.Block) ([]*transport_pb.B
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	data := make(map[string][]byte)
-	for id, block := range blocks {
-		data[id] = block.Data
-	}
-
+	var wg sync.WaitGroup
 	var placement []*transport_pb.BlockPlacementInfo
 
-	// todo: write to partitions in parallel
-	for id, bytes := range data {
-		p, err := m.parts.getRandomPartition()
-		if err != nil {
-			return nil, err
-		}
+	parts := m.parts.GetAvailablePartitions()
 
-		err, errs := p.writeBlocks(map[string][]byte{id: bytes})
-		if err != nil {
-			// todo
-			continue
-		}
-		if len(errs) != 0 {
-			// todo
-		}
+	offset := 0
+	for _, part := range parts {
+		wg.Add(1)
+		go func(part *Partition, offset int) {
+			defer wg.Done()
 
-		placement = append(placement, &transport_pb.BlockPlacementInfo{
-			BlockID:     id,
-			PartitionID: p.ID,
-		})
+			blocksCount := len(blocks) / len(parts)
+			bSlice := blocks[offset : offset+blocksCount]
+
+			data := make(map[string][]byte)
+			for _, block := range bSlice {
+				data[block.Id] = block.Data
+			}
+
+			err, errs := part.writeBlocks(data)
+			if err != nil {
+				logrus.Errorf("error writing to partition: %v", err)
+				return
+			}
+			if len(errs) != 0 {
+				// todo
+			}
+
+			for _, block := range bSlice {
+				placement = append(placement, &transport_pb.BlockPlacementInfo{
+					BlockID:     block.Id,
+					PartitionID: part.ID,
+					Success:     true,
+				})
+			}
+		}(part, offset)
 	}
+
+	wg.Wait()
 
 	return placement, nil
 }

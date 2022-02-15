@@ -5,6 +5,7 @@ import (
 	"github.com/parasource/rhosus/rhosus/backend"
 	rhosus_etcd "github.com/parasource/rhosus/rhosus/etcd"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
+	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/parasource/rhosus/rhosus/registry/cluster"
 	file_server "github.com/parasource/rhosus/rhosus/server"
@@ -213,6 +214,51 @@ func (r *Registry) Start() {
 
 	go r.handleSignals()
 
+	go func() {
+		<-time.After(time.Second * 2)
+
+		//uid, _ := uuid.NewV4()
+
+		//file := &control_pb.FileInfo{
+		//	Id:                   uid.String(),
+		//	Type:                 control_pb.FileInfo_FILE,
+		//	Path:                 "test/index.html",
+		//	Size_:                128000,
+		//	Permission:  &control_pb.FileInfo_FsPermission{
+		//		Perm:   0,
+		//	},
+		//	Owner:                "egorovchinnikov",
+		//	Group:                "owner",
+		//}
+
+		var data []byte
+		for j := 0; j < 4*1024*1000; j++ {
+			data = append(data, byte('b'))
+		}
+		var blocks []*fs_pb.Block
+		for i := 0; i < 256; i++ {
+			uid, _ := uuid.NewV4()
+
+			blocks = append(blocks, &fs_pb.Block{
+				Id:     uid.String(),
+				FileId: "testfile123",
+				Size_:  16,
+				Data:   data,
+			})
+		}
+
+		for id := range r.NodesManager.nodes {
+			start := time.Now()
+			res, err := r.NodesManager.AssignBlocks(id, blocks)
+			if err != nil {
+				logrus.Errorf("error assigning blocks to node: %v", err)
+			}
+
+			logrus.Infof("received placement res: %v", res)
+			logrus.Infof("time passed: %v", time.Since(start).String())
+		}
+	}()
+
 	r.readyC <- struct{}{}
 
 	logrus.Infof("Registry %v:%v is ready", r.Name, r.Id)
@@ -283,35 +329,6 @@ func (r *Registry) handleSignals() {
 		}
 	}
 
-}
-
-func (r *Registry) loadExistingNodes() error {
-
-	nodes, err := r.etcdClient.GetExistingNodes()
-	if err != nil {
-		return err
-	}
-	for path, bytes := range nodes {
-
-		name := rhosus_etcd.ParseNodeName(path)
-
-		var info transport_pb.NodeInfo
-		err := info.Unmarshal(bytes)
-		if err != nil {
-			logrus.Errorf("error unmarshaling node info: %v", err)
-			continue
-		}
-
-		err = r.NodesManager.AddNode(name, &info)
-		if err != nil {
-			logrus.Errorf("error adding node to map: %v", err)
-			continue
-		}
-
-		logrus.Infof("node %v added from existing map", info.Name)
-	}
-
-	return nil
 }
 
 func (r *Registry) getExistingRegistries() (map[string]*control_pb.RegistryInfo, error) {

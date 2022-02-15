@@ -2,9 +2,12 @@ package rhosus_node
 
 import (
 	"context"
+	"errors"
+	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"io"
 	"net"
 )
 
@@ -43,7 +46,6 @@ func NewGrpcServer(config GrpcServerConfig, node *Node) (*GrpcServer, error) {
 }
 
 func (s *GrpcServer) Ping(c context.Context, r *transport_pb.PingRequest) (*transport_pb.PingResponse, error) {
-	logrus.Infof("PINGED")
 	return &transport_pb.PingResponse{}, nil
 }
 
@@ -51,15 +53,47 @@ func (s *GrpcServer) ShutdownNode(c context.Context, r *transport_pb.ShutdownNod
 	panic("implement me")
 }
 
-func (s *GrpcServer) AssignBlocks(c context.Context, r *transport_pb.AssignBlocksRequest) (*transport_pb.AssignBlocksResponse, error) {
-	panic("implement me")
+func (s *GrpcServer) AssignBlocks(srv transport_pb.TransportService_AssignBlocksServer) error {
+
+	var blocks []*fs_pb.Block
+
+	for {
+		req, err := srv.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			logrus.Errorf("error receiving: %v", err)
+			continue
+		}
+
+		blocks = append(blocks, req.Block)
+	}
+
+	if len(blocks) == 0 {
+		return errors.New("empty blocks")
+	}
+
+	logrus.Infof("blocks len: %v", len(blocks))
+	res, err := s.node.HandleAssignBlocks(blocks)
+	if err != nil {
+		return err
+	}
+	err = srv.SendAndClose(&transport_pb.AssignBlocksResponse{
+		Placement: res,
+	})
+	if err != nil {
+		logrus.Errorf("error sending and closing stream: %v", err)
+	}
+
+	return nil
 }
 
 func (s *GrpcServer) RemoveBlocks(c context.Context, r *transport_pb.RemoveBlocksRequest) (*transport_pb.RemoveBlocksResponse, error) {
 	panic("implement me")
 }
 
-func (s *GrpcServer) PlacePages(c context.Context, r *transport_pb.PlacePagesRequest) (*transport_pb.PlacePagesResponse, error) {
+func (s *GrpcServer) PlacePages(c context.Context, r *transport_pb.PlacePartitionRequest) (*transport_pb.PlacePartitionResponse, error) {
 	panic("implement me")
 }
 
