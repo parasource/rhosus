@@ -118,8 +118,7 @@ message FileInfo {
   FsPermission permission = 5;
   string owner = 6;
   string group = 7;
-
-  string symlink = 8; // Optional. Used only for symlinks
+  string symlink = 9; // Optional. Used only for symlinks
 }
 
 // Partition is a set of blocks
@@ -138,16 +137,18 @@ message Partition {
   int64 updated_at = 6;
 }
 
+// Used to store blocks info in backend
+// blocks are stored in sequential order
 message FileBlocks {
   repeated BlockInfo blocks = 1;
 }
 
 message BlockInfo {
   string id = 1;
-  uint64 index = 2;
+  uint64 index = 2; // position in file
   string fileID = 3;
   string nodeID = 4;
-  uint64 size = 5;
+  string partitionID = 5;
 }
 
 message DirectoryListing {

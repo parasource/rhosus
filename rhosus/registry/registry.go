@@ -217,19 +217,19 @@ func (r *Registry) Start() {
 	go func() {
 		<-time.After(time.Second * 2)
 
-		//uid, _ := uuid.NewV4()
+		uid, _ := uuid.NewV4()
 
-		//file := &control_pb.FileInfo{
-		//	Id:                   uid.String(),
-		//	Type:                 control_pb.FileInfo_FILE,
-		//	Path:                 "test/index.html",
-		//	Size_:                128000,
-		//	Permission:  &control_pb.FileInfo_FsPermission{
-		//		Perm:   0,
-		//	},
-		//	Owner:                "egorovchinnikov",
-		//	Group:                "owner",
-		//}
+		file := &control_pb.FileInfo{
+			Id:    uid.String(),
+			Type:  control_pb.FileInfo_FILE,
+			Path:  "test/index.html",
+			Size_: 128000,
+			Permission: &control_pb.FileInfo_FsPermission{
+				Perm: 0,
+			},
+			Owner: "egorovchinnikov",
+			Group: "owner",
+		}
 
 		var data []byte
 		for j := 0; j < 4*1024*1000; j++ {
@@ -247,16 +247,8 @@ func (r *Registry) Start() {
 			})
 		}
 
-		for id := range r.NodesManager.nodes {
-			start := time.Now()
-			res, err := r.NodesManager.AssignBlocks(id, blocks)
-			if err != nil {
-				logrus.Errorf("error assigning blocks to node: %v", err)
-			}
+		_ = r.registerFileWithBlocks(file, blocks)
 
-			logrus.Infof("received placement res: %v", res)
-			logrus.Infof("time passed: %v", time.Since(start).String())
-		}
 	}()
 
 	r.readyC <- struct{}{}
