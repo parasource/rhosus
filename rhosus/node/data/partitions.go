@@ -101,6 +101,9 @@ func (p *Partition) writeBlocks(blocks map[string][]byte) (error, map[string]err
 		}
 
 		p.occupiedBlocks = append(p.occupiedBlocks, blockN)
+		if len(p.occupiedBlocks) >= 256 {
+			p.full = true
+		}
 		headerRecs[id] = blockN
 	}
 
@@ -278,11 +281,12 @@ func (p *PartitionsMap) createPartition() (string, error) {
 	return id, nil
 }
 
-func (p *PartitionsMap) GetAvailablePartitions() map[string]*Partition {
+func (p *PartitionsMap) GetAvailablePartitions(blocks int) map[string]*Partition {
 	parts := make(map[string]*Partition, len(p.parts))
 
 	for id, part := range p.parts {
-		if !part.full {
+		availableBlocks := 256 - len(part.occupiedBlocks)
+		if !part.full && availableBlocks >= blocks {
 			parts[id] = part
 		}
 	}

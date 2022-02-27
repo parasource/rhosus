@@ -5,11 +5,13 @@ import (
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	"github.com/parasource/rhosus/rhosus/util/tickers"
 	"github.com/sirupsen/logrus"
+	"sort"
 	"time"
 )
 
 const (
-	defaultFilesTableName = "__files"
+	defaultFilesTableName  = "__files"
+	defaultBlocksTableName = "__blocks"
 )
 
 type MemoryStorage struct {
@@ -41,6 +43,31 @@ func NewMemoryStorage(registry *Registry) (*MemoryStorage, error) {
 						AllowMissing: false,
 						Unique:       true,
 						Indexer:      &memdb.StringFieldIndex{Field: "Path"},
+					},
+				},
+			},
+
+			// Blocks table schema
+			defaultBlocksTableName: {
+				Name: defaultBlocksTableName,
+				Indexes: map[string]*memdb.IndexSchema{
+					"id": {
+						Name:         "id",
+						AllowMissing: false,
+						Unique:       true,
+						Indexer:      &memdb.StringFieldIndex{Field: "Id"},
+					},
+					"file_id": {
+						Name:         "file_id",
+						AllowMissing: false,
+						Unique:       false,
+						Indexer:      &memdb.StringFieldIndex{Field: "FileID"},
+					},
+					"partition_id": {
+						Name:         "partition_id",
+						AllowMissing: false,
+						Unique:       false,
+						Indexer:      &memdb.StringFieldIndex{Field: "PartitionID"},
 					},
 				},
 			},
@@ -102,6 +129,43 @@ func (s *MemoryStorage) GetFile(id string) (*control_pb.FileInfo, error) {
 	return raw.(*control_pb.FileInfo), nil
 }
 
+func (s *MemoryStorage) PutBlocks(blocks []*control_pb.BlockInfo) error {
+	var err error
+
+	txn := s.db.Txn(true)
+	for _, block := range blocks {
+		err = txn.Insert(defaultBlocksTableName, block)
+		if err != nil {
+			txn.Abort()
+			return err
+		}
+	}
+	txn.Commit()
+
+	return nil
+}
+
+func (s *MemoryStorage) GetBlocks(fileID string) ([]*control_pb.BlockInfo, error) {
+	txn := s.db.Txn(false)
+
+	var blocks []*control_pb.BlockInfo
+
+	res, err := txn.Get(defaultBlocksTableName, "file_id", fileID)
+	if err != nil {
+		return nil, err
+	}
+	for obj := res.Next(); obj != nil; obj = res.Next() {
+		blocks = append(blocks, obj.(*control_pb.BlockInfo))
+	}
+
+	// sort blocks in sequence order
+	sort.Slice(blocks, func(i, j int) bool {
+		return blocks[i].Index < blocks[j].Index
+	})
+
+	return blocks, nil
+}
+
 func (s *MemoryStorage) FlushToBackend() error {
 	var err error
 
@@ -110,6 +174,11 @@ func (s *MemoryStorage) FlushToBackend() error {
 	err = s.flushFilesToBackend(txn)
 	if err != nil {
 		logrus.Errorf("error flushing files batch to backend: %v", err)
+	}
+
+	err = s.flushBlocksToBackend(txn)
+	if err != nil {
+		logrus.Errorf("error flusing blocks batch to backend: %v", err)
 	}
 
 	return err
@@ -136,6 +205,32 @@ func (s *MemoryStorage) flushFilesToBackend(txn *memdb.Txn) error {
 	err = s.registry.Backend.StoreFilesBatch(filesBatch)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (s *MemoryStorage) flushBlocksToBackend(txn *memdb.Txn) error {
+
+	blocksBatch := make(map[string]*control_pb.BlockInfo)
+
+	blocks, err := txn.Get(defaultBlocksTableName, "id")
+	if err != nil {
+		return err
+	}
+	for obj := blocks.Next(); obj != nil; obj = blocks.Next() {
+		if len(blocksBatch) == s.flushBatchSize {
+			err = s.registry.Backend.PutBlocksBatch(blocksBatch)
+			if err != nil {
+				// todo: probably retry later
+			}
+		}
+		block := obj.(*control_pb.BlockInfo)
+		blocksBatch[block.Id] = block
+	}
+	err = s.registry.Backend.PutBlocksBatch(blocksBatch)
+	if err != nil {
+		// todo: probably retry later
 	}
 
 	return nil

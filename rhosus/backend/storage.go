@@ -260,7 +260,7 @@ func (s *Storage) RemoveFilesBatch(fileIDs []string) error {
 // --------------------------
 
 // PutBlocksBatch is used by node to map block ids to partitions
-func (s *Storage) PutBlocksBatch(blocks map[string]string) error {
+func (s *Storage) PutBlocksBatch(blocks map[string]*control_pb.BlockInfo) error {
 
 	s.mu.RLock()
 	if s.shutdown {
@@ -269,7 +269,17 @@ func (s *Storage) PutBlocksBatch(blocks map[string]string) error {
 	}
 	s.mu.RUnlock()
 
-	r := NewStoreRequest(dataOpStoreBatchBlocks, blocks)
+	data := make(map[string]string, len(blocks))
+	for id, info := range blocks {
+		bytes, err := info.Marshal()
+		if err != nil {
+			logrus.Errorf("error marshaling block info: %v", err)
+			continue
+		}
+		data[id] = util.Base64Encode(bytes)
+	}
+
+	r := NewStoreRequest(dataOpStoreBatchBlocks, data)
 
 	select {
 	case s.blocksReqC <- r:

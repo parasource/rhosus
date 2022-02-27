@@ -80,7 +80,15 @@ func (m *Manager) WriteBlocks(blocks []*fs_pb.Block) ([]*transport_pb.BlockPlace
 	var wg sync.WaitGroup
 	var placement []*transport_pb.BlockPlacementInfo
 
-	parts := m.parts.GetAvailablePartitions()
+	parts := m.parts.GetAvailablePartitions(len(blocks))
+	if len(parts) == 0 {
+		newPartId, err := m.parts.createPartition()
+		if err != nil {
+			return nil, err
+		}
+
+		parts[newPartId], _ = m.parts.getPartition(newPartId)
+	}
 
 	offset := 0
 	for _, part := range parts {
