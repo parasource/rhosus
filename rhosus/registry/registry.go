@@ -5,7 +5,6 @@ import (
 	"github.com/parasource/rhosus/rhosus/backend"
 	rhosus_etcd "github.com/parasource/rhosus/rhosus/etcd"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
-	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/parasource/rhosus/rhosus/registry/cluster"
 	file_server "github.com/parasource/rhosus/rhosus/server"
@@ -29,12 +28,12 @@ const (
 )
 
 type Config struct {
-	ClusterHost     string `json:"cluster_host"`
+	ClusterHost     string `json:"cluster_host" mapstructure:"cluster_host"`
 	ClusterPort     string `json:"cluster_port"`
 	ClusterUsername string `json:"cluster_username"`
 	ClusterPassword string `json:"cluster_password"`
 
-	ServerConfig file_server.ServerConfig
+	ServerConfig file_server.ServerConfig `mapstructure:"http_server"`
 }
 
 type Registry struct {
@@ -155,8 +154,14 @@ func NewRegistry(config Config) (*Registry, error) {
 		logrus.Fatalf("error starting file server: %v", err)
 	}
 	r.FileServer = fileServer
+	r.setFileServerHandlers()
 
 	return r, nil
+}
+
+func (r *Registry) setFileServerHandlers() {
+	r.FileServer.RegistryFileHandler = r.RegisterFile
+	r.FileServer.TransportBlocksHandler = r.TransportAndRegisterBlocks
 }
 
 func getId(persistent bool) string {
@@ -214,42 +219,42 @@ func (r *Registry) Start() {
 
 	go r.handleSignals()
 
-	go func() {
-		<-time.After(time.Second * 2)
-
-		uid, _ := uuid.NewV4()
-
-		file := &control_pb.FileInfo{
-			Id:    uid.String(),
-			Type:  control_pb.FileInfo_FILE,
-			Path:  "test/index.html",
-			Size_: 128000,
-			Permission: &control_pb.FileInfo_FsPermission{
-				Perm: 0,
-			},
-			Owner: "egorovchinnikov",
-			Group: "owner",
-		}
-
-		var data []byte
-		for j := 0; j < 4*1024*1000; j++ {
-			data = append(data, byte('b'))
-		}
-		var blocks []*fs_pb.Block
-		for i := 0; i < 256; i++ {
-			uid, _ := uuid.NewV4()
-
-			blocks = append(blocks, &fs_pb.Block{
-				Id:     uid.String(),
-				FileId: "testfile123",
-				Size_:  16,
-				Data:   data,
-			})
-		}
-
-		_ = r.registerFileWithBlocks(file, blocks)
-
-	}()
+	//go func() {
+	//	<-time.After(time.Second * 2)
+	//
+	//	uid, _ := uuid.NewV4()
+	//
+	//	file := &control_pb.FileInfo{
+	//		Id:    uid.String(),
+	//		Type:  control_pb.FileInfo_FILE,
+	//		Path:  "test/index.html",
+	//		Size_: 128000,
+	//		Permission: &control_pb.FileInfo_FsPermission{
+	//			Perm: 0,
+	//		},
+	//		Owner: "egorovchinnikov",
+	//		Group: "owner",
+	//	}
+	//
+	//	var data []byte
+	//	for j := 0; j < 4*1024*1000; j++ {
+	//		data = append(data, byte('b'))
+	//	}
+	//	var blocks []*fs_pb.Block
+	//	for i := 0; i < 256; i++ {
+	//		uid, _ := uuid.NewV4()
+	//
+	//		blocks = append(blocks, &fs_pb.Block{
+	//			Id:     uid.String(),
+	//			FileId: "testfile123",
+	//			Size_:  16,
+	//			Data:   data,
+	//		})
+	//	}
+	//
+	//	_ = r.registerFileWithBlocks(file, blocks)
+	//
+	//}()
 
 	r.readyC <- struct{}{}
 

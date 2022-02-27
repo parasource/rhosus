@@ -7,38 +7,37 @@ import (
 	"time"
 )
 
-func (r *Registry) RegisterFile(file *control_pb.FileInfo, data []byte) {
+func (r *Registry) RegisterFile(file *control_pb.FileInfo) error {
+	err := r.MemoryStorage.StoreFile(file)
+	if err != nil {
+		return err
+	}
 
+	return nil
 }
 
-func (r *Registry) registerFileWithBlocks(file *control_pb.FileInfo, blocks []*fs_pb.Block) error {
+func (r *Registry) TransportAndRegisterBlocks(fileID string, blocks []*fs_pb.Block) error {
 
-	var id string
-	for nid := range r.NodesManager.nodes {
-		id = nid
+	var nodeID string
+	for _, node := range r.NodesManager.nodes {
+		nodeID = node.info.Id
+		break
 	}
 
 	start := time.Now()
-	res, err := r.NodesManager.AssignBlocks(id, blocks)
+	res, err := r.NodesManager.AssignBlocks(nodeID, blocks)
 	if err != nil {
 		logrus.Errorf("error assigning blocks to node: %v", err)
 	}
-
-	err = r.MemoryStorage.StoreFile(file)
-	if err != nil {
-		logrus.Errorf("error storing file: %v", err)
-	}
-
-	logrus.Infof("received placement res: %v", res)
-	logrus.Infof("time passed: %v", time.Since(start).String())
+	logrus.Infof("transported blocks in %v", time.Since(start).String())
 
 	var bInfos []*control_pb.BlockInfo
 	for _, block := range res {
 		bInfos = append(bInfos, &control_pb.BlockInfo{
 			Id:          block.BlockID,
 			Index:       0,
-			FileID:      file.Id,
-			NodeID:      id,
+			FileID:      fileID,
+			NodeID:      nodeID,
 			PartitionID: block.PartitionID,
 		})
 	}
@@ -46,6 +45,8 @@ func (r *Registry) registerFileWithBlocks(file *control_pb.FileInfo, blocks []*f
 	if err != nil {
 		logrus.Errorf("error putting blocks: %v", err)
 	}
+	bs, _ := r.MemoryStorage.GetBlocks(fileID)
+	logrus.Infof("TOTAL BLOCKS STORED: %v", len(bs))
 
 	return nil
 }

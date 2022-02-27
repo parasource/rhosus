@@ -245,6 +245,7 @@ func (m *NodesMap) AssignBlocks(nodeID string, blocks []*fs_pb.Block) ([]*transp
 	res, err := stream.CloseAndRecv()
 	if err != nil {
 		logrus.Errorf("lksjdflkjs: %v", err)
+		return nil, err
 	}
 
 	return res.Placement, nil

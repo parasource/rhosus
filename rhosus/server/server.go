@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"crypto/md5"
-	"github.com/parasource/rhosus/rhosus/sys"
+	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
+	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	"github.com/parasource/rhosus/rhosus/util"
+	"github.com/parasource/rhosus/rhosus/util/uuid"
 	"github.com/sirupsen/logrus"
 	"io"
 	"net"
@@ -39,8 +41,9 @@ type Server struct {
 	shutdownC chan struct{}
 	readyC    chan struct{}
 
-	RegistryAdd    func(dir string, name string, owner string, group string, timestamp int64, size uint64, data []byte) (*sys.File, error)
-	RegistryDelete func(dir string, name string) error
+	RegistryFileHandler    func(file *control_pb.FileInfo) error
+	TransportBlocksHandler func(fileID string, blocks []*fs_pb.Block) error
+	RegistryDelete         func(dir string, name string) error
 }
 
 func NewServer(conf ServerConfig) (*Server, error) {
@@ -141,18 +144,6 @@ func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("you are a leader, neo"))
 }
 
-func (s *Server) SetRegistryAddFunc(fun func(dir string, name string, owner string, group string, timestamp int64, size uint64, data []byte) (*sys.File, error)) {
-	s.mu.Lock()
-	s.RegistryAdd = fun
-	s.mu.Unlock()
-}
-
-func (s *Server) SetRegistryDeleteFunc(fun func(dir string, name string) error) {
-	s.mu.Lock()
-	s.RegistryDelete = fun
-	s.mu.Unlock()
-}
-
 func (s *Server) handlePostPut(w http.ResponseWriter, r *http.Request) error {
 
 	var err error
@@ -183,11 +174,30 @@ func (s *Server) handlePostPut(w http.ResponseWriter, r *http.Request) error {
 	partReader := io.NopCloser(io.TeeReader(part1, md5Hash))
 
 	var wg sync.WaitGroup
+
 	var bytesBufferCounter int64
 	bytesBufferLimitCond := sync.NewCond(new(sync.Mutex))
 	//var fileChunksLock sync.Mutex
 
-	blockSize := s.Config.BlockSize
+	blockSize := int64(3 << 20) // block size is 4mb
+
+	counter := 1
+
+	uid, _ := uuid.NewV4()
+	file := &control_pb.FileInfo{
+		Id:         uid.String(),
+		Type:       control_pb.FileInfo_FILE,
+		Path:       r.URL.String(),
+		Size_:      0,
+		Permission: nil,
+		Owner:      "",
+		Group:      "",
+		Symlink:    "",
+	}
+	err = s.RegistryFileHandler(file)
+	if err != nil {
+		logrus.Errorf("error registring file: %v", err)
+	}
 
 	for {
 		bytesBufferLimitCond.L.Lock()
@@ -223,10 +233,7 @@ func (s *Server) handlePostPut(w http.ResponseWriter, r *http.Request) error {
 			break
 		}
 
-		//logrus.Info(string(bytesBuffer.Bytes()))
-
 		wg.Add(1)
-		counter := 1
 		go func(offset int64) {
 			defer func() {
 				bufPool.Put(bytesBuffer)
@@ -237,10 +244,19 @@ func (s *Server) handlePostPut(w http.ResponseWriter, r *http.Request) error {
 
 			dataReader := util.NewBytesReader(bytesBuffer.Bytes())
 
-			var data = dataReader.Bytes
-
-			logrus.Info(string(data))
-			logrus.Infof("------------- %v", counter)
+			// actual block payload
+			data := dataReader.Bytes
+			uid, _ = uuid.NewV4()
+			err = s.TransportBlocksHandler(file.Id, []*fs_pb.Block{{
+				Id:     uid.String(),
+				Index:  uint64(counter),
+				FileId: file.Id,
+				Size_:  uint64(len(data)),
+				Data:   data,
+			}})
+			if err != nil {
+				logrus.Errorf("error transporting blocks to node: %v", err)
+			}
 
 			counter++
 
