@@ -67,15 +67,12 @@ func NewManager() (*Manager, error) {
 }
 
 func (m *Manager) WriteBlocks(blocks []*fs_pb.Block) ([]*transport_pb.BlockPlacementInfo, error) {
-	m.mu.RLock()
-	if m.shutdown {
-		m.mu.RUnlock()
-		return nil, ErrShutdown
-	}
-	m.mu.RUnlock()
-
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	if m.shutdown {
+		return nil, ErrShutdown
+	}
 
 	var wg sync.WaitGroup
 	var placement []*transport_pb.BlockPlacementInfo
@@ -128,16 +125,24 @@ func (m *Manager) WriteBlocks(blocks []*fs_pb.Block) ([]*transport_pb.BlockPlace
 	return placement, nil
 }
 
-func (m *Manager) ReadBlocks(IDs string) (map[string]*fs_pb.Block, error) {
-	m.mu.RLock()
-	if m.shutdown {
-		m.mu.RUnlock()
-		return nil, ErrShutdown
-	}
-	m.mu.RUnlock()
-
+func (m *Manager) ReadBlock(block *transport_pb.BlockPlacementInfo) (*fs_pb.Block, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	return nil, nil
+	if m.shutdown {
+		return nil, ErrShutdown
+	}
+
+	part, err := m.parts.getPartition(block.PartitionID)
+	if err != nil {
+		return nil, err
+	}
+
+	// todo: REFACTOR!!
+	b := &fs_pb.Block{
+		Id: block.BlockID,
+	}
+	b.Data = part.readBlocks([]*transport_pb.BlockPlacementInfo{block})[block.BlockID]
+
+	return b, nil
 }

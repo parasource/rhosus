@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
+	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/parasource/rhosus/rhosus/util/fileutil"
 	"github.com/parasource/rhosus/rhosus/util/uuid"
 	"github.com/sirupsen/logrus"
@@ -175,6 +176,22 @@ func (p *Partition) writeBlockContents(block int, data []byte) (int, error) {
 	return n, err
 }
 
+func (p *Partition) readBlocks(blocks []*transport_pb.BlockPlacementInfo) map[string][]byte {
+	result := make(map[string][]byte, len(blocks))
+
+	for _, block := range blocks {
+		var err error
+		offset := p.blocksMap[block.BlockID]
+		_, result[block.BlockID], err = p.readBlockContents(offset)
+		if err != nil {
+			delete(result, block.BlockID)
+			continue
+		}
+	}
+
+	return result
+}
+
 func (p *Partition) readBlockContents(blockN int) (int, []byte, error) {
 	offset := int64(partitionHeaderSize + blockN*defaultBlockSize)
 
@@ -334,6 +351,7 @@ func (p *PartitionsMap) loadPartitions() error {
 			continue
 		}
 		p.parts[name] = part
+		logrus.Infof("loaded partition: %v", part.blocksMap)
 	}
 	if len(p.parts) == 0 {
 		start := time.Now()

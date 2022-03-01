@@ -9,6 +9,7 @@ service TransportService {
   rpc Ping (PingRequest) returns (PingResponse);
   rpc ShutdownNode (ShutdownNodeRequest) returns (ShutdownNodeResponse);
 
+  rpc GetBlocks(GetBlocksRequest) returns (stream GetBlocksResponse);
   rpc AssignBlocks (stream AssignBlockRequest) returns (AssignBlocksResponse);
   rpc RemoveBlocks (RemoveBlocksRequest) returns (RemoveBlocksResponse);
   rpc PlacePartition(stream PlacePartitionRequest) returns (PlacePartitionResponse);
@@ -35,6 +36,15 @@ message ShutdownNodeRequest {
 }
 
 message ShutdownNodeResponse {}
+
+
+message GetBlocksRequest {
+  repeated BlockPlacementInfo blocks = 1;
+}
+
+message GetBlocksResponse {
+  fs_pb.Block block = 1;
+}
 
 message AssignBlockRequest {
   fs_pb.Block block = 1;

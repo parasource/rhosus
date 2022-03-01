@@ -9,6 +9,7 @@ import (
 	"github.com/parasource/rhosus/rhosus/util/tickers"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"io"
 	"net"
 	"sync"
 	"time"
@@ -54,7 +55,7 @@ func NewNodesMap(registry *Registry, nodes map[string]*transport_pb.NodeInfo) (*
 	for id, info := range nodes {
 		address := net.JoinHostPort(info.Address.Host, info.Address.Port)
 
-		conn, err := grpc.Dial(address, grpc.WithInsecure())
+		conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.MaxCallSendMsgSize(32<<20), grpc.MaxCallRecvMsgSize(32<<20)))
 		if err != nil {
 			logrus.Errorf("error connnecting to node %v: %v", info.Id, err)
 			continue
@@ -94,7 +95,7 @@ func (m *NodesMap) AddNode(name string, info *transport_pb.NodeInfo) error {
 
 	address := net.JoinHostPort(info.Address.Host, info.Address.Port)
 
-	conn, err := grpc.Dial(address, grpc.WithInsecure())
+	conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.MaxCallSendMsgSize(32<<20), grpc.MaxCallRecvMsgSize(32<<20)))
 	if err != nil {
 		return err
 	}
@@ -221,6 +222,37 @@ func (m *NodesMap) getNode(id string) *Node {
 	return m.nodes[id]
 }
 
+func (m *NodesMap) GetBlocks(nodeID string, blocks []*transport_pb.BlockPlacementInfo) ([]*fs_pb.Block, error) {
+	node := m.GetNode(nodeID)
+	if node == nil {
+		return nil, ErrNotFound
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	stream, err := (*node.conn).GetBlocks(ctx, &transport_pb.GetBlocksRequest{Blocks: blocks})
+	if err != nil {
+		return nil, err
+	}
+
+	var dBlocks []*fs_pb.Block
+	for {
+		res, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			logrus.Errorf("error receiving: %v", err)
+			continue
+		}
+
+		dBlocks = append(dBlocks, res.Block)
+	}
+
+	return dBlocks, nil
+}
+
 func (m *NodesMap) AssignBlocks(nodeID string, blocks []*fs_pb.Block) ([]*transport_pb.BlockPlacementInfo, error) {
 	node := m.GetNode(nodeID)
 	if node == nil {
@@ -244,7 +276,7 @@ func (m *NodesMap) AssignBlocks(nodeID string, blocks []*fs_pb.Block) ([]*transp
 
 	res, err := stream.CloseAndRecv()
 	if err != nil {
-		logrus.Errorf("lksjdflkjs: %v", err)
+		logrus.Errorf("error closing stream: %v", err)
 		return nil, err
 	}
 

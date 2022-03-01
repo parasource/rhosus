@@ -134,6 +134,10 @@ func (n *Node) CollectMetrics() (*transport_pb.NodeMetrics, error) {
 	return metrics, nil
 }
 
+func (n *Node) HandleGetBlock(block *transport_pb.BlockPlacementInfo) (*fs_pb.Block, error) {
+	return n.data.ReadBlock(block)
+}
+
 func (n *Node) HandleAssignBlocks(blocks []*fs_pb.Block) ([]*transport_pb.BlockPlacementInfo, error) {
 
 	logrus.Infof("handling assign blocks request")

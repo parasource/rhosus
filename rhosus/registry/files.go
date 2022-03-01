@@ -31,16 +31,23 @@ func (r *Registry) TransportAndRegisterBlocks(fileID string, blocks []*fs_pb.Blo
 	}
 	logrus.Infof("transported blocks in %v", time.Since(start).String())
 
+	bMap := make(map[string]*fs_pb.Block)
+	for _, block := range blocks {
+		bMap[block.Id] = block
+	}
+
 	var bInfos []*control_pb.BlockInfo
 	for _, block := range res {
 		bInfos = append(bInfos, &control_pb.BlockInfo{
 			Id:          block.BlockID,
-			Index:       0,
+			Index:       bMap[block.BlockID].Index,
 			FileID:      fileID,
 			NodeID:      nodeID,
 			PartitionID: block.PartitionID,
 		})
+		logrus.Infof("IDX STORED: %v", bMap[block.BlockID].Index)
 	}
+
 	err = r.MemoryStorage.PutBlocks(bInfos)
 	if err != nil {
 		logrus.Errorf("error putting blocks: %v", err)
@@ -49,4 +56,8 @@ func (r *Registry) TransportAndRegisterBlocks(fileID string, blocks []*fs_pb.Blo
 	logrus.Infof("TOTAL BLOCKS STORED: %v", len(bs))
 
 	return nil
+}
+
+func (r *Registry) GetFileHandler(path string) {
+
 }

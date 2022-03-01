@@ -70,6 +70,25 @@ func (s *Storage) loopFileHandlers() {
 
 				reqs[i].done(res, err)
 
+			case dataOpGetAllFiles:
+				var res []string
+
+				err := s.db.View(func(tx *bolt.Tx) error {
+					b := tx.Bucket([]byte(filesStorageBucketName))
+
+					err := b.ForEach(func(k, v []byte) error {
+						res = append(res, string(v))
+
+						return nil
+					})
+					return err
+				})
+				if err != nil {
+					reqs[i].done(res, err)
+				}
+
+				reqs[i].done(res, nil)
+
 			case dataOpDeleteFiles:
 
 				fileIDs := reqs[i].args[0].([]string)
@@ -86,7 +105,6 @@ func (s *Storage) loopFileHandlers() {
 				})
 
 				reqs[i].done(nil, err)
-
 			}
 		}
 
@@ -161,6 +179,24 @@ func (s *Storage) loopBlocksHandlers() {
 				})
 
 				reqs[i].done(res, err)
+
+			case dataOpGetAllBlocks:
+				var res []string
+
+				err := s.db.View(func(tx *bolt.Tx) error {
+					b := tx.Bucket([]byte(blocksStorageBucketName))
+
+					err := b.ForEach(func(k, v []byte) error {
+						res = append(res, string(v))
+
+						return nil
+					})
+					return err
+				})
+				if err != nil {
+					reqs[i].done(res, err)
+				}
+				reqs[i].done(res, nil)
 
 			case dataOpDeleteBlocks:
 

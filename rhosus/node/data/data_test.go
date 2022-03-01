@@ -44,6 +44,6 @@ func TestManager_WriteBlocks(t *testing.T) {
 			Data:   data,
 		}
 	}
-	_, err = m.WriteBlocks(blocks)
+	//_, err = m.WriteBlocks(blocks)
 	assert.Nil(t, err)
 }
