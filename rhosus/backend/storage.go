@@ -228,6 +228,98 @@ func (s *Storage) GetFilesBatch(paths []string) ([]*control_pb.FileInfo, error) 
 	return files, nil
 }
 
+func (s *Storage) GetAllFiles() ([]*control_pb.FileInfo, error) {
+	s.mu.RLock()
+	if s.shutdown {
+		s.mu.RUnlock()
+		return nil, ErrShutdown
+	}
+	s.mu.RUnlock()
+
+	r := NewStoreRequest(dataOpGetAllFiles)
+	select {
+	case s.fileReqC <- r:
+	default:
+		timer := timers.SetTimer(time.Second * time.Duration(s.config.WriteTimeoutS))
+		defer timers.ReleaseTimer(timer)
+		select {
+		case s.fileReqC <- r:
+		case <-timer.C:
+			return nil, ErrWriteTimeout
+		}
+	}
+
+	res := r.result()
+	if res.err != nil {
+		return nil, res.err
+	}
+
+	var files []*control_pb.FileInfo
+	for _, data := range res.reply.([]string) {
+
+		bytes, err := util.Base64Decode(data)
+		if err != nil {
+
+		}
+
+		var file control_pb.FileInfo
+		err = file.Unmarshal(bytes)
+		if err != nil {
+			logrus.Errorf("error unmarshaling file info: %v", err)
+		}
+
+		files = append(files, &file)
+	}
+
+	return files, nil
+}
+
+func (s *Storage) GetAllBlocks() ([]*control_pb.BlockInfo, error) {
+	s.mu.RLock()
+	if s.shutdown {
+		s.mu.RUnlock()
+		return nil, ErrShutdown
+	}
+	s.mu.RUnlock()
+
+	r := NewStoreRequest(dataOpGetAllBlocks)
+	select {
+	case s.blocksReqC <- r:
+	default:
+		timer := timers.SetTimer(time.Second * time.Duration(s.config.WriteTimeoutS))
+		defer timers.ReleaseTimer(timer)
+		select {
+		case s.blocksReqC <- r:
+		case <-timer.C:
+			return nil, ErrWriteTimeout
+		}
+	}
+
+	res := r.result()
+	if res.err != nil {
+		return nil, res.err
+	}
+
+	var blocks []*control_pb.BlockInfo
+	for _, data := range res.reply.([]string) {
+
+		bytes, err := util.Base64Decode(data)
+		if err != nil {
+			continue
+		}
+
+		var block control_pb.BlockInfo
+		err = block.Unmarshal(bytes)
+		if err != nil {
+			logrus.Errorf("error unmarshaling file info: %v", err)
+		}
+
+		blocks = append(blocks, &block)
+	}
+
+	return blocks, nil
+}
+
 func (s *Storage) RemoveFilesBatch(fileIDs []string) error {
 
 	s.mu.RLock()
@@ -411,9 +503,11 @@ type dataOp int
 const (
 	dataOpStoreFiles dataOp = iota
 	dataOpGetFilesBatch
+	dataOpGetAllFiles
 	dataOpDeleteFiles
 
 	dataOpStoreBatchBlocks
 	dataOpGetBlocks
+	dataOpGetAllBlocks
 	dataOpDeleteBlocks
 )

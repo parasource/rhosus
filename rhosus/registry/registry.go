@@ -256,6 +256,42 @@ func (r *Registry) Start() {
 	//
 	//}()
 
+	go func() {
+		//for {
+		<-time.After(time.Second * 5)
+
+		files := r.MemoryStorage.GetAllFiles()
+		if len(files) > 0 {
+			// Now we fetch BlockInfos from
+			blocks, err := r.MemoryStorage.GetBlocks(files[0].Id)
+			if err != nil {
+				logrus.Errorf("error getting blocks: %v", err)
+				return
+			}
+
+			var nodeID string
+			for id := range r.NodesManager.nodes {
+				nodeID = id
+				break
+			}
+
+			actualBlocks, err := r.NodesManager.GetBlocks(nodeID, blocksInfoToPlacement(blocks))
+			if err != nil {
+				logrus.Errorf("error getting blocks from node: %v", err)
+				return
+			}
+			actualBlocks = fillAndSortBlocks(blocks, actualBlocks)
+			for _, block := range actualBlocks {
+				logrus.Infof("BLOCK IDX: %v", block.Index)
+			}
+
+			//sort.Slice(actualBlocks, func(i, j int) bool {
+			//	return actualBlocks[i]. <
+			//})
+		}
+		//}
+	}()
+
 	r.readyC <- struct{}{}
 
 	logrus.Infof("Registry %v:%v is ready", r.Name, r.Id)

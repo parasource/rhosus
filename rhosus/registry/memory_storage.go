@@ -77,13 +77,20 @@ func NewMemoryStorage(registry *Registry) (*MemoryStorage, error) {
 		return nil, err
 	}
 
-	return &MemoryStorage{
+	m := &MemoryStorage{
 		registry: registry,
 		db:       db,
 
 		flushIntervalS: 5,
 		flushBatchSize: 1000,
-	}, nil
+	}
+	err = m.loadFromBackend()
+	if err != nil {
+		logrus.Errorf("error loading memory storage from backend: %v", err)
+		return nil, err
+	}
+
+	return m, nil
 }
 
 func (s *MemoryStorage) Start() {
@@ -101,6 +108,33 @@ func (s *MemoryStorage) Start() {
 			return
 		}
 	}
+}
+
+func (s *MemoryStorage) loadFromBackend() error {
+	var err error
+
+	files, err := s.registry.Backend.GetAllFiles()
+	if err != nil {
+		return err
+	}
+	for _, file := range files {
+		err := s.StoreFile(file)
+		if err != nil {
+			logrus.Errorf("error loading file from backend to mem storage: %v", err)
+			continue
+		}
+	}
+
+	blocks, err := s.registry.Backend.GetAllBlocks()
+	if err != nil {
+		return err
+	}
+	err = s.PutBlocks(blocks)
+	if err != nil {
+		return err
+	}
+
+	return err
 }
 
 func (s *MemoryStorage) StoreFile(file *control_pb.FileInfo) error {
@@ -143,6 +177,22 @@ func (s *MemoryStorage) PutBlocks(blocks []*control_pb.BlockInfo) error {
 	txn.Commit()
 
 	return nil
+}
+
+func (s *MemoryStorage) GetAllFiles() []*control_pb.FileInfo {
+	txn := s.db.Txn(false)
+
+	var files []*control_pb.FileInfo
+	res, err := txn.Get(defaultFilesTableName, "id")
+	if err != nil {
+		return nil
+	}
+
+	for obj := res.Next(); obj != nil; obj = res.Next() {
+		files = append(files, obj.(*control_pb.FileInfo))
+	}
+
+	return files
 }
 
 func (s *MemoryStorage) GetBlocks(fileID string) ([]*control_pb.BlockInfo, error) {

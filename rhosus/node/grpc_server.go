@@ -53,6 +53,27 @@ func (s *GrpcServer) ShutdownNode(c context.Context, r *transport_pb.ShutdownNod
 	panic("implement me")
 }
 
+func (s *GrpcServer) GetBlocks(r *transport_pb.GetBlocksRequest, stream transport_pb.TransportService_GetBlocksServer) error {
+
+	for _, blockID := range r.Blocks {
+
+		data, err := s.node.HandleGetBlock(blockID)
+		if err != nil {
+			return err
+		}
+
+		err = stream.Send(&transport_pb.GetBlocksResponse{
+			Block: data,
+		})
+		if err != nil {
+			return err
+		}
+
+	}
+
+	return nil
+}
+
 func (s *GrpcServer) AssignBlocks(srv transport_pb.TransportService_AssignBlocksServer) error {
 
 	var blocks []*fs_pb.Block
@@ -118,7 +139,7 @@ func (s *GrpcServer) Run() {
 		logrus.Fatalf("error listening tcp: %v", err)
 	}
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.MaxRecvMsgSize(32<<20), grpc.MaxSendMsgSize(32<<20))
 	transport_pb.RegisterTransportServiceServer(grpcServer, s)
 
 	go func() {
