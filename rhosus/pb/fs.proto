@@ -20,7 +20,8 @@ message Block {
   string id = 1;
   uint64 index = 2;
   string file_id = 3;
-  uint64 size = 4;
-  bytes data = 5;
+  uint64 offset = 4;
+  uint64 size = 5;
+  bytes data = 6;
 }
 

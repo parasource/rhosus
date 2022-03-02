@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package api_pb;
+option go_package = "github.com/parasource/rhosus/rhosus/pb/api_pb";
+
+service Api {
+  rpc MakeDir (MakeDirRequest) returns (CommonResponse);
+  rpc Remove (RemoveRequest) returns (CommonResponse);
+  rpc List (ListRequest) returns (ListResponse);
+  rpc Upload (stream UploadRequest) returns (UploadResponse);
+  rpc Download (DownloadRequest) returns (DownloadResponse);
+}
+
+message CommonResponse {
+  bool success = 1;
+  string err = 2;
+}
+
+message MakeDirRequest {
+
+}
+
+message RemoveRequest {
+  string path = 1;
+  bool recursive = 2;
+}
+
+message ListRequest {
+  string path = 1;
+}
+
+message ListResponse {
+
+}
+
+message UploadRequest {
+  message Header {
+
+  }
+  Header header = 1;
+  bytes data = 2;
+}
+
+message UploadResponse {
+
+}
+
+message DownloadRequest {
+
+}
+
+message DownloadResponse {
+
+}

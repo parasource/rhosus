@@ -5,7 +5,7 @@ import "github.com/spf13/cobra"
 func init() {
 	createDirCmd.SetHelpTemplate(`
 Usage:
-  rhosus dir create [path] 
+  rhosus mkdir [path] 
 
 Options:
   -h [--help]			show help information
@@ -15,7 +15,7 @@ Options:
 }
 
 var createDirCmd = &cobra.Command{
-	Use:   "dir create",
+	Use:   "mkdir",
 	Short: "create new directory",
 	Run: func(cmd *cobra.Command, args []string) {
 		for _, arg := range args {
