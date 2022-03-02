@@ -11,5 +11,8 @@ build_r:
 build_d:
 	CGO_ENABLED=0 go build -a -installsuffix cgo -o ./bin ./cmd/rhosusd
 
+build_c:
+	CGO_ENABLED=0 go build -a -installsuffix cgo -o ./bin ./cmd/rhosus
+
 test:
 	go test -v ./...

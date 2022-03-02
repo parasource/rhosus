@@ -11,7 +11,7 @@ import (
 	"runtime"
 )
 
-var nodeConfigDefaults = map[string]interface{}{
+var configDefaults = map[string]interface{}{
 	"gomaxprocs":       0,
 	"registry_host":    "127.0.0.1",
 	"registry_port":    "6435",
@@ -37,7 +37,7 @@ var rootCmd = &cobra.Command{
 
 		printWelcome()
 
-		for k, v := range nodeConfigDefaults {
+		for k, v := range configDefaults {
 			viper.SetDefault(k, v)
 		}
 
