@@ -3,12 +3,10 @@ package data
 import (
 	"bytes"
 	"errors"
-	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
-	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/parasource/rhosus/rhosus/util/fileutil"
+	"github.com/parasource/rhosus/rhosus/util/tickers"
 	"github.com/parasource/rhosus/rhosus/util/uuid"
 	"github.com/sirupsen/logrus"
-	"io"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -34,186 +32,22 @@ var (
 )
 
 const (
-	partitionHeaderSize = 36 * 256
+	defaultBlockSize     = 2 << 20 // by default, block size is 16mb so one partition fits 256 blocks
+	partitionHeaderSize  = 36 * (1 << 30 / defaultBlockSize)
+	defaultPartitionSize = partitionHeaderSize + (1 << 30) // default partition size is header + 4gb
+	partitionBlocksCount = (1 << 30) / defaultBlockSize
 
 	defaultPartitionsDir      = "./parts"
 	defaultMinPartitionsCount = 1
-	defaultPartitionSize      = partitionHeaderSize + (1 * 1024 * 1000) // default partition size is header + 1gb
-	defaultBlockSize          = 16 << 20                                // by default, block size is 16mb so one partition fits 256 blocks
 )
-
-type Partition struct {
-	file *os.File
-
-	blocksMap      map[string]int
-	occupiedBlocks []int
-
-	ID           string
-	checksumType control_pb.Partition_ChecksumType
-	checksum     string
-	full         bool
-}
-
-func newPartition(id string, file *os.File) *Partition {
-	return &Partition{
-		file:           file,
-		blocksMap:      make(map[string]int, 256),
-		occupiedBlocks: []int{},
-		ID:             id,
-		checksumType:   control_pb.Partition_CHECKSUM_CRC32,
-		checksum:       "",
-		full:           false,
-	}
-}
-
-func (p *Partition) isBlockAllocated(n int) bool {
-	for _, el := range p.occupiedBlocks {
-		if el == n {
-			return true
-		}
-	}
-	return false
-}
-
-// writeBlocks writes blocks to partitions
-func (p *Partition) writeBlocks(blocks map[string][]byte) (error, map[string]error) {
-
-	errs := make(map[string]error, len(blocks))
-	headerRecs := make(map[string]int, len(blocks)) // header file for each block
-
-	for id, data := range blocks {
-		// getting number of first available block
-		var blockN int
-		for n := 0; n < 256; n++ {
-			if !p.isBlockAllocated(n) {
-				blockN = n
-				break
-			}
-		}
-
-		n, err := p.writeBlockContents(blockN, data)
-		if err != nil {
-			errs[id] = err
-			continue
-		}
-		if len(data) != n {
-			errs[id] = ErrCorruptWrite
-			continue
-		}
-
-		p.occupiedBlocks = append(p.occupiedBlocks, blockN)
-		if len(p.occupiedBlocks) >= 256 {
-			p.full = true
-		}
-		headerRecs[id] = blockN
-	}
-
-	err := p.writeHeaderRecs(headerRecs)
-	if err != nil {
-		return err, errs
-	}
-
-	err = p.file.Sync()
-	if err != nil {
-
-	}
-
-	return nil, errs
-}
-
-func (p *Partition) Sync() error {
-	return p.file.Sync()
-}
-
-func (p *Partition) writeHeaderRecs(recs map[string]int) error {
-	for id, n := range recs {
-		n, err := p.file.WriteAt([]byte(id), int64(36*n))
-		if err != nil || n != 36 {
-			// todo: maybe retry?
-		}
-	}
-
-	return nil
-}
-
-func (p *Partition) loadHeader() error {
-	headerSizeBytes := 36 * 256
-
-	data := make([]byte, headerSizeBytes)
-	n, err := p.file.Read(data)
-	if err != nil {
-		return err
-	}
-	if n != headerSizeBytes {
-		return ErrCorruptWrite
-	}
-
-	headerSecSize := 36
-	offset := 0
-	for i := 0; i < 256; i++ {
-		id := data[offset : offset+headerSecSize]
-		if !isIdAllZeros(id) {
-			p.blocksMap[string(id)] = i
-			p.occupiedBlocks = append(p.occupiedBlocks, i)
-		}
-		offset += headerSecSize
-	}
-
-	return nil
-}
-
-func (p *Partition) writeBlockContents(block int, data []byte) (int, error) {
-	offset := int64(partitionHeaderSize + block*defaultBlockSize)
-
-	n, err := p.file.WriteAt(data, offset)
-	if err != nil {
-		logrus.Errorf("error writing block to file: %v", err)
-		return 0, err
-	}
-
-	err = p.file.Sync()
-
-	return n, err
-}
-
-func (p *Partition) readBlocks(blocks []*transport_pb.BlockPlacementInfo) map[string][]byte {
-	result := make(map[string][]byte, len(blocks))
-
-	for _, block := range blocks {
-		var err error
-		offset := p.blocksMap[block.BlockID]
-		_, result[block.BlockID], err = p.readBlockContents(offset)
-		if err != nil {
-			delete(result, block.BlockID)
-			continue
-		}
-	}
-
-	return result
-}
-
-func (p *Partition) readBlockContents(blockN int) (int, []byte, error) {
-	offset := int64(partitionHeaderSize + blockN*defaultBlockSize)
-
-	data := make([]byte, defaultBlockSize)
-	n, err := p.file.ReadAt(data, offset)
-	if err != nil {
-		logrus.Errorf("error reading blockN from file: %v", err)
-		return 0, nil, err
-	}
-
-	return n, data, err
-}
-
-func (p *Partition) GetFile() io.Reader {
-	return p.file
-}
 
 type PartitionsMap struct {
 	parts map[string]*Partition
+	//idxFiles map[string]*IdxFile
 
 	dir                string // directory where to store parts files
 	minPartitionsCount int    // to minimize hotspots each node starts with fixed number of parts
+	watchIntervalMs    int    // interval to watch to create new partition
 	partitionSize      int64
 }
 
@@ -230,10 +64,12 @@ func NewPartitionsMap(dir string, size uint64) (*PartitionsMap, error) {
 
 	p := &PartitionsMap{
 		parts: make(map[string]*Partition),
-		dir:   path,
+		//idxFiles: make(map[string]*IdxFile),
+		dir: path,
 
 		minPartitionsCount: defaultMinPartitionsCount,
 		partitionSize:      defaultPartitionSize,
+		watchIntervalMs:    1500,
 	}
 
 	if err = os.MkdirAll(path, 0750); err != nil {
@@ -244,14 +80,42 @@ func NewPartitionsMap(dir string, size uint64) (*PartitionsMap, error) {
 		return nil, err
 	}
 
+	go p.watchCreatePartitions()
+
 	return p, nil
+}
+
+func (p *PartitionsMap) watchCreatePartitions() {
+	ticker := tickers.SetTicker(time.Millisecond * time.Duration(p.watchIntervalMs))
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			partsAvailable := 0
+			for _, partition := range p.parts {
+				// todo: define threshold for creating new partitions
+				logrus.Infof("---- BLOCKS AVAILABLE: %v", partitionBlocksCount-len(partition.blocksMap))
+				if !partition.full && (partitionBlocksCount-len(partition.blocksMap)) >= 150 {
+					partsAvailable++
+				}
+			}
+
+			if partsAvailable < 1 {
+				_, err := p.createPartition()
+				if err != nil {
+					logrus.Errorf("error creating partition: %v", err)
+				}
+			}
+		}
+	}
 }
 
 func (p *PartitionsMap) getRandomPartition() (*Partition, error) {
 	var availableParts []string
 
 	for id, partition := range p.parts {
-		if !partition.full && len(partition.occupiedBlocks) != 256 {
+		if !partition.full && len(partition.occupiedBlocks) != partitionBlocksCount {
 			availableParts = append(availableParts, id)
 		}
 	}
@@ -302,7 +166,7 @@ func (p *PartitionsMap) GetAvailablePartitions(blocks int) map[string]*Partition
 	parts := make(map[string]*Partition, len(p.parts))
 
 	for id, part := range p.parts {
-		availableBlocks := 256 - len(part.occupiedBlocks)
+		availableBlocks := partitionBlocksCount - len(part.occupiedBlocks)
 		if !part.full && availableBlocks >= blocks {
 			parts[id] = part
 		}

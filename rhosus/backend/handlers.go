@@ -33,7 +33,7 @@ func (s *Storage) loopFileHandlers() {
 			switch reqs[i].op {
 
 			// ------------------
-			// File handlers
+			// file handlers
 			// ------------------
 
 			case dataOpStoreFiles:
@@ -141,7 +141,7 @@ func (s *Storage) loopBlocksHandlers() {
 			switch reqs[i].op {
 
 			// ------------------
-			// File handlers
+			// file handlers
 			// ------------------
 
 			case dataOpStoreBatchBlocks:

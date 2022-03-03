@@ -108,7 +108,7 @@ func (s *Server) NotifyReady() <-chan struct{} {
 }
 
 func (s *Server) Handle(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Server", "Rhosus File Server "+util.VERSION)
+	w.Header().Set("Server", "Rhosus file Server "+util.VERSION)
 	//if r.Header.Get("Origin") != "" {
 	//	w.Header().Set("Access-Control-Allow-Origin", "*")
 	//	w.Header().Set("Access-Control-Allow-Credentials", "true")
@@ -179,7 +179,7 @@ func (s *Server) handlePostPut(w http.ResponseWriter, r *http.Request) error {
 	bytesBufferLimitCond := sync.NewCond(new(sync.Mutex))
 	//var fileChunksLock sync.Mutex
 
-	blockSize := int64(3 << 20) // block size is 4mb
+	blockSize := int64(2 << 20) // block size is 2mb
 
 	counter := 1
 
