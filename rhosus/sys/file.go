@@ -16,7 +16,7 @@ type File struct {
 	Data      []byte
 }
 
-//func (f *File) SetAttributes(attr *fuse.Attr) {
+//func (f *file) SetAttributes(attr *fuse.Attr) {
 //
 //	attr.Mode = f.mode()
 //	attr.Size = f.Size

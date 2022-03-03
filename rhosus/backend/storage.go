@@ -118,7 +118,7 @@ func (s *Storage) start() {
 
 //////////////////////////////
 // ---------------------------
-// File methods
+// file methods
 // ---------------------------
 
 func (s *Storage) StoreFilesBatch(files map[string]*control_pb.FileInfo) error {

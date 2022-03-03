@@ -41,28 +41,6 @@ func NewManager() (*Manager, error) {
 	}
 	m.backend = b
 
-	//time.Sleep(time.Second)
-	//
-	//var data []byte
-	//for i := 0; i < 15*1024*1024; i++ {
-	//	data = append(data, byte('a'))
-	//}
-	//blocks := make(map[string]*fs_pb.Block, 256)
-	//start := time.Now()
-	//for i := 0; i < 256; i++ {
-	//	uid, _ := uuid.NewV4()
-	//
-	//	blocks[uid.String()] = &fs_pb.Block{
-	//		Id:      uid.String(),
-	//		FileId:  "123123",
-	//		Size_:   64,
-	//		Data:    data,
-	//	}
-	//}
-	//res, err := m.WriteBlocks(blocks)
-	//logrus.Info(res)
-	//logrus.Infof("wrote 4gb in %v", time.Since(start).String())
-
 	return m, err
 }
 
