@@ -120,6 +120,8 @@ message FileInfo {
   string owner = 7;
   string group = 8;
   string symlink = 9; // Optional. Used only for symlinks
+
+  int32 replication = 10; // replication factor
 }
 
 // Partition is a set of blocks

@@ -1,18 +1,100 @@
 package data
 
 import (
+	"errors"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
+	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
+	"github.com/parasource/rhosus/rhosus/util/tickers"
 	"github.com/sirupsen/logrus"
 	"io"
 	"os"
+	"sync"
+	"time"
 )
+
+var (
+	ErrWriteTimeout = errors.New("write timeout")
+)
+
+type sink struct {
+	part *Partition
+
+	blocks chan *fs_pb.Block
+	lock   sync.Mutex
+}
+
+func newSink(part *Partition) *sink {
+	return &sink{
+		part:   part,
+		blocks: make(chan *fs_pb.Block, 1000),
+	}
+}
+
+func (s *sink) put(block *fs_pb.Block) error {
+	select {
+	case s.blocks <- block:
+	default:
+		ticker := tickers.SetTicker(time.Second)
+		defer tickers.ReleaseTicker(ticker)
+		select {
+		case s.blocks <- block:
+		case <-ticker.C:
+			return ErrWriteTimeout
+		}
+	}
+
+	return nil
+}
+
+func (s *sink) run() {
+	ticker := tickers.SetTicker(time.Millisecond * 500)
+	defer tickers.ReleaseTicker(ticker)
+
+	for {
+		select {
+		case <-ticker.C:
+
+			blocks := make(map[string][]byte, cap(s.blocks))
+		loop:
+			for {
+				select {
+				case block := <-s.blocks:
+					blocks[block.Id] = block.Data
+				default:
+					break loop
+				}
+			}
+
+			if s.part.isAvailable(len(blocks)) {
+				logrus.Infof("we're here")
+				err, _ := s.part.writeBlocks(blocks)
+				if err != nil {
+					logrus.Errorf("error flushing partition sink: %v", err)
+				}
+
+				s.part.Sync()
+			} else {
+				// In this case we explicitly write blocks to first available partition
+				// will work on this later
+				// TODO
+			}
+		}
+	}
+}
 
 type Partition struct {
 	file *os.File
+	sink *sink
 
 	blocksMap      map[string]int
 	occupiedBlocks []int
+
+	// In some cases we might need to move blocks to another partition,
+	// but registry will not know about that due to one directional connection.
+	// So when the registry tries to find blocks that does not exist on the called partition,
+	// it will look into moved blocks
+	movedBlocks map[string]string
 
 	ID           string
 	checksumType control_pb.Partition_ChecksumType
@@ -21,15 +103,27 @@ type Partition struct {
 }
 
 func newPartition(id string, file *os.File) *Partition {
-	return &Partition{
-		file:           file,
+	p := &Partition{
+		file: file,
+
 		blocksMap:      make(map[string]int, partitionBlocksCount),
+		movedBlocks:    make(map[string]string, partitionBlocksCount),
 		occupiedBlocks: []int{},
 		ID:             id,
 		checksumType:   control_pb.Partition_CHECKSUM_CRC32,
 		checksum:       "",
 		full:           false,
 	}
+	p.sink = newSink(p)
+	go p.sink.run()
+
+	return p
+}
+
+func (p *Partition) isAvailable(blocks int) bool {
+	availableBlocks := partitionBlocksCount - len(p.occupiedBlocks)
+
+	return !p.full && availableBlocks >= blocks
 }
 
 func (p *Partition) isBlockAllocated(n int) bool {

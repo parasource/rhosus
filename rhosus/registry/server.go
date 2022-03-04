@@ -1,4 +1,4 @@
-package file_server
+package registry
 
 import (
 	"bytes"
@@ -41,13 +41,12 @@ type Server struct {
 	shutdownC chan struct{}
 	readyC    chan struct{}
 
-	RegistryFileHandler    func(file *control_pb.FileInfo) error
-	TransportBlocksHandler func(fileID string, blocks []*fs_pb.Block) error
-	RegistryDelete         func(dir string, name string) error
+	registry *Registry
 }
 
-func NewServer(conf ServerConfig) (*Server, error) {
+func NewServer(r *Registry, conf ServerConfig) (*Server, error) {
 	s := &Server{
+		registry:  r,
 		Config:    conf,
 		shutdownC: make(chan struct{}),
 		readyC:    make(chan struct{}, 1),
@@ -131,17 +130,27 @@ func (s *Server) Handle(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
 
-	path := r.URL.Path
-	isForDirectory := strings.HasSuffix(path, "/")
-	if isForDirectory && len(path) > 1 {
-		path = path[:len(path)-1]
+	filePath := r.URL.Path
+	isForDirectory := strings.HasSuffix(filePath, "/")
+	if isForDirectory && len(filePath) > 1 {
+		filePath = filePath[:len(filePath)-1]
 	}
 
 	w.Header().Set("Accept-Ranges", "bytes")
 
 	// Returns file
 
-	w.Write([]byte("you are a leader, neo"))
+	err := s.registry.GetFileHandler(filePath, func(block *fs_pb.Block) {
+		reader := io.NopCloser(bytes.NewReader(block.Data))
+		n, err := io.Copy(w, reader)
+		if err != nil || n != int64(len(block.Data)) {
+			logrus.Errorf("something went wrong: %v, %v", err, n)
+		}
+		//reader.Close()
+	})
+	if err != nil {
+		logrus.Errorf("error getting blocks: %v", err)
+	}
 }
 
 func (s *Server) handlePostPut(w http.ResponseWriter, r *http.Request) error {
@@ -194,7 +203,7 @@ func (s *Server) handlePostPut(w http.ResponseWriter, r *http.Request) error {
 		Group:      "",
 		Symlink:    "",
 	}
-	err = s.RegistryFileHandler(file)
+	err = s.registry.RegisterFile(file)
 	if err != nil {
 		logrus.Errorf("error registring file: %v", err)
 	}
@@ -247,7 +256,7 @@ func (s *Server) handlePostPut(w http.ResponseWriter, r *http.Request) error {
 			// actual block payload
 			data := dataReader.Bytes
 			uid, _ = uuid.NewV4()
-			err = s.TransportBlocksHandler(file.Id, []*fs_pb.Block{{
+			err = s.registry.TransportAndRegisterBlocks(file.Id, []*fs_pb.Block{{
 				Id:     uid.String(),
 				Index:  uint64(counter),
 				FileId: file.Id,
