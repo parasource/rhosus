@@ -166,8 +166,7 @@ func (p *PartitionsMap) GetAvailablePartitions(blocks int) map[string]*Partition
 	parts := make(map[string]*Partition, len(p.parts))
 
 	for id, part := range p.parts {
-		availableBlocks := partitionBlocksCount - len(part.occupiedBlocks)
-		if !part.full && availableBlocks >= blocks {
+		if part.isAvailable(blocks) {
 			parts[id] = part
 		}
 	}

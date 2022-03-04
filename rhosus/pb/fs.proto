@@ -23,5 +23,6 @@ message Block {
   uint64 offset = 4;
   uint64 size = 5;
   bytes data = 6;
+  bytes checksum = 7;
 }
 

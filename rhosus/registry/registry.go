@@ -7,7 +7,6 @@ import (
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/parasource/rhosus/rhosus/registry/cluster"
-	file_server "github.com/parasource/rhosus/rhosus/server"
 	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/parasource/rhosus/rhosus/util/tickers"
 	"github.com/parasource/rhosus/rhosus/util/uuid"
@@ -33,7 +32,7 @@ type Config struct {
 	ClusterUsername string `json:"cluster_username"`
 	ClusterPassword string `json:"cluster_password"`
 
-	ServerConfig file_server.ServerConfig `mapstructure:"http_server"`
+	ServerConfig ServerConfig `mapstructure:"http_server"`
 }
 
 type Registry struct {
@@ -45,7 +44,7 @@ type Registry struct {
 	IsLeader bool
 
 	NodesManager   *NodesMap
-	FileServer     *file_server.Server
+	FileServer     *Server
 	Backend        *backend.Storage
 	MemoryStorage  *MemoryStorage
 	StatsCollector *StatsCollector
@@ -145,7 +144,7 @@ func NewRegistry(config Config) (*Registry, error) {
 		logrus.Fatalf("%v", err)
 	}
 
-	fileServer, err := file_server.NewServer(file_server.ServerConfig{
+	fileServer, err := NewServer(r, ServerConfig{
 		Host:      r.Config.ServerConfig.Host,
 		Port:      r.Config.ServerConfig.Port,
 		MaxSizeMb: 500,
@@ -154,14 +153,8 @@ func NewRegistry(config Config) (*Registry, error) {
 		logrus.Fatalf("error starting file server: %v", err)
 	}
 	r.FileServer = fileServer
-	r.setFileServerHandlers()
 
 	return r, nil
-}
-
-func (r *Registry) setFileServerHandlers() {
-	r.FileServer.RegistryFileHandler = r.RegisterFile
-	r.FileServer.TransportBlocksHandler = r.TransportAndRegisterBlocks
 }
 
 func getId(persistent bool) string {
@@ -218,79 +211,6 @@ func (r *Registry) Start() {
 	go r.MemoryStorage.Start()
 
 	go r.handleSignals()
-
-	//go func() {
-	//	<-time.After(time.Second * 2)
-	//
-	//	uid, _ := uuid.NewV4()
-	//
-	//	file := &control_pb.FileInfo{
-	//		Id:    uid.String(),
-	//		Type:  control_pb.FileInfo_FILE,
-	//		Path:  "test/index.html",
-	//		Size_: 128000,
-	//		Permission: &control_pb.FileInfo_FsPermission{
-	//			Perm: 0,
-	//		},
-	//		Owner: "egorovchinnikov",
-	//		Group: "owner",
-	//	}
-	//
-	//	var data []byte
-	//	for j := 0; j < 4*1024*1000; j++ {
-	//		data = append(data, byte('b'))
-	//	}
-	//	var blocks []*fs_pb.Block
-	//	for i := 0; i < 256; i++ {
-	//		uid, _ := uuid.NewV4()
-	//
-	//		blocks = append(blocks, &fs_pb.Block{
-	//			Id:     uid.String(),
-	//			FileId: "testfile123",
-	//			Size_:  16,
-	//			Data:   data,
-	//		})
-	//	}
-	//
-	//	_ = r.registerFileWithBlocks(file, blocks)
-	//
-	//}()
-
-	//go func() {
-	//	//for {
-	//	<-time.After(time.Second * 5)
-	//
-	//	files := r.MemoryStorage.GetAllFiles()
-	//	if len(files) > 0 {
-	//		// Now we fetch BlockInfos from
-	//		blocks, err := r.MemoryStorage.GetBlocks(files[0].Id)
-	//		if err != nil {
-	//			logrus.Errorf("error getting blocks: %v", err)
-	//			return
-	//		}
-	//
-	//		var nodeID string
-	//		for id := range r.NodesManager.nodes {
-	//			nodeID = id
-	//			break
-	//		}
-	//
-	//		actualBlocks, err := r.NodesManager.GetBlocks(nodeID, blocksInfoToPlacement(blocks))
-	//		if err != nil {
-	//			logrus.Errorf("error getting blocks from node: %v", err)
-	//			return
-	//		}
-	//		actualBlocks = fillAndSortBlocks(blocks, actualBlocks)
-	//		for _, block := range actualBlocks {
-	//			logrus.Infof("BLOCK IDX: %v", block.Index)
-	//		}
-	//
-	//		//sort.Slice(actualBlocks, func(i, j int) bool {
-	//		//	return actualBlocks[i]. <
-	//		//})
-	//	}
-	//	//}
-	//}()
 
 	r.readyC <- struct{}{}
 

@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"github.com/parasource/rhosus/rhosus/registry"
-	file_server "github.com/parasource/rhosus/rhosus/server"
 	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -104,7 +103,7 @@ var rootCmd = &cobra.Command{
 		httpPort := v.GetString("http_port")
 
 		conf := registry.Config{
-			ServerConfig: file_server.ServerConfig{
+			ServerConfig: registry.ServerConfig{
 				Host:      httpHost,
 				Port:      httpPort,
 				MaxSizeMb: 0,

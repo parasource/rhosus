@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"fmt"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	"github.com/sirupsen/logrus"
@@ -58,6 +59,36 @@ func (r *Registry) TransportAndRegisterBlocks(fileID string, blocks []*fs_pb.Blo
 	return nil
 }
 
-func (r *Registry) GetFileHandler(path string) {
+func (r *Registry) GetFileHandler(path string, transport func(block *fs_pb.Block)) error {
 
+	file, err := r.MemoryStorage.GetFileByPath(path)
+	if err != nil {
+		return err
+	}
+
+	// Now we fetch BlockInfos from
+	blocks, err := r.MemoryStorage.GetBlocks(file.Id)
+	if err != nil {
+		return fmt.Errorf("error getting blocks: %v", err)
+	}
+
+	// just getting first node for example
+	var nodeID string
+	for id := range r.NodesManager.nodes {
+		nodeID = id
+		break
+	}
+
+	actualBlocks, err := r.NodesManager.GetBlocks(nodeID, blocksInfoToPlacement(blocks))
+	if err != nil {
+		return fmt.Errorf("error getting blocks from node: %v", err)
+	}
+	actualBlocks = fillAndSortBlocks(blocks, actualBlocks)
+
+	// todo: refactor
+	for _, block := range actualBlocks {
+		transport(block)
+	}
+
+	return nil
 }

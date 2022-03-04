@@ -163,6 +163,17 @@ func (s *MemoryStorage) GetFile(id string) (*control_pb.FileInfo, error) {
 	return raw.(*control_pb.FileInfo), nil
 }
 
+func (s *MemoryStorage) GetFileByPath(path string) (*control_pb.FileInfo, error) {
+	txn := s.db.Txn(false)
+
+	raw, err := txn.First(defaultFilesTableName, "path", path)
+	if err != nil {
+		return nil, err
+	}
+
+	return raw.(*control_pb.FileInfo), nil
+}
+
 func (s *MemoryStorage) PutBlocks(blocks []*control_pb.BlockInfo) error {
 	var err error
 

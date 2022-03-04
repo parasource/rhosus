@@ -74,18 +74,24 @@ func (m *Manager) WriteBlocks(blocks []*fs_pb.Block) ([]*transport_pb.BlockPlace
 			blocksCount := len(blocks) / len(parts)
 			bSlice := blocks[offset : offset+blocksCount]
 
-			data := make(map[string][]byte)
-			for _, block := range bSlice {
-				data[block.Id] = block.Data
-			}
+			if true {
+				for _, block := range bSlice {
+					_ = part.sink.put(block)
+				}
+			} else {
+				data := make(map[string][]byte)
+				for _, block := range bSlice {
+					data[block.Id] = block.Data
+				}
 
-			err, errs := part.writeBlocks(data)
-			if err != nil {
-				logrus.Errorf("error writing to partition: %v", err)
-				return
-			}
-			if len(errs) != 0 {
-				// todo
+				err, errs := part.writeBlocks(data)
+				if err != nil {
+					logrus.Errorf("error writing to partition: %v", err)
+					return
+				}
+				if len(errs) != 0 {
+					// todo
+				}
 			}
 
 			for _, block := range bSlice {
