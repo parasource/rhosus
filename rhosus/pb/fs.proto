@@ -21,7 +21,7 @@ message Block {
   uint64 index = 2;
   string file_id = 3;
   uint64 offset = 4;
-  uint64 size = 5;
+  uint64 len = 5;
   bytes data = 6;
   bytes checksum = 7;
 }

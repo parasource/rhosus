@@ -8,7 +8,7 @@ service Api {
   rpc Remove (RemoveRequest) returns (CommonResponse);
   rpc List (ListRequest) returns (ListResponse);
   rpc Upload (stream UploadRequest) returns (UploadResponse);
-  rpc Download (DownloadRequest) returns (DownloadResponse);
+  rpc Download (DownloadRequest) returns (stream DownloadResponse);
 }
 
 message CommonResponse {

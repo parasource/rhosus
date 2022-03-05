@@ -142,7 +142,7 @@ func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
 
 	err := s.registry.GetFileHandler(filePath, func(block *fs_pb.Block) {
 		reader := io.NopCloser(bytes.NewReader(block.Data))
-		n, err := io.Copy(w, reader)
+		n, err := io.CopyN(w, reader, int64(block.Len))
 		if err != nil || n != int64(len(block.Data)) {
 			logrus.Errorf("something went wrong: %v, %v", err, n)
 		}
@@ -208,6 +208,7 @@ func (s *Server) handlePostPut(w http.ResponseWriter, r *http.Request) error {
 		logrus.Errorf("error registring file: %v", err)
 	}
 
+	var dataToTransfer []*fs_pb.Block
 	for {
 		bytesBufferLimitCond.L.Lock()
 		for atomic.LoadInt64(&bytesBufferCounter) >= 4 {
@@ -233,12 +234,31 @@ func (s *Server) handlePostPut(w http.ResponseWriter, r *http.Request) error {
 		var chunkOffset int64 = 0
 
 		if dataSize < blockSize {
+			func() {
+				defer func() {
+					bufPool.Put(bytesBuffer)
+					atomic.AddInt64(&bytesBufferCounter, -1)
+					bytesBufferLimitCond.Signal()
+				}()
+				smallContent := make([]byte, dataSize)
+				bytesBuffer.Read(smallContent)
+
+				dataReader := util.NewBytesReader(smallContent)
+
+				// actual block payload
+				data := dataReader.Bytes
+				uid, _ = uuid.NewV4()
+				block := &fs_pb.Block{
+					Id:     uid.String(),
+					Index:  uint64(counter),
+					FileId: file.Id,
+					Len:    uint64(len(data)),
+					Data:   smallContent,
+				}
+				dataToTransfer = append(dataToTransfer, block)
+			}()
 			chunkOffset += dataSize
-			smallContent := make([]byte, dataSize)
-			bytesBuffer.Read(smallContent)
-			bufPool.Put(bytesBuffer)
-			atomic.AddInt64(&bytesBufferCounter, -1)
-			bytesBufferLimitCond.Signal()
+
 			break
 		}
 
@@ -256,16 +276,14 @@ func (s *Server) handlePostPut(w http.ResponseWriter, r *http.Request) error {
 			// actual block payload
 			data := dataReader.Bytes
 			uid, _ = uuid.NewV4()
-			err = s.registry.TransportAndRegisterBlocks(file.Id, []*fs_pb.Block{{
+			block := &fs_pb.Block{
 				Id:     uid.String(),
 				Index:  uint64(counter),
 				FileId: file.Id,
-				Size_:  uint64(len(data)),
+				Len:    uint64(len(data)),
 				Data:   data,
-			}})
-			if err != nil {
-				logrus.Errorf("error transporting blocks to node: %v", err)
 			}
+			dataToTransfer = append(dataToTransfer, block)
 
 			counter++
 
@@ -277,6 +295,11 @@ func (s *Server) handlePostPut(w http.ResponseWriter, r *http.Request) error {
 		if dataSize < blockSize {
 			break
 		}
+	}
+
+	err = s.registry.TransportAndRegisterBlocks(file.Id, dataToTransfer)
+	if err != nil {
+		logrus.Errorf("error transporting blocks to node: %v", err)
 	}
 
 	w.Write([]byte("OK"))

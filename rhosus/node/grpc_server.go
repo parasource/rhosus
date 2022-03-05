@@ -2,7 +2,6 @@ package rhosus_node
 
 import (
 	"context"
-	"errors"
 	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/sirupsen/logrus"
@@ -77,6 +76,7 @@ func (s *GrpcServer) GetBlocks(r *transport_pb.GetBlocksRequest, stream transpor
 func (s *GrpcServer) AssignBlocks(srv transport_pb.TransportService_AssignBlocksServer) error {
 
 	var blocks []*fs_pb.Block
+	var results []*transport_pb.BlockPlacementInfo
 
 	for {
 		req, err := srv.Recv()
@@ -89,19 +89,28 @@ func (s *GrpcServer) AssignBlocks(srv transport_pb.TransportService_AssignBlocks
 		}
 
 		blocks = append(blocks, req.Block)
+		//if len(blocks) == 20 {
+		//	go func(blocks []*fs_pb.Block) {
+		//		res, err := s.node.HandleAssignBlocks(blocks)
+		//		if err != nil {
+		//			//return err
+		//		}
+		//		results = append(results, res...)
+		//		logrus.Infof("flushed %v blocks", len(res))
+		//	}(blocks)
+		//	blocks = []*fs_pb.Block{}
+		//}
 	}
 
-	if len(blocks) == 0 {
-		return errors.New("empty blocks")
-	}
-
-	logrus.Infof("blocks len: %v", len(blocks))
 	res, err := s.node.HandleAssignBlocks(blocks)
 	if err != nil {
 		return err
 	}
+
+	results = append(results, res...)
+
 	err = srv.SendAndClose(&transport_pb.AssignBlocksResponse{
-		Placement: res,
+		Placement: results,
 	})
 	if err != nil {
 		logrus.Errorf("error sending and closing stream: %v", err)

@@ -140,8 +140,6 @@ func (n *Node) HandleGetBlock(block *transport_pb.BlockPlacementInfo) (*fs_pb.Bl
 
 func (n *Node) HandleAssignBlocks(blocks []*fs_pb.Block) ([]*transport_pb.BlockPlacementInfo, error) {
 
-	logrus.Infof("handling assign blocks request")
-
 	info, err := n.data.WriteBlocks(blocks)
 	if err != nil {
 		return nil, err
