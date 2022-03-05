@@ -52,59 +52,77 @@ func (m *Manager) WriteBlocks(blocks []*fs_pb.Block) ([]*transport_pb.BlockPlace
 		return nil, ErrShutdown
 	}
 
-	var wg sync.WaitGroup
+	//var wg sync.WaitGroup
 	var placement []*transport_pb.BlockPlacementInfo
 
-	parts := m.parts.GetAvailablePartitions(len(blocks))
+	parts := m.parts.GetNotFullPartitions()
+
+	// just in case new part wasn't created by watcher
 	if len(parts) == 0 {
 		newPartId, err := m.parts.createPartition()
 		if err != nil {
 			return nil, err
 		}
 
-		parts[newPartId], _ = m.parts.getPartition(newPartId)
+		part, _ := m.parts.getPartition(newPartId)
+		parts = append(parts, part)
 	}
 
-	offset := 0
-	for _, part := range parts {
-		wg.Add(1)
-		go func(part *Partition, offset int) {
-			defer wg.Done()
+	for i, block := range blocks {
+		partIdx := i % len(parts)
 
-			blocksCount := len(blocks) / len(parts)
-			bSlice := blocks[offset : offset+blocksCount]
+		part := parts[partIdx]
+		logrus.Info(parts, part == nil)
 
-			if true {
-				for _, block := range bSlice {
-					_ = part.sink.put(block)
-				}
-			} else {
-				data := make(map[string][]byte)
-				for _, block := range bSlice {
-					data[block.Id] = block.Data
-				}
+		err := part.sink.put(block)
+		if err != nil {
+			logrus.Errorf("error putting block in sink: %v", err)
+			continue
+		}
 
-				err, errs := part.writeBlocks(data)
-				if err != nil {
-					logrus.Errorf("error writing to partition: %v", err)
-					return
-				}
-				if len(errs) != 0 {
-					// todo
-				}
-			}
-
-			for _, block := range bSlice {
-				placement = append(placement, &transport_pb.BlockPlacementInfo{
-					BlockID:     block.Id,
-					PartitionID: part.ID,
-					Success:     true,
-				})
-			}
-		}(part, offset)
+		placement = append(placement, &transport_pb.BlockPlacementInfo{
+			BlockID:     block.Id,
+			PartitionID: parts[partIdx].ID,
+			Success:     true,
+		})
 	}
-
-	wg.Wait()
+	//for _, part := range parts {
+	//	go func(part *Partition) {
+	//		defer wg.Done()
+	//
+	//		blocksCount := len(blocks) / len(parts)
+	//		bSlice := blocks[offset : offset+blocksCount]
+	//
+	//		if true {
+	//			for _, block := range bSlice {
+	//				_ = part.sink.put(block)
+	//			}
+	//		} else {
+	//			data := make(map[string][]byte)
+	//			for _, block := range bSlice {
+	//				data[block.Id] = block.Data
+	//			}
+	//
+	//			err, errs := part.writeBlocks(data)
+	//			if err != nil {
+	//				logrus.Errorf("error writing to partition: %v", err)
+	//				return
+	//			}
+	//			if len(errs) != 0 {
+	//				// todo
+	//			}
+	//		}
+	//
+	//		for _, block := range bSlice {
+	//			placement = append(placement, &transport_pb.BlockPlacementInfo{
+	//				BlockID:     block.Id,
+	//				PartitionID: part.ID,
+	//				Success:     true,
+	//			})
+	//		}
+	//	}(part)
+	//}
+	//wg.Wait()
 
 	return placement, nil
 }

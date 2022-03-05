@@ -56,6 +56,7 @@ func (s *sink) run() {
 		case <-ticker.C:
 
 			blocks := make(map[string][]byte, cap(s.blocks))
+
 		loop:
 			for {
 				select {
@@ -67,7 +68,6 @@ func (s *sink) run() {
 			}
 
 			if s.part.isAvailable(len(blocks)) {
-				logrus.Infof("we're here")
 				err, _ := s.part.writeBlocks(blocks)
 				if err != nil {
 					logrus.Errorf("error flushing partition sink: %v", err)
@@ -78,6 +78,30 @@ func (s *sink) run() {
 				// In this case we explicitly write blocks to first available partition
 				// will work on this later
 				// TODO
+
+				count := s.part.getAvailableBlocks()
+				smallerBlocks := make(map[string][]byte, count)
+				i := 0
+				for id, data := range blocks {
+					if i == count {
+						break
+					}
+					smallerBlocks[id] = data
+					delete(blocks, id)
+					i++
+				}
+				err, _ := s.part.writeBlocks(smallerBlocks)
+				if err != nil {
+					logrus.Errorf("error writing blocks to remaining space in partition: %v", err)
+					continue
+				}
+				s.part.Sync()
+
+				logrus.Infof("abandoning %v blocks", len(blocks))
+				for range blocks {
+					// TODO: write them to another partition and make an alias
+				}
+
 			}
 		}
 	}
@@ -124,6 +148,10 @@ func (p *Partition) isAvailable(blocks int) bool {
 	availableBlocks := partitionBlocksCount - len(p.occupiedBlocks)
 
 	return !p.full && availableBlocks >= blocks
+}
+
+func (p *Partition) getAvailableBlocks() int {
+	return partitionBlocksCount - len(p.occupiedBlocks)
 }
 
 func (p *Partition) isBlockAllocated(n int) bool {
@@ -174,10 +202,10 @@ func (p *Partition) writeBlocks(blocks map[string][]byte) (error, map[string]err
 		return err, errs
 	}
 
-	err = p.file.Sync()
-	if err != nil {
-
-	}
+	//err = p.file.Sync()
+	//if err != nil {
+	//
+	//}
 
 	return nil, errs
 }

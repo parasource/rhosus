@@ -162,6 +162,18 @@ func (p *PartitionsMap) createPartition() (string, error) {
 	return id, nil
 }
 
+func (p *PartitionsMap) GetNotFullPartitions() []*Partition {
+	var parts []*Partition
+
+	for _, part := range p.parts {
+		if part.isAvailable(1) {
+			parts = append(parts, part)
+		}
+	}
+
+	return parts
+}
+
 func (p *PartitionsMap) GetAvailablePartitions(blocks int) map[string]*Partition {
 	parts := make(map[string]*Partition, len(p.parts))
 
@@ -217,6 +229,7 @@ func (p *PartitionsMap) loadPartitions() error {
 		logrus.Infof("loaded partition: %v", part.blocksMap)
 	}
 	if len(p.parts) == 0 {
+		logrus.Infof("creating partitions")
 		start := time.Now()
 		for len(p.parts) < p.minPartitionsCount {
 			v4uuid, _ := uuid.NewV4()
@@ -241,7 +254,7 @@ func (p *PartitionsMap) loadPartitions() error {
 
 			p.parts[name] = newPartition(name, file)
 		}
-		logrus.Infof("parts created in %v", time.Since(start).String())
+		logrus.Infof("partitions created in %v", time.Since(start).String())
 	}
 
 	return err
