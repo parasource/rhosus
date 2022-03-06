@@ -144,7 +144,7 @@ func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
 		reader := io.NopCloser(bytes.NewReader(block.Data))
 		n, err := io.CopyN(w, reader, int64(block.Len))
 		if err != nil || n != int64(len(block.Data)) {
-			logrus.Errorf("something went wrong: %v, %v", err, n)
+			logrus.Errorf("something went wrong: %v, %v - %v", err, n, len(block.Data))
 		}
 		//reader.Close()
 	})

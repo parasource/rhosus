@@ -40,7 +40,7 @@ func TestManager_WriteBlocks(t *testing.T) {
 		blocks[uid.String()] = &fs_pb.Block{
 			Id:     uid.String(),
 			FileId: "123123",
-			Size_:  64,
+			Len:    64,
 			Data:   data,
 		}
 	}

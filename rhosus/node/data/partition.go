@@ -67,6 +67,11 @@ func (s *sink) run() {
 				}
 			}
 
+			// no new blocks
+			if len(blocks) == 0 {
+				continue
+			}
+
 			if s.part.isAvailable(len(blocks)) {
 				err, _ := s.part.writeBlocks(blocks)
 				if err != nil {
@@ -108,11 +113,11 @@ func (s *sink) run() {
 }
 
 type Partition struct {
-	file *os.File
-	sink *sink
+	file    *os.File
+	idxFile *IdxFile
+	sink    *sink
 
-	blocksMap      map[string]int
-	occupiedBlocks []int
+	blocksMap map[string]IdxBlock
 
 	// In some cases we might need to move blocks to another partition,
 	// but registry will not know about that due to one directional connection.
@@ -126,37 +131,41 @@ type Partition struct {
 	full         bool
 }
 
-func newPartition(id string, file *os.File) *Partition {
+func newPartition(id string, file *os.File) (*Partition, error) {
 	p := &Partition{
 		file: file,
 
-		blocksMap:      make(map[string]int, partitionBlocksCount),
-		movedBlocks:    make(map[string]string, partitionBlocksCount),
-		occupiedBlocks: []int{},
-		ID:             id,
-		checksumType:   control_pb.Partition_CHECKSUM_CRC32,
-		checksum:       "",
-		full:           false,
+		blocksMap:    make(map[string]IdxBlock, partitionBlocksCount),
+		movedBlocks:  make(map[string]string, partitionBlocksCount),
+		ID:           id,
+		checksumType: control_pb.Partition_CHECKSUM_CRC32,
+		checksum:     "",
+		full:         false,
 	}
+	idxFile, err := NewIdxFile("./parts", id)
+	if err != nil {
+		return nil, err
+	}
+	p.idxFile = idxFile
 	p.sink = newSink(p)
 	go p.sink.run()
 
-	return p
+	return p, nil
 }
 
 func (p *Partition) isAvailable(blocks int) bool {
-	availableBlocks := partitionBlocksCount - len(p.occupiedBlocks)
+	availableBlocks := partitionBlocksCount - len(p.blocksMap)
 
 	return !p.full && availableBlocks >= blocks
 }
 
 func (p *Partition) getAvailableBlocks() int {
-	return partitionBlocksCount - len(p.occupiedBlocks)
+	return partitionBlocksCount - len(p.blocksMap)
 }
 
 func (p *Partition) isBlockAllocated(n int) bool {
-	for _, el := range p.occupiedBlocks {
-		if el == n {
+	for _, el := range p.blocksMap {
+		if int(el.Offset/idxBlockSize) == n {
 			return true
 		}
 	}
@@ -167,7 +176,7 @@ func (p *Partition) isBlockAllocated(n int) bool {
 func (p *Partition) writeBlocks(blocks map[string][]byte) (error, map[string]error) {
 
 	errs := make(map[string]error, len(blocks))
-	headerRecs := make(map[string]int, len(blocks)) // header file for each block
+	idxs := make(map[int]IdxBlock, len(blocks)) // header file for each block
 
 	for id, data := range blocks {
 		// getting number of first available block
@@ -189,15 +198,19 @@ func (p *Partition) writeBlocks(blocks map[string][]byte) (error, map[string]err
 			continue
 		}
 
-		p.occupiedBlocks = append(p.occupiedBlocks, blockN)
-		p.blocksMap[id] = blockN
-		if len(p.occupiedBlocks) >= partitionBlocksCount {
+		idxBlock := IdxBlock{
+			ID:     id,
+			Size:   uint64(len(data)),
+			Offset: uint64(blockN * idxBlockSize),
+		}
+		p.blocksMap[id] = idxBlock
+		if len(p.blocksMap) >= partitionBlocksCount {
 			p.full = true
 		}
-		headerRecs[id] = blockN
+		idxs[blockN] = idxBlock
 	}
 
-	err := p.writeHeaderRecs(headerRecs)
+	err := p.idxFile.Write(idxs)
 	if err != nil {
 		return err, errs
 	}
@@ -214,44 +227,26 @@ func (p *Partition) Sync() error {
 	return p.file.Sync()
 }
 
-func (p *Partition) writeHeaderRecs(recs map[string]int) error {
-	for id, n := range recs {
-		n, err := p.file.WriteAt([]byte(id), int64(36*n))
-		if err != nil || n != 36 {
-			// todo: maybe retry?
-		}
-	}
-
-	return nil
-}
-
 func (p *Partition) loadHeader() error {
 
-	data := make([]byte, partitionHeaderSize)
+	data := make([]byte, idxFileSize)
 	n, err := p.file.Read(data)
 	if err != nil {
 		return err
 	}
-	if n != partitionHeaderSize {
+	if n != idxFileSize {
 		return ErrCorruptWrite
 	}
 
-	headerSecSize := 36
-	offset := 0
-	for i := 0; i < partitionBlocksCount; i++ {
-		id := data[offset : offset+headerSecSize]
-		if !isIdAllZeros(id) {
-			p.blocksMap[string(id)] = i
-			p.occupiedBlocks = append(p.occupiedBlocks, i)
-		}
-		offset += headerSecSize
+	for _, block := range p.idxFile.Load() {
+		p.blocksMap[block.ID] = block
 	}
 
 	return nil
 }
 
 func (p *Partition) writeBlockContents(block int, data []byte) (int, error) {
-	offset := int64(partitionHeaderSize + block*defaultBlockSize)
+	offset := int64(block * defaultBlockSize)
 
 	n, err := p.file.WriteAt(data, offset)
 	if err != nil {
@@ -264,26 +259,36 @@ func (p *Partition) writeBlockContents(block int, data []byte) (int, error) {
 	return n, err
 }
 
-func (p *Partition) readBlocks(blocks []*transport_pb.BlockPlacementInfo) map[string][]byte {
-	result := make(map[string][]byte, len(blocks))
+func (p *Partition) readBlocks(blocks []*transport_pb.BlockPlacementInfo) map[string]*fs_pb.Block {
+	result := make(map[string]*fs_pb.Block, len(blocks))
 
 	for _, block := range blocks {
 		var err error
-		offset := p.blocksMap[block.BlockID]
-		_, result[block.BlockID], err = p.readBlockContents(offset)
+		blockHeader := p.blocksMap[block.BlockID]
+		blockN := blockHeader.Offset / idxBlockSize
+
+		_, data, err := p.readBlockContents(int(blockN), blockHeader.Size)
 		if err != nil {
-			delete(result, block.BlockID)
 			continue
+		}
+
+		result[block.BlockID] = &fs_pb.Block{
+			Id:       block.BlockID,
+			Index:    0,
+			Offset:   0,
+			Len:      blockHeader.Size,
+			Data:     data,
+			Checksum: nil,
 		}
 	}
 
 	return result
 }
 
-func (p *Partition) readBlockContents(blockN int) (int, []byte, error) {
-	offset := int64(partitionHeaderSize + blockN*defaultBlockSize)
+func (p *Partition) readBlockContents(blockN int, size uint64) (int, []byte, error) {
+	offset := int64(blockN * defaultBlockSize)
 
-	data := make([]byte, defaultBlockSize)
+	data := make([]byte, size)
 	n, err := p.file.ReadAt(data, offset)
 	if err != nil {
 		logrus.Errorf("error reading blockN from file: %v", err)

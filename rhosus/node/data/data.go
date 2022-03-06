@@ -72,7 +72,6 @@ func (m *Manager) WriteBlocks(blocks []*fs_pb.Block) ([]*transport_pb.BlockPlace
 		partIdx := i % len(parts)
 
 		part := parts[partIdx]
-		logrus.Info(parts, part == nil)
 
 		err := part.sink.put(block)
 		if err != nil {
@@ -140,11 +139,7 @@ func (m *Manager) ReadBlock(block *transport_pb.BlockPlacementInfo) (*fs_pb.Bloc
 		return nil, err
 	}
 
-	// todo: REFACTOR!!
-	b := &fs_pb.Block{
-		Id: block.BlockID,
-	}
-	b.Data = part.readBlocks([]*transport_pb.BlockPlacementInfo{block})[block.BlockID]
+	b := part.readBlocks([]*transport_pb.BlockPlacementInfo{block})[block.BlockID]
 
 	return b, nil
 }
