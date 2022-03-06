@@ -32,10 +32,9 @@ var (
 )
 
 const (
-	defaultBlockSize     = 2 << 20 // by default, block size is 16mb so one partition fits 256 blocks
-	partitionHeaderSize  = 36 * (1 << 30 / defaultBlockSize)
-	defaultPartitionSize = partitionHeaderSize + (1 << 30) // default partition size is header + 4gb
-	partitionBlocksCount = (1 << 30) / defaultBlockSize
+	defaultBlockSize     = 2 << 20 // by default, block size is 2mb so one partition fits 512 blocks
+	defaultPartitionSize = 1 << 30 // default partition size is 1gb
+	partitionBlocksCount = defaultPartitionSize / defaultBlockSize
 
 	defaultPartitionsDir      = "./parts"
 	defaultMinPartitionsCount = 1
@@ -115,7 +114,7 @@ func (p *PartitionsMap) getRandomPartition() (*Partition, error) {
 	var availableParts []string
 
 	for id, partition := range p.parts {
-		if !partition.full && len(partition.occupiedBlocks) != partitionBlocksCount {
+		if !partition.full && len(partition.blocksMap) != partitionBlocksCount {
 			availableParts = append(availableParts, id)
 		}
 	}
@@ -157,9 +156,9 @@ func (p *PartitionsMap) createPartition() (string, error) {
 		return "", err
 	}
 
-	p.parts[id] = newPartition(id, file)
+	p.parts[id], err = newPartition(id, file)
 
-	return id, nil
+	return id, err
 }
 
 func (p *PartitionsMap) GetNotFullPartitions() []*Partition {
@@ -218,7 +217,12 @@ func (p *PartitionsMap) loadPartitions() error {
 			return err
 		}
 
-		part := newPartition(name, file)
+		part, err := newPartition(name, file)
+		if err != nil {
+			logrus.Errorf("error loading partition: %v", err)
+			file.Close()
+			continue
+		}
 		err = part.loadHeader()
 		if err != nil {
 			logrus.Errorf("error loading headers: %v", err)
@@ -252,7 +256,13 @@ func (p *PartitionsMap) loadPartitions() error {
 				logrus.Errorf("error sync: %v", err)
 			}
 
-			p.parts[name] = newPartition(name, file)
+			part, err := newPartition(name, file)
+			if err != nil {
+				logrus.Errorf("error loading partition: %v", err)
+				file.Close()
+				continue
+			}
+			p.parts[part.ID] = part
 		}
 		logrus.Infof("partitions created in %v", time.Since(start).String())
 	}
