@@ -114,6 +114,71 @@ func (a *API) MakeDir(ctx context.Context, r *api_pb.MakeDirRequest) (*api_pb.Co
 	return &api_pb.CommonResponse{Success: true}, nil
 }
 
+func (a *API) Remove(ctx context.Context, r *api_pb.RemoveRequest) (*api_pb.CommonResponse, error) {
+	path := strings.Trim(r.Path, "/")
+
+	rootFile, err := a.r.MemoryStorage.GetFileByPath(path)
+	if err != nil {
+		return nil, err
+	}
+	// if dir already exists
+	if rootFile == nil {
+		return &api_pb.CommonResponse{
+			Success: false,
+			Err:     "no such file or directory",
+		}, nil
+	}
+
+	err = a.killChildren(rootFile)
+	if err != nil {
+		return nil, err
+	}
+	if rootFile.Type == control_pb.FileInfo_FILE {
+		err, errs := a.r.RemoveFileBlocks(rootFile)
+		if err != nil {
+			return nil, err
+		}
+		if errs != nil && len(errs) > 0 {
+			// todo
+		}
+	}
+
+	return &api_pb.CommonResponse{
+		Success: true,
+	}, nil
+}
+
+func (a *API) killChildren(file *control_pb.FileInfo) error {
+	childFiles, err := a.r.MemoryStorage.GetFilesByParentId(file.Id)
+	if err != nil {
+		return err
+	}
+	if len(childFiles) == 0 {
+		return nil
+	}
+
+	if file.Type == control_pb.FileInfo_FILE {
+		err, errs := a.r.RemoveFileBlocks(file)
+		if err != nil {
+			return err
+		}
+		if errs != nil && len(errs) > 0 {
+			for nodeID, nodeErr := range errs {
+				logrus.Errorf("error deleting blocks from node %v: %v", nodeID, nodeErr)
+			}
+		}
+	}
+
+	for _, childFile := range childFiles {
+		err := a.killChildren(childFile)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (a *API) List(ctx context.Context, r *api_pb.ListRequest) (*api_pb.ListResponse, error) {
 
 	var parentID string

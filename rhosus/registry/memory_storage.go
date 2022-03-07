@@ -259,6 +259,25 @@ func (s *MemoryStorage) GetBlocks(fileID string) ([]*control_pb.BlockInfo, error
 	return blocks, nil
 }
 
+func (s *MemoryStorage) DeleteFileWithBlocks(file *control_pb.FileInfo) error {
+	txn := s.db.Txn(true)
+
+	res, err := txn.Get(defaultBlocksTableName, "file_id", file.Id)
+	if err != nil {
+		return err
+	}
+	for obj := res.Next(); obj != nil; obj = res.Next() {
+		err := txn.Delete(defaultBlocksTableName, obj.(*control_pb.BlockInfo))
+		if err != nil {
+			return err
+		}
+	}
+	txn.Delete(defaultFilesTableName, file)
+	txn.Commit()
+
+	return nil
+}
+
 func (s *MemoryStorage) FlushToBackend() error {
 	var err error
 

@@ -137,7 +137,18 @@ func (s *GrpcServer) AssignBlocks(srv transport_pb.TransportService_AssignBlocks
 }
 
 func (s *GrpcServer) RemoveBlocks(c context.Context, r *transport_pb.RemoveBlocksRequest) (*transport_pb.RemoveBlocksResponse, error) {
-	panic("implement me")
+
+	err := s.node.data.RemoveBlocks(r.Blocks)
+	if err != nil {
+		return &transport_pb.RemoveBlocksResponse{
+			Success: false,
+			Error:   err.Error(),
+		}, nil
+	}
+
+	return &transport_pb.RemoveBlocksResponse{
+		Success: true,
+	}, nil
 }
 
 func (s *GrpcServer) PlacePages(c context.Context, r *transport_pb.PlacePartitionRequest) (*transport_pb.PlacePartitionResponse, error) {
