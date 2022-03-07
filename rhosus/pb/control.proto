@@ -111,17 +111,17 @@ message FileInfo {
   string id = 1;
   string parentID = 2;
   FileType type = 3;
-  string path = 4;
-  uint64 size = 5;
+  string name = 4;
+  string path = 5;
+  uint64 size = 6;
   message FsPermission {
     uint32 perm = 1;
   }
-  FsPermission permission = 6;
-  string owner = 7;
-  string group = 8;
-  string symlink = 9; // Optional. Used only for symlinks
-
-  int32 replication = 10; // replication factor
+  FsPermission permission = 7;
+  string owner = 8;
+  string group = 9;
+  string symlink = 10; // Optional. Used only for symlinks
+  int32 replication = 11; // replication factor
 }
 
 // Partition is a set of blocks

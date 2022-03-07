@@ -1,15 +1,45 @@
 package registry
 
 import (
+	"errors"
 	"fmt"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	"github.com/sirupsen/logrus"
+	"strings"
 	"time"
 )
 
+var (
+	ErrFileExists            = errors.New("file already exists")
+	ErrNoSuchFileOrDirectory = errors.New("no such file or directory")
+)
+
 func (r *Registry) RegisterFile(file *control_pb.FileInfo) error {
-	err := r.MemoryStorage.StoreFile(file)
+
+	test, err := r.MemoryStorage.GetFileByPath(file.Path)
+	if err != nil {
+		return err
+	}
+	if test != nil {
+		return ErrFileExists
+	}
+
+	sPath := strings.Split(file.Path, "/")
+	if len(sPath) > 1 {
+		parent, err := r.MemoryStorage.GetFileByPath(strings.Join(sPath[:len(sPath)-1], "/"))
+		if err != nil {
+			return err
+		}
+		if parent == nil {
+			return ErrNoSuchFileOrDirectory
+		}
+		file.ParentID = parent.Id
+	} else {
+		file.ParentID = "root"
+	}
+
+	err = r.MemoryStorage.StoreFile(file)
 	if err != nil {
 		return err
 	}
@@ -64,6 +94,9 @@ func (r *Registry) GetFileHandler(path string, transport func(block *fs_pb.Block
 	file, err := r.MemoryStorage.GetFileByPath(path)
 	if err != nil {
 		return err
+	}
+	if file == nil {
+		return ErrNoSuchFileOrDirectory
 	}
 
 	// Now we fetch BlockInfos from

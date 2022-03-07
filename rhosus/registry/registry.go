@@ -45,6 +45,7 @@ type Registry struct {
 
 	NodesManager   *NodesMap
 	FileServer     *Server
+	ApiServer      *API
 	Backend        *backend.Storage
 	MemoryStorage  *MemoryStorage
 	StatsCollector *StatsCollector
@@ -136,6 +137,9 @@ func NewRegistry(config Config) (*Registry, error) {
 
 	// Setting up nodes map from existing nodes
 	nMap, err := NewNodesMap(r, nodes)
+	if err != nil {
+
+	}
 	r.NodesManager = nMap
 
 	// Registering itself in etcd cluster
@@ -153,6 +157,15 @@ func NewRegistry(config Config) (*Registry, error) {
 		logrus.Fatalf("error starting file server: %v", err)
 	}
 	r.FileServer = fileServer
+
+	apiServer, err := NewAPIServer(r, APIConfig{
+		Host: "localhost",
+		Port: "5050",
+	})
+	if err != nil {
+		logrus.Fatalf("error starting api server: %v", err)
+	}
+	r.ApiServer = apiServer
 
 	return r, nil
 }
