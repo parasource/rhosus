@@ -4,6 +4,7 @@ package api_pb;
 option go_package = "github.com/parasource/rhosus/rhosus/pb/api_pb";
 
 service Api {
+  rpc Ping (Void) returns (Void);
   rpc MakeDir (MakeDirRequest) returns (CommonResponse);
   rpc Remove (RemoveRequest) returns (CommonResponse);
   rpc List (ListRequest) returns (ListResponse);
@@ -11,13 +12,16 @@ service Api {
   rpc Download (DownloadRequest) returns (stream DownloadResponse);
 }
 
+message Void {}
+
 message CommonResponse {
   bool success = 1;
   string err = 2;
+  map<string, string> args = 3;
 }
 
 message MakeDirRequest {
-
+  string path = 1;
 }
 
 message RemoveRequest {
@@ -29,8 +33,20 @@ message ListRequest {
   string path = 1;
 }
 
-message ListResponse {
+message FileInfo {
+  string name = 1;
+  enum Type {
+    FILE = 0;
+    DIR = 1;
+    SYM = 2;
+  }
+  Type type = 2;
+  uint64 size = 3;
+}
 
+message ListResponse {
+  repeated FileInfo list = 1;
+  string error = 2;
 }
 
 message UploadRequest {

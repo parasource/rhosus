@@ -44,6 +44,12 @@ func NewMemoryStorage(registry *Registry) (*MemoryStorage, error) {
 						Unique:       true,
 						Indexer:      &memdb.StringFieldIndex{Field: "Path"},
 					},
+					"parent_id": {
+						Name:         "parent_id",
+						AllowMissing: false,
+						Unique:       false,
+						Indexer:      &memdb.StringFieldIndex{Field: "ParentID"},
+					},
 				},
 			},
 
@@ -160,7 +166,12 @@ func (s *MemoryStorage) GetFile(id string) (*control_pb.FileInfo, error) {
 		return nil, err
 	}
 
-	return raw.(*control_pb.FileInfo), nil
+	switch raw.(type) {
+	case *control_pb.FileInfo:
+		return raw.(*control_pb.FileInfo), nil
+	default:
+		return nil, nil
+	}
 }
 
 func (s *MemoryStorage) GetFileByPath(path string) (*control_pb.FileInfo, error) {
@@ -171,7 +182,28 @@ func (s *MemoryStorage) GetFileByPath(path string) (*control_pb.FileInfo, error)
 		return nil, err
 	}
 
-	return raw.(*control_pb.FileInfo), nil
+	switch raw.(type) {
+	case *control_pb.FileInfo:
+		return raw.(*control_pb.FileInfo), nil
+	default:
+		return nil, nil
+	}
+}
+
+func (s *MemoryStorage) GetFilesByParentId(id string) ([]*control_pb.FileInfo, error) {
+	txn := s.db.Txn(false)
+
+	var files []*control_pb.FileInfo
+	res, err := txn.Get(defaultFilesTableName, "parent_id", id)
+	if err != nil {
+		return nil, err
+	}
+
+	for obj := res.Next(); obj != nil; obj = res.Next() {
+		files = append(files, obj.(*control_pb.FileInfo))
+	}
+
+	return files, nil
 }
 
 func (s *MemoryStorage) PutBlocks(blocks []*control_pb.BlockInfo) error {

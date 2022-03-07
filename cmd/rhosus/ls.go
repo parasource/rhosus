@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/cli"
 	api_pb "github.com/parasource/rhosus/rhosus/pb/api"
@@ -12,25 +13,25 @@ import (
 )
 
 func init() {
-	createDirCmd.SetHelpTemplate(`
+	listCmd.SetHelpTemplate(`
 Usage:
-  rhosus mkdir [path] 
+  rhosus ls [path] 
 
 Options:
   -h [--help]			show help information
 `)
 
-	rootCmd.AddCommand(createDirCmd)
+	rootCmd.AddCommand(listCmd)
 
-	createDirCmd.Flags().String("host", "127.0.0.1", "host")
-	createDirCmd.Flags().String("port", "5050", "port")
-	viper.BindPFlag("host", createDirCmd.Flags().Lookup("host"))
-	viper.BindPFlag("port", createDirCmd.Flags().Lookup("port"))
+	listCmd.Flags().String("host", "127.0.0.1", "host")
+	listCmd.Flags().String("port", "5050", "port")
+	viper.BindPFlag("host", listCmd.Flags().Lookup("host"))
+	viper.BindPFlag("port", listCmd.Flags().Lookup("port"))
 }
 
-var createDirCmd = &cobra.Command{
-	Use:   "mkdir",
-	Short: "create new directory",
+var listCmd = &cobra.Command{
+	Use:   "ls",
+	Short: "list files and directories",
 	Run: func(cmd *cobra.Command, args []string) {
 		log.SetHandler(cli.Default)
 		log.SetLevel(log.DebugLevel)
@@ -57,17 +58,18 @@ var createDirCmd = &cobra.Command{
 		defer cancel()
 
 		path := args[0]
-		res, err := (*client).MakeDir(ctx, &api_pb.MakeDirRequest{
+		res, err := (*client).List(ctx, &api_pb.ListRequest{
 			Path: path,
 		})
 		if err != nil {
 			log.Fatalf("Error from server: %v", err)
 		}
-		if !res.Success {
-			log.Fatalf("Error: %v", res.Err)
+		if res.Error != "" {
+			log.Fatalf("Error: %v", res.Error)
 		}
 
-		lctx := log.WithField("path", path)
-		lctx.Infof("Successfully created a dir")
+		for _, file := range res.List {
+			fmt.Printf("%-5s %6d %v %4s \n", file.Type, file.Size_, "0777", file.Name)
+		}
 	},
 }

@@ -12,7 +12,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"path"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -130,11 +129,7 @@ func (s *Server) Handle(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
 
-	filePath := r.URL.Path
-	isForDirectory := strings.HasSuffix(filePath, "/")
-	if isForDirectory && len(filePath) > 1 {
-		filePath = filePath[:len(filePath)-1]
-	}
+	filePath := strings.Trim(r.URL.Path, "/")
 
 	w.Header().Set("Accept-Ranges", "bytes")
 
@@ -149,7 +144,13 @@ func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
 		//reader.Close()
 	})
 	if err != nil {
-		logrus.Errorf("error getting blocks: %v", err)
+		switch err {
+		case ErrNoSuchFileOrDirectory:
+			w.WriteHeader(404)
+			return
+		default:
+			logrus.Errorf("error getting blocks: %v", err)
+		}
 	}
 }
 
@@ -167,11 +168,6 @@ func (s *Server) handlePostPut(w http.ResponseWriter, r *http.Request) error {
 	part1, err := multipartReader.NextPart()
 	if err != nil {
 		return err
-	}
-
-	fileName := part1.FileName()
-	if fileName != "" {
-		fileName = path.Base(fileName)
 	}
 
 	contentType := part1.Header.Get("Content-Type")
@@ -193,10 +189,14 @@ func (s *Server) handlePostPut(w http.ResponseWriter, r *http.Request) error {
 	counter := 1
 
 	uid, _ := uuid.NewV4()
+	filePath := strings.Trim(r.URL.String(), "/")
+	filePathSplit := strings.Split(filePath, "/")
+	fileName := filePathSplit[len(filePathSplit)-1]
 	file := &control_pb.FileInfo{
 		Id:         uid.String(),
+		Name:       fileName,
 		Type:       control_pb.FileInfo_FILE,
-		Path:       r.URL.String(),
+		Path:       filePath,
 		Size_:      0,
 		Permission: nil,
 		Owner:      "",
@@ -205,7 +205,19 @@ func (s *Server) handlePostPut(w http.ResponseWriter, r *http.Request) error {
 	}
 	err = s.registry.RegisterFile(file)
 	if err != nil {
-		logrus.Errorf("error registring file: %v", err)
+		switch err {
+		case ErrFileExists:
+			w.WriteHeader(http.StatusConflict)
+			return nil
+		case ErrNoSuchFileOrDirectory:
+			w.WriteHeader(http.StatusBadRequest)
+			return nil
+		default:
+			logrus.Errorf("error registring file: %v", err)
+			w.WriteHeader(500)
+			w.Write([]byte("server error. see logs"))
+			return nil
+		}
 	}
 
 	var dataToTransfer []*fs_pb.Block
