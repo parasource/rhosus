@@ -165,7 +165,7 @@ func (p *PartitionsMap) GetNotFullPartitions() []*Partition {
 	var parts []*Partition
 
 	for _, part := range p.parts {
-		if part.isAvailable(1) {
+		if part.IsAvailable(1) {
 			parts = append(parts, part)
 		}
 	}
@@ -177,7 +177,7 @@ func (p *PartitionsMap) GetAvailablePartitions(blocks int) map[string]*Partition
 	parts := make(map[string]*Partition, len(p.parts))
 
 	for id, part := range p.parts {
-		if part.isAvailable(blocks) {
+		if part.IsAvailable(blocks) {
 			parts[id] = part
 		}
 	}
@@ -284,9 +284,8 @@ func (p *PartitionsMap) getPartition(id string) (*Partition, error) {
 }
 
 func (p *PartitionsMap) Shutdown() error {
-
 	for _, partition := range p.parts {
-		err := partition.file.Close()
+		err := partition.Close()
 		if err != nil {
 			logrus.Errorf("error while closing partition file: %v", err)
 		}

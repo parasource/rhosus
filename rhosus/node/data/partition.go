@@ -7,21 +7,19 @@ import (
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/parasource/rhosus/rhosus/util/tickers"
 	"github.com/sirupsen/logrus"
-	"io"
 	"os"
 	"sync"
 	"time"
 )
 
 var (
-	ErrWriteTimeout = errors.New("write timeout")
+	ErrWriteTimeout    = errors.New("write timeout")
+	ErrPartitionClosed = errors.New("partition closed")
 )
 
 type sink struct {
-	part *Partition
-
+	part   *Partition
 	blocks chan *fs_pb.Block
-	lock   sync.Mutex
 }
 
 func newSink(part *Partition) *sink {
@@ -73,7 +71,7 @@ func (s *sink) run() {
 			}
 
 			if s.part.isAvailable(len(blocks)) {
-				err, _ := s.part.writeBlocks(blocks)
+				err, _ := s.part.WriteBlocks(blocks)
 				if err != nil {
 					logrus.Errorf("error flushing partition sink: %v", err)
 				}
@@ -95,7 +93,7 @@ func (s *sink) run() {
 					delete(blocks, id)
 					i++
 				}
-				err, _ := s.part.writeBlocks(smallerBlocks)
+				err, _ := s.part.WriteBlocks(smallerBlocks)
 				if err != nil {
 					logrus.Errorf("error writing blocks to remaining space in partition: %v", err)
 					continue
@@ -113,7 +111,7 @@ func (s *sink) run() {
 }
 
 type Partition struct {
-	lock    sync.Mutex
+	lock    sync.RWMutex
 	file    *os.File
 	idxFile *IdxFile
 	sink    *sink
@@ -130,6 +128,7 @@ type Partition struct {
 	checksumType control_pb.Partition_ChecksumType
 	checksum     string
 	full         bool
+	closed       bool
 }
 
 func newPartition(id string, file *os.File) (*Partition, error) {
@@ -142,6 +141,7 @@ func newPartition(id string, file *os.File) (*Partition, error) {
 		checksumType: control_pb.Partition_CHECKSUM_CRC32,
 		checksum:     "",
 		full:         false,
+		closed:       false,
 	}
 	idxFile, err := NewIdxFile("./parts", id)
 	if err != nil {
@@ -154,14 +154,40 @@ func newPartition(id string, file *os.File) (*Partition, error) {
 	return p, nil
 }
 
+func (p *Partition) IsAvailable(blocks int) bool {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
+	if p.closed {
+		return false
+	}
+
+	return p.isAvailable(blocks)
+}
+
 func (p *Partition) isAvailable(blocks int) bool {
 	availableBlocks := partitionBlocksCount - len(p.blocksMap)
 
 	return !p.full && availableBlocks >= blocks
 }
 
-func (p *Partition) getUsedBlocks() int {
+func (p *Partition) GetUsedBlocks() int {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
+	if p.closed {
+		return 0
+	}
+
 	return len(p.blocksMap)
+}
+
+func (p *Partition) GetAvailableBlocks() int {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
+	if p.closed {
+		return 0
+	}
+
+	return p.getAvailableBlocks()
 }
 
 func (p *Partition) getAvailableBlocks() int {
@@ -177,12 +203,19 @@ func (p *Partition) isBlockAllocated(n int) bool {
 	return false
 }
 
-// writeBlocks writes blocks to partitions
-func (p *Partition) writeBlocks(blocks map[string][]byte) (error, map[string]error) {
+// WriteBlocks writes blocks to partitions
+func (p *Partition) WriteBlocks(blocks map[string][]byte) (error, map[string]error) {
+	p.lock.RLock()
+	if p.closed {
+		p.lock.RUnlock()
+		return ErrPartitionClosed, nil
+	}
+	p.lock.RUnlock()
 
 	errs := make(map[string]error, len(blocks))
 	idxs := make(map[int]IdxBlock, len(blocks)) // header file for each block
 
+	p.lock.Lock()
 	for id, data := range blocks {
 		// getting number of first available block
 		var blockN int
@@ -214,6 +247,7 @@ func (p *Partition) writeBlocks(blocks map[string][]byte) (error, map[string]err
 		}
 		idxs[blockN] = idxBlock
 	}
+	p.lock.Unlock()
 
 	err := p.idxFile.Write(idxs)
 	if err != nil {
@@ -264,7 +298,13 @@ func (p *Partition) writeBlockContents(block int, data []byte) (int, error) {
 	return n, err
 }
 
-func (p *Partition) readBlocks(blocks []*transport_pb.BlockPlacementInfo) map[string]*fs_pb.Block {
+func (p *Partition) ReadBlocks(blocks []*transport_pb.BlockPlacementInfo) (map[string]*fs_pb.Block, error) {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
+	if p.closed {
+		return nil, ErrPartitionClosed
+	}
+
 	result := make(map[string]*fs_pb.Block, len(blocks))
 
 	for _, block := range blocks {
@@ -287,7 +327,7 @@ func (p *Partition) readBlocks(blocks []*transport_pb.BlockPlacementInfo) map[st
 		}
 	}
 
-	return result
+	return result, nil
 }
 
 func (p *Partition) readBlockContents(blockN int, size uint64) (int, []byte, error) {
@@ -303,6 +343,13 @@ func (p *Partition) readBlockContents(blockN int, size uint64) (int, []byte, err
 	return n, data, err
 }
 
-func (p *Partition) GetFile() io.Reader {
-	return p.file
+func (p *Partition) Close() error {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+	if p.closed {
+		return ErrPartitionClosed
+	}
+
+	p.closed = true
+	return p.file.Close()
 }

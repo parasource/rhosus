@@ -2,7 +2,6 @@ package rhosus_node
 
 import (
 	"fmt"
-	"github.com/parasource/rhosus/rhosus/backend"
 	rhosus_etcd "github.com/parasource/rhosus/rhosus/etcd"
 	"github.com/parasource/rhosus/rhosus/node/data"
 	"github.com/parasource/rhosus/rhosus/node/profiler"
@@ -36,7 +35,6 @@ type Node struct {
 	profiler *profiler.Profiler
 	server   *GrpcServer
 	etcd     *rhosus_etcd.EtcdClient
-	backend  *backend.Storage
 
 	shutdownC chan struct{}
 	readyC    chan struct{}
@@ -162,6 +160,8 @@ func (n *Node) Start() {
 
 	if <-n.NotifyShutdown(); true {
 
+		n.data.Shutdown()
+
 		err := n.unregisterItself()
 		if err != nil {
 			logrus.Errorf("error unregistering node: %v", err)
@@ -211,11 +211,6 @@ func (n *Node) handleSignals() {
 				}
 				os.Exit(1)
 			})
-
-			err := n.unregisterItself()
-			if err != nil {
-				logrus.Errorf("error unregistering node: %v", err)
-			}
 
 			close(n.shutdownC)
 

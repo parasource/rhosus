@@ -139,7 +139,7 @@ func (a *API) List(ctx context.Context, r *api_pb.ListRequest) (*api_pb.ListResp
 
 	for _, file := range files {
 		info := &api_pb.FileInfo{
-			Name:  file.Path,
+			Name:  file.Name,
 			Size_: file.Size_,
 		}
 		switch file.Type {

@@ -18,7 +18,6 @@ type Manager struct {
 func NewManager() (*Manager, error) {
 
 	m := &Manager{
-
 		shutdown:         false,
 		isReceivingPages: false,
 	}
@@ -33,24 +32,38 @@ func NewManager() (*Manager, error) {
 }
 
 func (m *Manager) GetBlocksCount() int {
+	m.mu.RLock()
+	if m.shutdown {
+		m.mu.RUnlock()
+		return 0
+	}
+	m.mu.RUnlock()
+
 	count := 0
 	for _, part := range m.parts.parts {
-		count += part.getUsedBlocks()
+		count += part.GetUsedBlocks()
 	}
 	return count
 }
 
 func (m *Manager) GetPartitionsCount() int {
+	m.mu.RLock()
+	if m.shutdown {
+		m.mu.RUnlock()
+		return 0
+	}
+	m.mu.RUnlock()
+
 	return m.parts.getPartsCount()
 }
 
 func (m *Manager) WriteBlocks(blocks []*fs_pb.Block) ([]*transport_pb.BlockPlacementInfo, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
+	m.mu.RLock()
 	if m.shutdown {
+		m.mu.RUnlock()
 		return nil, ErrShutdown
 	}
+	m.mu.RUnlock()
 
 	//var wg sync.WaitGroup
 	var placement []*transport_pb.BlockPlacementInfo
@@ -85,61 +98,42 @@ func (m *Manager) WriteBlocks(blocks []*fs_pb.Block) ([]*transport_pb.BlockPlace
 			Success:     true,
 		})
 	}
-	//for _, part := range parts {
-	//	go func(part *Partition) {
-	//		defer wg.Done()
-	//
-	//		blocksCount := len(blocks) / len(parts)
-	//		bSlice := blocks[offset : offset+blocksCount]
-	//
-	//		if true {
-	//			for _, block := range bSlice {
-	//				_ = part.sink.put(block)
-	//			}
-	//		} else {
-	//			data := make(map[string][]byte)
-	//			for _, block := range bSlice {
-	//				data[block.Id] = block.Data
-	//			}
-	//
-	//			err, errs := part.writeBlocks(data)
-	//			if err != nil {
-	//				logrus.Errorf("error writing to partition: %v", err)
-	//				return
-	//			}
-	//			if len(errs) != 0 {
-	//				// todo
-	//			}
-	//		}
-	//
-	//		for _, block := range bSlice {
-	//			placement = append(placement, &transport_pb.BlockPlacementInfo{
-	//				BlockID:     block.Id,
-	//				PartitionID: part.ID,
-	//				Success:     true,
-	//			})
-	//		}
-	//	}(part)
-	//}
-	//wg.Wait()
 
 	return placement, nil
 }
 
 func (m *Manager) ReadBlock(block *transport_pb.BlockPlacementInfo) (*fs_pb.Block, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
+	m.mu.RLock()
 	if m.shutdown {
+		m.mu.RUnlock()
 		return nil, ErrShutdown
 	}
+	m.mu.RUnlock()
 
 	part, err := m.parts.getPartition(block.PartitionID)
 	if err != nil {
 		return nil, err
 	}
 
-	b := part.readBlocks([]*transport_pb.BlockPlacementInfo{block})[block.BlockID]
+	bs, err := part.ReadBlocks([]*transport_pb.BlockPlacementInfo{block})
+	if err != nil {
+		return nil, err
+	}
 
-	return b, nil
+	return bs[block.BlockID], nil
+}
+
+func (m *Manager) Shutdown() {
+	m.mu.Lock()
+	if m.shutdown {
+		m.mu.Unlock()
+		return
+	}
+	m.shutdown = true
+	m.mu.Unlock()
+
+	err := m.parts.Shutdown()
+	if err != nil {
+		logrus.Errorf("error closing partitions map: %v", err)
+	}
 }
