@@ -179,11 +179,6 @@ func (n *Node) registerItself() error {
 			Host: n.server.Config.Host,
 			Port: n.server.Config.Port,
 		},
-		Metrics: &transport_pb.NodeMetrics{
-			Capacity:   10000,
-			Remaining:  5000,
-			LastUpdate: time.Now().Add(-time.Hour * 24 * 30).Unix(),
-		},
 		Location: "/dir/1",
 	}
 	return n.etcd.RegisterNode(n.ID, info)

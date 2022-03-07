@@ -32,7 +32,7 @@ func NewTransport(config Config, conns map[string]*transport_pb.TransportService
 
 	for id, connR := range conns {
 		conn := *connR
-		if _, err := conn.Ping(context.Background(), &transport_pb.PingRequest{}); err != nil {
+		if _, err := conn.Heartbeat(context.Background(), &transport_pb.HeartbeatRequest{}); err != nil {
 			logrus.Errorf("error adding conn to transport: %v", err)
 			continue
 		}

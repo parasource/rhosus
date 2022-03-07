@@ -84,24 +84,24 @@ func (NodeInfo_State) EnumDescriptor() ([]byte, []int) {
 	return fileDescriptor_a97e32c760ec1b28, []int{20, 0}
 }
 
-type PingRequest struct {
+type HeartbeatRequest struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *PingRequest) Reset()         { *m = PingRequest{} }
-func (m *PingRequest) String() string { return proto.CompactTextString(m) }
-func (*PingRequest) ProtoMessage()    {}
-func (*PingRequest) Descriptor() ([]byte, []int) {
+func (m *HeartbeatRequest) Reset()         { *m = HeartbeatRequest{} }
+func (m *HeartbeatRequest) String() string { return proto.CompactTextString(m) }
+func (*HeartbeatRequest) ProtoMessage()    {}
+func (*HeartbeatRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_a97e32c760ec1b28, []int{0}
 }
-func (m *PingRequest) XXX_Unmarshal(b []byte) error {
+func (m *HeartbeatRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *PingRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *HeartbeatRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_PingRequest.Marshal(b, m, deterministic)
+		return xxx_messageInfo_HeartbeatRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -111,36 +111,38 @@ func (m *PingRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) 
 		return b[:n], nil
 	}
 }
-func (m *PingRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PingRequest.Merge(m, src)
+func (m *HeartbeatRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HeartbeatRequest.Merge(m, src)
 }
-func (m *PingRequest) XXX_Size() int {
+func (m *HeartbeatRequest) XXX_Size() int {
 	return m.Size()
 }
-func (m *PingRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_PingRequest.DiscardUnknown(m)
+func (m *HeartbeatRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_HeartbeatRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_PingRequest proto.InternalMessageInfo
+var xxx_messageInfo_HeartbeatRequest proto.InternalMessageInfo
 
-type PingResponse struct {
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+type HeartbeatResponse struct {
+	Name                 string       `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Metrics              *NodeMetrics `protobuf:"bytes,2,opt,name=metrics,proto3" json:"metrics,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
+	XXX_unrecognized     []byte       `json:"-"`
+	XXX_sizecache        int32        `json:"-"`
 }
 
-func (m *PingResponse) Reset()         { *m = PingResponse{} }
-func (m *PingResponse) String() string { return proto.CompactTextString(m) }
-func (*PingResponse) ProtoMessage()    {}
-func (*PingResponse) Descriptor() ([]byte, []int) {
+func (m *HeartbeatResponse) Reset()         { *m = HeartbeatResponse{} }
+func (m *HeartbeatResponse) String() string { return proto.CompactTextString(m) }
+func (*HeartbeatResponse) ProtoMessage()    {}
+func (*HeartbeatResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_a97e32c760ec1b28, []int{1}
 }
-func (m *PingResponse) XXX_Unmarshal(b []byte) error {
+func (m *HeartbeatResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *PingResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *HeartbeatResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_PingResponse.Marshal(b, m, deterministic)
+		return xxx_messageInfo_HeartbeatResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -150,17 +152,31 @@ func (m *PingResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return b[:n], nil
 	}
 }
-func (m *PingResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PingResponse.Merge(m, src)
+func (m *HeartbeatResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HeartbeatResponse.Merge(m, src)
 }
-func (m *PingResponse) XXX_Size() int {
+func (m *HeartbeatResponse) XXX_Size() int {
 	return m.Size()
 }
-func (m *PingResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_PingResponse.DiscardUnknown(m)
+func (m *HeartbeatResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_HeartbeatResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_PingResponse proto.InternalMessageInfo
+var xxx_messageInfo_HeartbeatResponse proto.InternalMessageInfo
+
+func (m *HeartbeatResponse) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+func (m *HeartbeatResponse) GetMetrics() *NodeMetrics {
+	if m != nil {
+		return m.Metrics
+	}
+	return nil
+}
 
 type ShutdownNodeRequest struct {
 	Name                 string                             `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -930,13 +946,15 @@ func (m *FetchMetricsResponse) GetMetrics() *NodeMetrics {
 }
 
 type NodeMetrics struct {
-	Capacity             uint64   `protobuf:"varint,1,opt,name=capacity,proto3" json:"capacity,omitempty"`
-	Remaining            uint64   `protobuf:"varint,2,opt,name=remaining,proto3" json:"remaining,omitempty"`
-	UsedPercent          float32  `protobuf:"fixed32,3,opt,name=usedPercent,proto3" json:"usedPercent,omitempty"`
-	LastUpdate           int64    `protobuf:"varint,4,opt,name=lastUpdate,proto3" json:"lastUpdate,omitempty"`
-	CacheCapacity        uint64   `protobuf:"varint,5,opt,name=cacheCapacity,proto3" json:"cacheCapacity,omitempty"`
-	CacheUsed            uint64   `protobuf:"varint,6,opt,name=cacheUsed,proto3" json:"cacheUsed,omitempty"`
-	MemUsedPercent       float32  `protobuf:"fixed32,7,opt,name=memUsedPercent,proto3" json:"memUsedPercent,omitempty"`
+	BlocksUsed           int32    `protobuf:"varint,1,opt,name=blocksUsed,proto3" json:"blocksUsed,omitempty"`
+	Partitions           int32    `protobuf:"varint,2,opt,name=partitions,proto3" json:"partitions,omitempty"`
+	Capacity             uint64   `protobuf:"varint,3,opt,name=capacity,proto3" json:"capacity,omitempty"`
+	Remaining            uint64   `protobuf:"varint,4,opt,name=remaining,proto3" json:"remaining,omitempty"`
+	UsedPercent          float32  `protobuf:"fixed32,5,opt,name=usedPercent,proto3" json:"usedPercent,omitempty"`
+	LastUpdate           int64    `protobuf:"varint,6,opt,name=lastUpdate,proto3" json:"lastUpdate,omitempty"`
+	CacheCapacity        uint64   `protobuf:"varint,7,opt,name=cacheCapacity,proto3" json:"cacheCapacity,omitempty"`
+	CacheUsed            uint64   `protobuf:"varint,8,opt,name=cacheUsed,proto3" json:"cacheUsed,omitempty"`
+	MemUsedPercent       float32  `protobuf:"fixed32,9,opt,name=memUsedPercent,proto3" json:"memUsedPercent,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -974,6 +992,20 @@ func (m *NodeMetrics) XXX_DiscardUnknown() {
 }
 
 var xxx_messageInfo_NodeMetrics proto.InternalMessageInfo
+
+func (m *NodeMetrics) GetBlocksUsed() int32 {
+	if m != nil {
+		return m.BlocksUsed
+	}
+	return 0
+}
+
+func (m *NodeMetrics) GetPartitions() int32 {
+	if m != nil {
+		return m.Partitions
+	}
+	return 0
+}
 
 func (m *NodeMetrics) GetCapacity() uint64 {
 	if m != nil {
@@ -1033,8 +1065,6 @@ type NodeInfo struct {
 	Address              *NodeInfo_Address `protobuf:"bytes,3,opt,name=address,proto3" json:"address,omitempty"`
 	Location             string            `protobuf:"bytes,4,opt,name=location,proto3" json:"location,omitempty"`
 	State                NodeInfo_State    `protobuf:"varint,5,opt,name=state,proto3,enum=transport_pb.NodeInfo_State" json:"state,omitempty"`
-	PagesCapacity        int32             `protobuf:"varint,6,opt,name=pagesCapacity,proto3" json:"pagesCapacity,omitempty"`
-	Metrics              *NodeMetrics      `protobuf:"bytes,7,opt,name=metrics,proto3" json:"metrics,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -1108,20 +1138,6 @@ func (m *NodeInfo) GetState() NodeInfo_State {
 	return NodeInfo_NORMAL
 }
 
-func (m *NodeInfo) GetPagesCapacity() int32 {
-	if m != nil {
-		return m.PagesCapacity
-	}
-	return 0
-}
-
-func (m *NodeInfo) GetMetrics() *NodeMetrics {
-	if m != nil {
-		return m.Metrics
-	}
-	return nil
-}
-
 type NodeInfo_Address struct {
 	Host                 string   `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
 	Port                 string   `protobuf:"bytes,2,opt,name=port,proto3" json:"port,omitempty"`
@@ -1180,8 +1196,8 @@ func (m *NodeInfo_Address) GetPort() string {
 func init() {
 	proto.RegisterEnum("transport_pb.ShutdownNodeRequest_ShutdownReason", ShutdownNodeRequest_ShutdownReason_name, ShutdownNodeRequest_ShutdownReason_value)
 	proto.RegisterEnum("transport_pb.NodeInfo_State", NodeInfo_State_name, NodeInfo_State_value)
-	proto.RegisterType((*PingRequest)(nil), "transport_pb.PingRequest")
-	proto.RegisterType((*PingResponse)(nil), "transport_pb.PingResponse")
+	proto.RegisterType((*HeartbeatRequest)(nil), "transport_pb.HeartbeatRequest")
+	proto.RegisterType((*HeartbeatResponse)(nil), "transport_pb.HeartbeatResponse")
 	proto.RegisterType((*ShutdownNodeRequest)(nil), "transport_pb.ShutdownNodeRequest")
 	proto.RegisterType((*ShutdownNodeResponse)(nil), "transport_pb.ShutdownNodeResponse")
 	proto.RegisterType((*GetBlocksRequest)(nil), "transport_pb.GetBlocksRequest")
@@ -1207,68 +1223,67 @@ func init() {
 func init() { proto.RegisterFile("transport.proto", fileDescriptor_a97e32c760ec1b28) }
 
 var fileDescriptor_a97e32c760ec1b28 = []byte{
-	// 965 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x56, 0xdb, 0x6e, 0x1b, 0x45,
-	0x18, 0xee, 0xfa, 0x18, 0xff, 0x76, 0x1d, 0x33, 0x71, 0xd3, 0xad, 0x15, 0x19, 0xb3, 0x04, 0xf0,
-	0x95, 0x1b, 0xdc, 0x0b, 0x22, 0x24, 0x90, 0xd2, 0xd8, 0x4d, 0x2d, 0xd5, 0x07, 0x8d, 0xeb, 0x22,
-	0x90, 0x90, 0xb5, 0xde, 0x9d, 0xd8, 0x2b, 0xb2, 0x07, 0x76, 0xc6, 0x45, 0xdc, 0xf1, 0x02, 0xdc,
-	0x73, 0xc1, 0xd3, 0x70, 0xc5, 0x25, 0x8f, 0x80, 0xc2, 0x33, 0x70, 0x5f, 0xcd, 0xec, 0xc1, 0xb3,
-	0xeb, 0x6d, 0x93, 0xab, 0xec, 0x7c, 0xf3, 0x1f, 0xbe, 0xff, 0xe0, 0x6f, 0x02, 0x87, 0xcc, 0xd7,
-	0x1d, 0xea, 0xb9, 0x3e, 0xeb, 0x79, 0xbe, 0xcb, 0x5c, 0x54, 0x8b, 0x81, 0xa5, 0xb7, 0x6a, 0x1d,
-	0x5c, 0xd3, 0x00, 0xd7, 0x1e, 0x42, 0x75, 0x66, 0x39, 0x6b, 0x4c, 0x7e, 0xde, 0x12, 0xca, 0xb4,
-	0x3a, 0xd4, 0x82, 0x23, 0xf5, 0x5c, 0x87, 0x12, 0xed, 0x2f, 0x05, 0x8e, 0xe6, 0x9b, 0x2d, 0x33,
-	0xdd, 0x5f, 0x9c, 0x89, 0x6b, 0x92, 0xd0, 0x0e, 0x21, 0x28, 0x38, 0xba, 0x4d, 0x54, 0xa5, 0xa3,
-	0x74, 0x2b, 0x58, 0x7c, 0xa3, 0x97, 0x50, 0xf2, 0x89, 0x4e, 0x5d, 0x47, 0xcd, 0x75, 0x94, 0x6e,
-	0xbd, 0x7f, 0xd6, 0x93, 0x73, 0xf6, 0x32, 0xc2, 0xc4, 0x18, 0x16, 0x7e, 0x38, 0xf4, 0xd7, 0xc6,
-	0x50, 0x4f, 0xde, 0xa0, 0x23, 0x38, 0x9c, 0xbf, 0x5c, 0xbc, 0x1e, 0x4c, 0xbf, 0x9b, 0x2c, 0x27,
-	0x53, 0x3c, 0xbe, 0x78, 0xd5, 0x78, 0x80, 0x10, 0xd4, 0x63, 0x70, 0x88, 0xf1, 0x14, 0x37, 0x94,
-	0x04, 0xf6, 0x62, 0x8a, 0x2f, 0x87, 0x8d, 0x9c, 0x76, 0x0c, 0xcd, 0x64, 0xf2, 0xb0, 0xb8, 0x57,
-	0xd0, 0xb8, 0x22, 0xec, 0xf9, 0x8d, 0x6b, 0xfc, 0x44, 0xa3, 0xc2, 0xce, 0xa1, 0xb4, 0x12, 0x80,
-	0xaa, 0x74, 0xf2, 0xdd, 0x6a, 0xbf, 0x93, 0x2c, 0x42, 0x18, 0xcf, 0x6e, 0x74, 0x83, 0xd8, 0xc4,
-	0x61, 0x23, 0xe7, 0xda, 0xc5, 0xa1, 0xbd, 0xf6, 0x15, 0x7c, 0x24, 0x45, 0x0b, 0x52, 0x20, 0x0d,
-	0x8a, 0xe2, 0x5a, 0x34, 0xaa, 0xda, 0xaf, 0xf5, 0xae, 0x69, 0x1c, 0x06, 0x07, 0x57, 0xda, 0x39,
-	0xa0, 0x0b, 0x4a, 0xad, 0xb5, 0x13, 0xa0, 0x21, 0x91, 0xfb, 0x78, 0xbe, 0x81, 0xa6, 0xe4, 0xb9,
-	0xcb, 0xfa, 0x2d, 0x54, 0xbc, 0x88, 0xe3, 0xbd, 0xeb, 0xd8, 0xb9, 0x68, 0xbf, 0x29, 0x80, 0xf6,
-	0x2d, 0x90, 0x0a, 0x65, 0x91, 0x77, 0x34, 0x08, 0xe7, 0x1e, 0x1d, 0x51, 0x07, 0xaa, 0x9e, 0xee,
-	0x33, 0x8b, 0x59, 0xae, 0x33, 0x1a, 0x88, 0xf9, 0x57, 0xb0, 0x0c, 0x71, 0x5f, 0xba, 0x35, 0x0c,
-	0x42, 0xa9, 0x9a, 0xef, 0x28, 0xdd, 0x03, 0x1c, 0x1d, 0x51, 0x13, 0x8a, 0xc4, 0xf7, 0x5d, 0x5f,
-	0x2d, 0x08, 0xaf, 0xe0, 0xa0, 0x7d, 0x01, 0x47, 0x98, 0xd8, 0xee, 0x5b, 0x92, 0x1c, 0x4f, 0x03,
-	0xf2, 0x96, 0x19, 0xcc, 0xa6, 0x82, 0xf9, 0x27, 0x1f, 0x6e, 0xd2, 0x30, 0x1c, 0xee, 0x63, 0x78,
-	0x24, 0xd8, 0xcf, 0x22, 0x12, 0xd1, 0x8a, 0xab, 0x70, 0x9c, 0xbe, 0x08, 0x5d, 0x1e, 0xc1, 0xd1,
-	0x15, 0x61, 0x7b, 0x0e, 0xc7, 0xd0, 0x4c, 0xc2, 0xa1, 0xb9, 0x0a, 0xc7, 0x41, 0xe6, 0x3d, 0x8f,
-	0x27, 0xf0, 0x78, 0xef, 0x66, 0x97, 0xe3, 0x05, 0x61, 0xc6, 0x66, 0x4c, 0x98, 0x6f, 0x19, 0x51,
-	0x5d, 0xda, 0x12, 0x9a, 0x49, 0x38, 0x9c, 0x64, 0xd6, 0xef, 0xec, 0x19, 0x94, 0xed, 0xc0, 0x4c,
-	0x34, 0xba, 0xda, 0x7f, 0x92, 0x9c, 0x2d, 0xdf, 0xf1, 0x28, 0x4e, 0x64, 0xa9, 0xfd, 0xaf, 0x40,
-	0x55, 0xba, 0x40, 0x2d, 0x38, 0x30, 0x74, 0x4f, 0x37, 0x2c, 0xf6, 0xab, 0x08, 0x5e, 0xc0, 0xf1,
-	0x19, 0x9d, 0x40, 0xc5, 0x27, 0xb6, 0x6e, 0x39, 0x96, 0xb3, 0x16, 0x29, 0x0a, 0x78, 0x07, 0xf0,
-	0x59, 0x6f, 0x29, 0x31, 0x67, 0xc4, 0x37, 0xf8, 0x7a, 0xf1, 0x69, 0xe6, 0xb0, 0x0c, 0xa1, 0x36,
-	0xc0, 0x8d, 0x4e, 0xd9, 0xc2, 0x33, 0x75, 0x46, 0xc4, 0x58, 0xf3, 0x58, 0x42, 0xd0, 0x29, 0x3c,
-	0x34, 0x74, 0x63, 0x43, 0x2e, 0x23, 0x02, 0x45, 0x91, 0x23, 0x09, 0x72, 0x16, 0x02, 0x58, 0x50,
-	0x62, 0xaa, 0xa5, 0x80, 0x45, 0x0c, 0xa0, 0xcf, 0xa1, 0x6e, 0x13, 0x7b, 0x21, 0x11, 0x29, 0x0b,
-	0x22, 0x29, 0x54, 0xfb, 0x3d, 0x0f, 0x07, 0xbc, 0x6e, 0xb1, 0xc0, 0x75, 0xc8, 0x59, 0x66, 0xd8,
-	0xcb, 0x9c, 0x65, 0xc6, 0xdd, 0xcd, 0x49, 0xdd, 0x3d, 0x87, 0xb2, 0x6e, 0x9a, 0x7e, 0xb4, 0xa8,
-	0xd5, 0x7e, 0x7b, 0xbf, 0xbb, 0x3c, 0x58, 0xef, 0x22, 0xb0, 0xc2, 0x91, 0x39, 0x6f, 0xe9, 0x8d,
-	0x6b, 0xe8, 0x7c, 0xdc, 0xe1, 0x2e, 0xc7, 0x67, 0xd4, 0x87, 0x22, 0x65, 0xbc, 0x1b, 0x45, 0x21,
-	0x8d, 0x27, 0xef, 0x89, 0x39, 0xe7, 0x36, 0x38, 0x30, 0xe5, 0x6d, 0xf2, 0xf4, 0x35, 0xa1, 0x71,
-	0x9b, 0x78, 0x13, 0x8a, 0x38, 0x09, 0xca, 0xdb, 0x50, 0xbe, 0xef, 0x36, 0xb4, 0xbe, 0x84, 0x72,
-	0x48, 0x9f, 0xf7, 0x60, 0xe3, 0x52, 0x16, 0x6d, 0x18, 0xff, 0xe6, 0x18, 0x77, 0x8f, 0xfa, 0xc2,
-	0xbf, 0xb5, 0x21, 0x14, 0x05, 0x3b, 0x04, 0x50, 0x8a, 0x15, 0xf8, 0x04, 0xd4, 0xc1, 0xf0, 0x72,
-	0x3a, 0x1e, 0x8f, 0xe6, 0xf3, 0xd1, 0x74, 0xb2, 0x1c, 0x4d, 0x96, 0x33, 0x3c, 0xbd, 0xc2, 0xc3,
-	0xf9, 0x3c, 0xd0, 0x62, 0xf9, 0x76, 0x38, 0x68, 0xe4, 0xfa, 0x7f, 0x96, 0xa0, 0xf1, 0x3a, 0xe2,
-	0x37, 0x27, 0xfe, 0x5b, 0xcb, 0x20, 0xe8, 0x1b, 0x28, 0xf0, 0x57, 0x07, 0xa5, 0xa8, 0x4b, 0x0f,
-	0x53, 0xab, 0x95, 0x75, 0x15, 0xfe, 0x48, 0x16, 0x50, 0x93, 0xf5, 0x1d, 0x7d, 0x72, 0xe7, 0xc3,
-	0xd3, 0xd2, 0x3e, 0x64, 0x12, 0x86, 0x9d, 0x40, 0x25, 0x16, 0x74, 0x94, 0xda, 0x82, 0xf4, 0xbb,
-	0xd1, 0xfa, 0xf8, 0xbd, 0xf7, 0x41, 0xb4, 0x33, 0x05, 0xbd, 0x81, 0x9a, 0xac, 0xd6, 0x28, 0x25,
-	0xc9, 0xfb, 0x6f, 0x40, 0x9a, 0x65, 0x96, 0xd6, 0x77, 0x15, 0x5e, 0xbe, 0xac, 0x80, 0xe9, 0xf2,
-	0x33, 0x64, 0x34, 0x1d, 0x38, 0x4b, 0x40, 0xd1, 0x8f, 0x50, 0x4f, 0xea, 0x24, 0xfa, 0x34, 0x35,
-	0x83, 0x2c, 0x79, 0x6d, 0x9d, 0x7e, 0xd8, 0x28, 0x66, 0xfd, 0x3d, 0xd4, 0x64, 0x55, 0x4d, 0xb3,
-	0xce, 0x10, 0xe2, 0x34, 0xeb, 0x2c, 0x51, 0xee, 0x2a, 0x67, 0x0a, 0x5a, 0xc1, 0x61, 0x4a, 0x7e,
-	0xd1, 0x69, 0x56, 0xc1, 0x7b, 0x09, 0x3e, 0xbb, 0xc3, 0x4a, 0xca, 0xb1, 0x80, 0x9a, 0x2c, 0xd8,
-	0x69, 0xfa, 0x19, 0x1a, 0x9f, 0xa6, 0x9f, 0xa5, 0xf7, 0xcf, 0xbf, 0xfe, 0xfb, 0xb6, 0xad, 0xfc,
-	0x73, 0xdb, 0x56, 0xfe, 0xbd, 0x6d, 0x2b, 0x7f, 0xfc, 0xd7, 0x7e, 0xf0, 0x43, 0x77, 0x6d, 0xb1,
-	0xcd, 0x76, 0xd5, 0x33, 0x5c, 0xfb, 0xa9, 0xbf, 0x71, 0xe9, 0x96, 0x46, 0x7f, 0xbc, 0xd5, 0x53,
-	0x39, 0xe0, 0xaa, 0x24, 0xfe, 0xa3, 0x7b, 0xf6, 0x2e, 0x00, 0x00, 0xff, 0xff, 0x6c, 0x88, 0xa8,
-	0x54, 0xfc, 0x09, 0x00, 0x00,
+	// 960 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x56, 0xcb, 0x6e, 0xdb, 0x46,
+	0x17, 0x0e, 0x69, 0x53, 0x97, 0x23, 0xfd, 0xb2, 0x32, 0x56, 0x1c, 0x46, 0x30, 0xf4, 0xab, 0xac,
+	0xdb, 0x72, 0xa5, 0xb8, 0xca, 0xa2, 0x46, 0x17, 0x05, 0x1c, 0x4b, 0xb1, 0x05, 0x58, 0x92, 0x31,
+	0x8a, 0x52, 0xb4, 0x68, 0x2b, 0x50, 0xe4, 0xd8, 0x22, 0x6a, 0x91, 0x2c, 0x67, 0x94, 0xa2, 0xbb,
+	0x3e, 0x46, 0x9f, 0xa3, 0x40, 0x5f, 0xa0, 0xab, 0x2e, 0xf3, 0x08, 0x85, 0xfb, 0x22, 0xc5, 0x0c,
+	0x2f, 0x1e, 0x52, 0xcc, 0x65, 0xd1, 0x95, 0x38, 0xdf, 0xb9, 0x7d, 0x73, 0xce, 0xcc, 0x37, 0x82,
+	0x3d, 0x16, 0x5a, 0x1e, 0x0d, 0xfc, 0x90, 0xf5, 0x82, 0xd0, 0x67, 0x3e, 0xaa, 0xa7, 0xc0, 0x22,
+	0x58, 0xb6, 0x2b, 0xd7, 0x34, 0xc2, 0x0d, 0x04, 0xcd, 0x0b, 0x62, 0x85, 0x6c, 0x49, 0x2c, 0x86,
+	0xc9, 0x4f, 0x1b, 0x42, 0x99, 0xf1, 0x1d, 0x3c, 0x94, 0x30, 0x1a, 0xf8, 0x1e, 0x25, 0x08, 0xc1,
+	0xae, 0x67, 0xad, 0x89, 0xae, 0x74, 0x15, 0xb3, 0x8a, 0xc5, 0x37, 0x7a, 0x06, 0xe5, 0x35, 0x61,
+	0xa1, 0x6b, 0x53, 0x5d, 0xed, 0x2a, 0x66, 0xad, 0xff, 0xa4, 0x27, 0x97, 0xe9, 0x4d, 0x7c, 0x87,
+	0x8c, 0x23, 0x07, 0x9c, 0x78, 0x1a, 0x7f, 0x2a, 0xb0, 0x3f, 0x5b, 0x6d, 0x98, 0xe3, 0xff, 0xec,
+	0x71, 0x87, 0xb8, 0x6a, 0x61, 0x81, 0x0b, 0x28, 0x85, 0xc4, 0xa2, 0xbe, 0x27, 0xf2, 0x37, 0xfa,
+	0xc7, 0xd9, 0xfc, 0x05, 0x69, 0x52, 0x0c, 0x8b, 0x38, 0x1c, 0xc7, 0x1b, 0x63, 0x68, 0x64, 0x2d,
+	0x68, 0x1f, 0xf6, 0x66, 0x17, 0xf3, 0x97, 0x83, 0xe9, 0xd7, 0x93, 0xc5, 0x64, 0x8a, 0xc7, 0xa7,
+	0x97, 0xcd, 0x07, 0x08, 0x41, 0x23, 0x05, 0x87, 0x18, 0x4f, 0x71, 0x53, 0xc9, 0x60, 0x2f, 0xa6,
+	0xf8, 0x6c, 0xd8, 0x54, 0x8d, 0x03, 0x68, 0x65, 0x8b, 0x47, 0x5d, 0x32, 0x2e, 0xa1, 0x79, 0x4e,
+	0xd8, 0xf3, 0x5b, 0xdf, 0xfe, 0x91, 0x26, 0x1b, 0x3b, 0x81, 0xd2, 0x52, 0x00, 0xba, 0xd2, 0xdd,
+	0x31, 0x6b, 0xfd, 0x6e, 0x76, 0x13, 0xc2, 0xf9, 0xea, 0xd6, 0xb2, 0xc9, 0x9a, 0x78, 0x6c, 0xe4,
+	0x5d, 0xfb, 0x38, 0xf6, 0x37, 0xbe, 0x80, 0x87, 0x52, 0xb6, 0x78, 0x10, 0x06, 0x68, 0xc2, 0x2c,
+	0x1a, 0x55, 0xeb, 0xd7, 0x7b, 0xd7, 0x34, 0x4d, 0x83, 0x23, 0x93, 0x71, 0x02, 0xe8, 0x94, 0x52,
+	0xf7, 0xc6, 0x8b, 0xd0, 0x98, 0xc8, 0x87, 0x44, 0xbe, 0x82, 0x96, 0x14, 0x79, 0x5f, 0xf5, 0x2b,
+	0xa8, 0x06, 0x09, 0xc7, 0x0f, 0xde, 0xc7, 0x7d, 0x88, 0xf1, 0xab, 0x02, 0x68, 0xdb, 0x03, 0xe9,
+	0x50, 0x16, 0x75, 0x47, 0x83, 0x78, 0xee, 0xc9, 0x12, 0x75, 0xa1, 0x16, 0x58, 0x21, 0x73, 0x99,
+	0xeb, 0x7b, 0xa3, 0x81, 0x98, 0x7f, 0x15, 0xcb, 0x10, 0x8f, 0xa5, 0x1b, 0xdb, 0x26, 0x94, 0xea,
+	0x3b, 0x5d, 0xc5, 0xac, 0xe0, 0x64, 0x89, 0x5a, 0xa0, 0x91, 0x30, 0xf4, 0x43, 0x7d, 0x57, 0x44,
+	0x45, 0x0b, 0xe3, 0x33, 0xd8, 0xc7, 0x64, 0xed, 0xbf, 0x26, 0xd9, 0xf1, 0x34, 0x61, 0xc7, 0x75,
+	0xa2, 0xd9, 0x54, 0x31, 0xff, 0xe4, 0xc3, 0xcd, 0x3a, 0xc6, 0xc3, 0x7d, 0x0c, 0x8f, 0x04, 0xfb,
+	0xab, 0x84, 0x44, 0x72, 0x61, 0x74, 0x38, 0xc8, 0x1b, 0xe2, 0x90, 0x47, 0xb0, 0x7f, 0x4e, 0xd8,
+	0x56, 0xc0, 0x01, 0xb4, 0xb2, 0x70, 0xec, 0xae, 0xc3, 0x41, 0x54, 0x79, 0x2b, 0xe2, 0x09, 0x3c,
+	0xde, 0xb2, 0xdc, 0xd7, 0x78, 0x41, 0x98, 0xbd, 0x4a, 0x6e, 0x5a, 0x1c, 0xb1, 0x80, 0x56, 0x16,
+	0xfe, 0xaf, 0x2f, 0xf2, 0x1f, 0x2a, 0xd4, 0x24, 0x03, 0xea, 0x00, 0x44, 0xe7, 0x76, 0x4e, 0x89,
+	0x23, 0xd2, 0x6b, 0x58, 0x42, 0xb8, 0x3d, 0x1d, 0x5f, 0x54, 0x47, 0xc3, 0x12, 0x82, 0xda, 0x50,
+	0xb1, 0xad, 0xc0, 0xb2, 0x5d, 0xf6, 0x8b, 0x18, 0xe8, 0x2e, 0x4e, 0xd7, 0xe8, 0x10, 0xaa, 0x21,
+	0x59, 0x5b, 0xae, 0xe7, 0x7a, 0x37, 0x62, 0xaa, 0xbb, 0xf8, 0x1e, 0xe0, 0x67, 0x65, 0x43, 0x89,
+	0x73, 0x45, 0x42, 0x9b, 0x1f, 0x4f, 0xad, 0xab, 0x98, 0x2a, 0x96, 0x21, 0x5e, 0xfb, 0xd6, 0xa2,
+	0x6c, 0x1e, 0x38, 0x16, 0x23, 0x7a, 0xa9, 0xab, 0x98, 0x3b, 0x58, 0x42, 0xd0, 0x11, 0xfc, 0xcf,
+	0xb6, 0xec, 0x15, 0x39, 0x4b, 0x08, 0x94, 0x45, 0x8d, 0x2c, 0xc8, 0x59, 0x08, 0x40, 0x6c, 0xb0,
+	0x12, 0xb1, 0x48, 0x01, 0xf4, 0x29, 0x34, 0xd6, 0x64, 0x3d, 0x97, 0x88, 0x54, 0x05, 0x91, 0x1c,
+	0x6a, 0xfc, 0xae, 0x42, 0x85, 0xf7, 0x4d, 0x5c, 0x80, 0x06, 0xa8, 0xae, 0x13, 0xcf, 0x42, 0x75,
+	0x9d, 0x74, 0x3a, 0xaa, 0x34, 0x9d, 0x13, 0x28, 0x5b, 0x8e, 0x13, 0x26, 0x07, 0xbd, 0xd6, 0xef,
+	0x6c, 0x4f, 0x87, 0x27, 0xeb, 0x9d, 0x46, 0x5e, 0x38, 0x71, 0xe7, 0x2d, 0xbd, 0xf5, 0x6d, 0x8b,
+	0xf7, 0x37, 0xbe, 0x0b, 0xe9, 0x1a, 0xf5, 0x41, 0xa3, 0x8c, 0x77, 0x43, 0x13, 0xd2, 0x7a, 0xf8,
+	0x96, 0x9c, 0x33, 0xee, 0x83, 0x23, 0xd7, 0xf6, 0xe7, 0x50, 0x8e, 0x6b, 0x70, 0xa2, 0x2b, 0x9f,
+	0xb2, 0xe4, 0x18, 0xf1, 0x6f, 0x8e, 0xf1, 0xf8, 0x84, 0x3c, 0xff, 0x36, 0x86, 0xa0, 0x89, 0x14,
+	0x08, 0xa0, 0x94, 0xca, 0xec, 0x21, 0xe8, 0x83, 0xe1, 0xd9, 0x74, 0x3c, 0x1e, 0xcd, 0x66, 0xa3,
+	0xe9, 0x64, 0x31, 0x9a, 0x2c, 0xae, 0xf0, 0xf4, 0x1c, 0x0f, 0x67, 0xb3, 0x48, 0x70, 0x65, 0xeb,
+	0x70, 0xd0, 0x54, 0xfb, 0x6f, 0x34, 0x68, 0xbe, 0x4c, 0x08, 0xce, 0x48, 0xf8, 0xda, 0xb5, 0x09,
+	0xba, 0x84, 0x6a, 0xfa, 0x50, 0xa1, 0x5c, 0x53, 0xf2, 0xaf, 0x5a, 0xfb, 0xff, 0x6f, 0xb5, 0xc7,
+	0x17, 0x63, 0x0e, 0x75, 0x59, 0xd3, 0xd1, 0x47, 0xef, 0x7d, 0x6c, 0xda, 0xc6, 0xbb, 0x5c, 0xe2,
+	0xb4, 0x13, 0xa8, 0xa6, 0x22, 0x9e, 0x27, 0x99, 0x7f, 0x2b, 0xf2, 0x24, 0xb7, 0xd4, 0xff, 0x58,
+	0x41, 0xaf, 0xa0, 0x2e, 0x2b, 0x34, 0xca, 0xc9, 0xf0, 0xb6, 0xee, 0xe7, 0x59, 0x16, 0xe9, 0xbb,
+	0xa9, 0xf0, 0xed, 0xcb, 0xaa, 0x97, 0xdf, 0x7e, 0x81, 0x74, 0xe6, 0x13, 0x17, 0x89, 0x26, 0xfa,
+	0x1e, 0x1a, 0x59, 0x6d, 0x44, 0x1f, 0x67, 0xa3, 0x0a, 0x25, 0xb5, 0x7d, 0xf4, 0x6e, 0xa7, 0x94,
+	0xf5, 0x37, 0x50, 0x97, 0x95, 0x34, 0xcf, 0xba, 0x40, 0x7c, 0xf3, 0xac, 0x8b, 0x84, 0xd8, 0x54,
+	0x8e, 0x15, 0xf4, 0x03, 0xec, 0xe5, 0x24, 0x17, 0x1d, 0x15, 0x6d, 0x78, 0xab, 0xc0, 0x27, 0xef,
+	0xf1, 0x8a, 0x6a, 0x3c, 0xff, 0xf2, 0xaf, 0xbb, 0x8e, 0xf2, 0xe6, 0xae, 0xa3, 0xfc, 0x7d, 0xd7,
+	0x51, 0x7e, 0xfb, 0xa7, 0xf3, 0xe0, 0x5b, 0xf3, 0xc6, 0x65, 0xab, 0xcd, 0xb2, 0x67, 0xfb, 0xeb,
+	0xa7, 0xe1, 0xca, 0xa7, 0x1b, 0x9a, 0xfc, 0x04, 0xcb, 0xa7, 0x72, 0xce, 0x65, 0x49, 0xfc, 0x7b,
+	0x7b, 0xf6, 0x6f, 0x00, 0x00, 0x00, 0xff, 0xff, 0x3b, 0xde, 0xcd, 0x67, 0xe8, 0x09, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -1283,15 +1298,14 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type TransportServiceClient interface {
-	Ping(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (*PingResponse, error)
+	Heartbeat(ctx context.Context, in *HeartbeatRequest, opts ...grpc.CallOption) (*HeartbeatResponse, error)
 	ShutdownNode(ctx context.Context, in *ShutdownNodeRequest, opts ...grpc.CallOption) (*ShutdownNodeResponse, error)
 	GetBlocks(ctx context.Context, in *GetBlocksRequest, opts ...grpc.CallOption) (TransportService_GetBlocksClient, error)
 	AssignBlocks(ctx context.Context, opts ...grpc.CallOption) (TransportService_AssignBlocksClient, error)
 	RemoveBlocks(ctx context.Context, in *RemoveBlocksRequest, opts ...grpc.CallOption) (*RemoveBlocksResponse, error)
 	PlacePartition(ctx context.Context, opts ...grpc.CallOption) (TransportService_PlacePartitionClient, error)
 	GetPartition(ctx context.Context, opts ...grpc.CallOption) (TransportService_GetPartitionClient, error)
-	RemovePartition(ctx context.Context, opts ...grpc.CallOption) (TransportService_RemovePartitionClient, error)
-	FetchMetrics(ctx context.Context, in *FetchMetricsRequest, opts ...grpc.CallOption) (*FetchMetricsResponse, error)
+	RemovePartition(ctx context.Context, in *RemovePartitionRequest, opts ...grpc.CallOption) (*RemovePartitionResponse, error)
 }
 
 type transportServiceClient struct {
@@ -1302,9 +1316,9 @@ func NewTransportServiceClient(cc *grpc.ClientConn) TransportServiceClient {
 	return &transportServiceClient{cc}
 }
 
-func (c *transportServiceClient) Ping(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (*PingResponse, error) {
-	out := new(PingResponse)
-	err := c.cc.Invoke(ctx, "/transport_pb.TransportService/Ping", in, out, opts...)
+func (c *transportServiceClient) Heartbeat(ctx context.Context, in *HeartbeatRequest, opts ...grpc.CallOption) (*HeartbeatResponse, error) {
+	out := new(HeartbeatResponse)
+	err := c.cc.Invoke(ctx, "/transport_pb.TransportService/Heartbeat", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1460,40 +1474,9 @@ func (x *transportServiceGetPartitionClient) Recv() (*GetPartitionResponse, erro
 	return m, nil
 }
 
-func (c *transportServiceClient) RemovePartition(ctx context.Context, opts ...grpc.CallOption) (TransportService_RemovePartitionClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_TransportService_serviceDesc.Streams[4], "/transport_pb.TransportService/RemovePartition", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &transportServiceRemovePartitionClient{stream}
-	return x, nil
-}
-
-type TransportService_RemovePartitionClient interface {
-	Send(*RemovePartitionRequest) error
-	Recv() (*RemovePartitionResponse, error)
-	grpc.ClientStream
-}
-
-type transportServiceRemovePartitionClient struct {
-	grpc.ClientStream
-}
-
-func (x *transportServiceRemovePartitionClient) Send(m *RemovePartitionRequest) error {
-	return x.ClientStream.SendMsg(m)
-}
-
-func (x *transportServiceRemovePartitionClient) Recv() (*RemovePartitionResponse, error) {
-	m := new(RemovePartitionResponse)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-func (c *transportServiceClient) FetchMetrics(ctx context.Context, in *FetchMetricsRequest, opts ...grpc.CallOption) (*FetchMetricsResponse, error) {
-	out := new(FetchMetricsResponse)
-	err := c.cc.Invoke(ctx, "/transport_pb.TransportService/FetchMetrics", in, out, opts...)
+func (c *transportServiceClient) RemovePartition(ctx context.Context, in *RemovePartitionRequest, opts ...grpc.CallOption) (*RemovePartitionResponse, error) {
+	out := new(RemovePartitionResponse)
+	err := c.cc.Invoke(ctx, "/transport_pb.TransportService/RemovePartition", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1502,23 +1485,22 @@ func (c *transportServiceClient) FetchMetrics(ctx context.Context, in *FetchMetr
 
 // TransportServiceServer is the server API for TransportService service.
 type TransportServiceServer interface {
-	Ping(context.Context, *PingRequest) (*PingResponse, error)
+	Heartbeat(context.Context, *HeartbeatRequest) (*HeartbeatResponse, error)
 	ShutdownNode(context.Context, *ShutdownNodeRequest) (*ShutdownNodeResponse, error)
 	GetBlocks(*GetBlocksRequest, TransportService_GetBlocksServer) error
 	AssignBlocks(TransportService_AssignBlocksServer) error
 	RemoveBlocks(context.Context, *RemoveBlocksRequest) (*RemoveBlocksResponse, error)
 	PlacePartition(TransportService_PlacePartitionServer) error
 	GetPartition(TransportService_GetPartitionServer) error
-	RemovePartition(TransportService_RemovePartitionServer) error
-	FetchMetrics(context.Context, *FetchMetricsRequest) (*FetchMetricsResponse, error)
+	RemovePartition(context.Context, *RemovePartitionRequest) (*RemovePartitionResponse, error)
 }
 
 // UnimplementedTransportServiceServer can be embedded to have forward compatible implementations.
 type UnimplementedTransportServiceServer struct {
 }
 
-func (*UnimplementedTransportServiceServer) Ping(ctx context.Context, req *PingRequest) (*PingResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Ping not implemented")
+func (*UnimplementedTransportServiceServer) Heartbeat(ctx context.Context, req *HeartbeatRequest) (*HeartbeatResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Heartbeat not implemented")
 }
 func (*UnimplementedTransportServiceServer) ShutdownNode(ctx context.Context, req *ShutdownNodeRequest) (*ShutdownNodeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ShutdownNode not implemented")
@@ -1538,31 +1520,28 @@ func (*UnimplementedTransportServiceServer) PlacePartition(srv TransportService_
 func (*UnimplementedTransportServiceServer) GetPartition(srv TransportService_GetPartitionServer) error {
 	return status.Errorf(codes.Unimplemented, "method GetPartition not implemented")
 }
-func (*UnimplementedTransportServiceServer) RemovePartition(srv TransportService_RemovePartitionServer) error {
-	return status.Errorf(codes.Unimplemented, "method RemovePartition not implemented")
-}
-func (*UnimplementedTransportServiceServer) FetchMetrics(ctx context.Context, req *FetchMetricsRequest) (*FetchMetricsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method FetchMetrics not implemented")
+func (*UnimplementedTransportServiceServer) RemovePartition(ctx context.Context, req *RemovePartitionRequest) (*RemovePartitionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RemovePartition not implemented")
 }
 
 func RegisterTransportServiceServer(s *grpc.Server, srv TransportServiceServer) {
 	s.RegisterService(&_TransportService_serviceDesc, srv)
 }
 
-func _TransportService_Ping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(PingRequest)
+func _TransportService_Heartbeat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HeartbeatRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(TransportServiceServer).Ping(ctx, in)
+		return srv.(TransportServiceServer).Heartbeat(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/transport_pb.TransportService/Ping",
+		FullMethod: "/transport_pb.TransportService/Heartbeat",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(TransportServiceServer).Ping(ctx, req.(*PingRequest))
+		return srv.(TransportServiceServer).Heartbeat(ctx, req.(*HeartbeatRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1702,46 +1681,20 @@ func (x *transportServiceGetPartitionServer) Recv() (*GetPartitionRequest, error
 	return m, nil
 }
 
-func _TransportService_RemovePartition_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(TransportServiceServer).RemovePartition(&transportServiceRemovePartitionServer{stream})
-}
-
-type TransportService_RemovePartitionServer interface {
-	Send(*RemovePartitionResponse) error
-	Recv() (*RemovePartitionRequest, error)
-	grpc.ServerStream
-}
-
-type transportServiceRemovePartitionServer struct {
-	grpc.ServerStream
-}
-
-func (x *transportServiceRemovePartitionServer) Send(m *RemovePartitionResponse) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func (x *transportServiceRemovePartitionServer) Recv() (*RemovePartitionRequest, error) {
-	m := new(RemovePartitionRequest)
-	if err := x.ServerStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-func _TransportService_FetchMetrics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FetchMetricsRequest)
+func _TransportService_RemovePartition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemovePartitionRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(TransportServiceServer).FetchMetrics(ctx, in)
+		return srv.(TransportServiceServer).RemovePartition(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/transport_pb.TransportService/FetchMetrics",
+		FullMethod: "/transport_pb.TransportService/RemovePartition",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(TransportServiceServer).FetchMetrics(ctx, req.(*FetchMetricsRequest))
+		return srv.(TransportServiceServer).RemovePartition(ctx, req.(*RemovePartitionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1751,8 +1704,8 @@ var _TransportService_serviceDesc = grpc.ServiceDesc{
 	HandlerType: (*TransportServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Ping",
-			Handler:    _TransportService_Ping_Handler,
+			MethodName: "Heartbeat",
+			Handler:    _TransportService_Heartbeat_Handler,
 		},
 		{
 			MethodName: "ShutdownNode",
@@ -1763,8 +1716,8 @@ var _TransportService_serviceDesc = grpc.ServiceDesc{
 			Handler:    _TransportService_RemoveBlocks_Handler,
 		},
 		{
-			MethodName: "FetchMetrics",
-			Handler:    _TransportService_FetchMetrics_Handler,
+			MethodName: "RemovePartition",
+			Handler:    _TransportService_RemovePartition_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
@@ -1789,17 +1742,11 @@ var _TransportService_serviceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 			ClientStreams: true,
 		},
-		{
-			StreamName:    "RemovePartition",
-			Handler:       _TransportService_RemovePartition_Handler,
-			ServerStreams: true,
-			ClientStreams: true,
-		},
 	},
 	Metadata: "transport.proto",
 }
 
-func (m *PingRequest) Marshal() (dAtA []byte, err error) {
+func (m *HeartbeatRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1809,12 +1756,12 @@ func (m *PingRequest) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *PingRequest) MarshalTo(dAtA []byte) (int, error) {
+func (m *HeartbeatRequest) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *PingRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *HeartbeatRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1826,7 +1773,7 @@ func (m *PingRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *PingResponse) Marshal() (dAtA []byte, err error) {
+func (m *HeartbeatResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1836,12 +1783,12 @@ func (m *PingResponse) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *PingResponse) MarshalTo(dAtA []byte) (int, error) {
+func (m *HeartbeatResponse) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *PingResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *HeartbeatResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1849,6 +1796,25 @@ func (m *PingResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	if m.XXX_unrecognized != nil {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.Metrics != nil {
+		{
+			size, err := m.Metrics.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTransport(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintTransport(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
 	}
 	return len(dAtA) - i, nil
 }
@@ -2463,36 +2429,46 @@ func (m *NodeMetrics) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= 4
 		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.MemUsedPercent))))
 		i--
-		dAtA[i] = 0x3d
+		dAtA[i] = 0x4d
 	}
 	if m.CacheUsed != 0 {
 		i = encodeVarintTransport(dAtA, i, uint64(m.CacheUsed))
 		i--
-		dAtA[i] = 0x30
+		dAtA[i] = 0x40
 	}
 	if m.CacheCapacity != 0 {
 		i = encodeVarintTransport(dAtA, i, uint64(m.CacheCapacity))
 		i--
-		dAtA[i] = 0x28
+		dAtA[i] = 0x38
 	}
 	if m.LastUpdate != 0 {
 		i = encodeVarintTransport(dAtA, i, uint64(m.LastUpdate))
 		i--
-		dAtA[i] = 0x20
+		dAtA[i] = 0x30
 	}
 	if m.UsedPercent != 0 {
 		i -= 4
 		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.UsedPercent))))
 		i--
-		dAtA[i] = 0x1d
+		dAtA[i] = 0x2d
 	}
 	if m.Remaining != 0 {
 		i = encodeVarintTransport(dAtA, i, uint64(m.Remaining))
 		i--
-		dAtA[i] = 0x10
+		dAtA[i] = 0x20
 	}
 	if m.Capacity != 0 {
 		i = encodeVarintTransport(dAtA, i, uint64(m.Capacity))
+		i--
+		dAtA[i] = 0x18
+	}
+	if m.Partitions != 0 {
+		i = encodeVarintTransport(dAtA, i, uint64(m.Partitions))
+		i--
+		dAtA[i] = 0x10
+	}
+	if m.BlocksUsed != 0 {
+		i = encodeVarintTransport(dAtA, i, uint64(m.BlocksUsed))
 		i--
 		dAtA[i] = 0x8
 	}
@@ -2522,23 +2498,6 @@ func (m *NodeInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	if m.XXX_unrecognized != nil {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	if m.Metrics != nil {
-		{
-			size, err := m.Metrics.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintTransport(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x3a
-	}
-	if m.PagesCapacity != 0 {
-		i = encodeVarintTransport(dAtA, i, uint64(m.PagesCapacity))
-		i--
-		dAtA[i] = 0x30
 	}
 	if m.State != 0 {
 		i = encodeVarintTransport(dAtA, i, uint64(m.State))
@@ -2633,7 +2592,7 @@ func encodeVarintTransport(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return base
 }
-func (m *PingRequest) Size() (n int) {
+func (m *HeartbeatRequest) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -2645,12 +2604,20 @@ func (m *PingRequest) Size() (n int) {
 	return n
 }
 
-func (m *PingResponse) Size() (n int) {
+func (m *HeartbeatResponse) Size() (n int) {
 	if m == nil {
 		return 0
 	}
 	var l int
 	_ = l
+	l = len(m.Name)
+	if l > 0 {
+		n += 1 + l + sovTransport(uint64(l))
+	}
+	if m.Metrics != nil {
+		l = m.Metrics.Size()
+		n += 1 + l + sovTransport(uint64(l))
+	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -2923,6 +2890,12 @@ func (m *NodeMetrics) Size() (n int) {
 	}
 	var l int
 	_ = l
+	if m.BlocksUsed != 0 {
+		n += 1 + sovTransport(uint64(m.BlocksUsed))
+	}
+	if m.Partitions != 0 {
+		n += 1 + sovTransport(uint64(m.Partitions))
+	}
 	if m.Capacity != 0 {
 		n += 1 + sovTransport(uint64(m.Capacity))
 	}
@@ -2975,13 +2948,6 @@ func (m *NodeInfo) Size() (n int) {
 	if m.State != 0 {
 		n += 1 + sovTransport(uint64(m.State))
 	}
-	if m.PagesCapacity != 0 {
-		n += 1 + sovTransport(uint64(m.PagesCapacity))
-	}
-	if m.Metrics != nil {
-		l = m.Metrics.Size()
-		n += 1 + l + sovTransport(uint64(l))
-	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -3014,7 +2980,7 @@ func sovTransport(x uint64) (n int) {
 func sozTransport(x uint64) (n int) {
 	return sovTransport(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
-func (m *PingRequest) Unmarshal(dAtA []byte) error {
+func (m *HeartbeatRequest) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -3037,10 +3003,10 @@ func (m *PingRequest) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: PingRequest: wiretype end group for non-group")
+			return fmt.Errorf("proto: HeartbeatRequest: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: PingRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: HeartbeatRequest: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		default:
@@ -3065,7 +3031,7 @@ func (m *PingRequest) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *PingResponse) Unmarshal(dAtA []byte) error {
+func (m *HeartbeatResponse) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -3088,12 +3054,80 @@ func (m *PingResponse) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: PingResponse: wiretype end group for non-group")
+			return fmt.Errorf("proto: HeartbeatResponse: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: PingResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: HeartbeatResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTransport
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTransport
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTransport
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Name = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Metrics", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTransport
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTransport
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTransport
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Metrics == nil {
+				m.Metrics = &NodeMetrics{}
+			}
+			if err := m.Metrics.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipTransport(dAtA[iNdEx:])
@@ -4421,6 +4455,44 @@ func (m *NodeMetrics) Unmarshal(dAtA []byte) error {
 		switch fieldNum {
 		case 1:
 			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field BlocksUsed", wireType)
+			}
+			m.BlocksUsed = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTransport
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.BlocksUsed |= int32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Partitions", wireType)
+			}
+			m.Partitions = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTransport
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Partitions |= int32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 3:
+			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Capacity", wireType)
 			}
 			m.Capacity = 0
@@ -4438,7 +4510,7 @@ func (m *NodeMetrics) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
-		case 2:
+		case 4:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Remaining", wireType)
 			}
@@ -4457,7 +4529,7 @@ func (m *NodeMetrics) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
-		case 3:
+		case 5:
 			if wireType != 5 {
 				return fmt.Errorf("proto: wrong wireType = %d for field UsedPercent", wireType)
 			}
@@ -4468,7 +4540,7 @@ func (m *NodeMetrics) Unmarshal(dAtA []byte) error {
 			v = uint32(encoding_binary.LittleEndian.Uint32(dAtA[iNdEx:]))
 			iNdEx += 4
 			m.UsedPercent = float32(math.Float32frombits(v))
-		case 4:
+		case 6:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field LastUpdate", wireType)
 			}
@@ -4487,7 +4559,7 @@ func (m *NodeMetrics) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
-		case 5:
+		case 7:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field CacheCapacity", wireType)
 			}
@@ -4506,7 +4578,7 @@ func (m *NodeMetrics) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
-		case 6:
+		case 8:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field CacheUsed", wireType)
 			}
@@ -4525,7 +4597,7 @@ func (m *NodeMetrics) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
-		case 7:
+		case 9:
 			if wireType != 5 {
 				return fmt.Errorf("proto: wrong wireType = %d for field MemUsedPercent", wireType)
 			}
@@ -4738,61 +4810,6 @@ func (m *NodeInfo) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
-		case 6:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field PagesCapacity", wireType)
-			}
-			m.PagesCapacity = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTransport
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.PagesCapacity |= int32(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 7:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Metrics", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTransport
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthTransport
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthTransport
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.Metrics == nil {
-				m.Metrics = &NodeMetrics{}
-			}
-			if err := m.Metrics.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipTransport(dAtA[iNdEx:])

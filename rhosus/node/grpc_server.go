@@ -22,12 +22,9 @@ type GrpcServer struct {
 	node *Node
 
 	Config GrpcServerConfig
-	server *grpc.Server
 
 	shutdownC chan struct{}
 	readyC    chan struct{}
-
-	registerNodeFun func()
 }
 
 func NewGrpcServer(config GrpcServerConfig, node *Node) (*GrpcServer, error) {
@@ -44,8 +41,28 @@ func NewGrpcServer(config GrpcServerConfig, node *Node) (*GrpcServer, error) {
 	return server, err
 }
 
-func (s *GrpcServer) Ping(c context.Context, r *transport_pb.PingRequest) (*transport_pb.PingResponse, error) {
-	return &transport_pb.PingResponse{}, nil
+func (s *GrpcServer) Heartbeat(c context.Context, r *transport_pb.HeartbeatRequest) (*transport_pb.HeartbeatResponse, error) {
+
+	disk := s.node.profiler.GetPathDiskUsage("/")
+	mem, err := s.node.profiler.GetMem()
+	if err != nil {
+		return nil, err
+	}
+
+	return &transport_pb.HeartbeatResponse{
+		Name: s.node.Name,
+		Metrics: &transport_pb.NodeMetrics{
+			BlocksUsed:     int32(s.node.data.GetBlocksCount()),
+			Partitions:     int32(s.node.data.GetPartitionsCount()),
+			Capacity:       disk.Total,
+			Remaining:      disk.Free,
+			UsedPercent:    float32(disk.UsedPercent),
+			LastUpdate:     0,
+			CacheCapacity:  0,
+			CacheUsed:      0,
+			MemUsedPercent: float32(mem.UsedPercent),
+		},
+	}, nil
 }
 
 func (s *GrpcServer) ShutdownNode(c context.Context, r *transport_pb.ShutdownNodeRequest) (*transport_pb.ShutdownNodeResponse, error) {
