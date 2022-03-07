@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	"github.com/parasource/rhosus/rhosus/util/fileutil"
 	"io"
 	"os"
@@ -74,6 +73,9 @@ func NewIdxFile(dir string, id string) (*IdxFile, error) {
 }
 
 func (f *IdxFile) Load() map[string]IdxBlock {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+
 	var err error
 
 	blocks := make(map[string]IdxBlock, partitionBlocksCount)
@@ -107,6 +109,9 @@ func (f *IdxFile) Load() map[string]IdxBlock {
 }
 
 func (f *IdxFile) Write(blocks map[int]IdxBlock) error {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+
 	for blockN, block := range blocks {
 		data, err := block.Marshal()
 		if err != nil {
@@ -121,12 +126,4 @@ func (f *IdxFile) Write(blocks map[int]IdxBlock) error {
 		}
 	}
 	return f.file.Sync()
-}
-
-func (f *IdxFile) GetBlock(id string) (*fs_pb.Block, error) {
-	return nil, nil
-}
-
-func (f *IdxFile) EraseBlock(id string) error {
-	return nil
 }
