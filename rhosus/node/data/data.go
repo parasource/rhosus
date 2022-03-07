@@ -1,7 +1,6 @@
 package data
 
 import (
-	"github.com/parasource/rhosus/rhosus/backend"
 	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/sirupsen/logrus"
@@ -9,8 +8,7 @@ import (
 )
 
 type Manager struct {
-	parts   *PartitionsMap
-	backend *backend.Storage // for now it is not useful, but i guess i will use it later
+	parts *PartitionsMap
 
 	mu               sync.RWMutex
 	shutdown         bool
@@ -31,17 +29,19 @@ func NewManager() (*Manager, error) {
 	}
 	m.parts = pmap
 
-	b, err := backend.NewStorage(backend.Config{
-		DbFilePath:    "indices.db",
-		WriteTimeoutS: 1,
-		NumWorkers:    1,
-	})
-	if err != nil {
-		return nil, err
-	}
-	m.backend = b
-
 	return m, err
+}
+
+func (m *Manager) GetBlocksCount() int {
+	count := 0
+	for _, part := range m.parts.parts {
+		count += part.getUsedBlocks()
+	}
+	return count
+}
+
+func (m *Manager) GetPartitionsCount() int {
+	return m.parts.getPartsCount()
 }
 
 func (m *Manager) WriteBlocks(blocks []*fs_pb.Block) ([]*transport_pb.BlockPlacementInfo, error) {

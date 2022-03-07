@@ -270,6 +270,10 @@ func (p *PartitionsMap) loadPartitions() error {
 	return err
 }
 
+func (p *PartitionsMap) getPartsCount() int {
+	return len(p.parts)
+}
+
 func (p *PartitionsMap) getPartition(id string) (*Partition, error) {
 
 	if _, ok := p.parts[id]; !ok {

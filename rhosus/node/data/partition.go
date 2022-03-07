@@ -113,6 +113,7 @@ func (s *sink) run() {
 }
 
 type Partition struct {
+	lock    sync.Mutex
 	file    *os.File
 	idxFile *IdxFile
 	sink    *sink
@@ -157,6 +158,10 @@ func (p *Partition) isAvailable(blocks int) bool {
 	availableBlocks := partitionBlocksCount - len(p.blocksMap)
 
 	return !p.full && availableBlocks >= blocks
+}
+
+func (p *Partition) getUsedBlocks() int {
+	return len(p.blocksMap)
 }
 
 func (p *Partition) getAvailableBlocks() int {

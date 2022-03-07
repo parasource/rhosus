@@ -6,22 +6,23 @@ option go_package = "github.com/rhosus/rhosus/pb/transport_pb";
 import "fs.proto";
 
 service TransportService {
-  rpc Ping (PingRequest) returns (PingResponse);
+  rpc Heartbeat (HeartbeatRequest) returns (HeartbeatResponse);
   rpc ShutdownNode (ShutdownNodeRequest) returns (ShutdownNodeResponse);
 
   rpc GetBlocks(GetBlocksRequest) returns (stream GetBlocksResponse);
   rpc AssignBlocks (stream AssignBlockRequest) returns (AssignBlocksResponse);
   rpc RemoveBlocks (RemoveBlocksRequest) returns (RemoveBlocksResponse);
   rpc PlacePartition(stream PlacePartitionRequest) returns (PlacePartitionResponse);
-  rpc GetPartition(stream GetPartitionRequest) returns (stream GetPartitionResponse);
-  rpc RemovePartition(stream RemovePartitionRequest) returns (stream RemovePartitionResponse);
-
-  rpc FetchMetrics(FetchMetricsRequest) returns (FetchMetricsResponse);
+  rpc GetPartition(GetPartitionRequest) returns (stream GetPartitionResponse);
+  rpc RemovePartition(RemovePartitionRequest) returns (RemovePartitionResponse);
 }
 
-message PingRequest {}
+message HeartbeatRequest {}
 
-message PingResponse{}
+message HeartbeatResponse{
+  string name = 1;
+  NodeMetrics metrics = 2;
+}
 
 // In case we need to shutdown node by a registry
 
@@ -83,7 +84,6 @@ message RemovePartitionRequest {
 message RemovePartitionResponse {}
 
 
-
 message FetchMetricsRequest {}
 
 message FetchMetricsResponse {
@@ -92,14 +92,17 @@ message FetchMetricsResponse {
 }
 
 message NodeMetrics {
-  uint64 capacity = 1;
-  uint64 remaining = 2;
-  float usedPercent = 3;
-  int64 lastUpdate = 4;
-  uint64 cacheCapacity = 5;
-  uint64 cacheUsed = 6;
-  float memUsedPercent = 7;
+  int32 blocksUsed = 1;
+  int32 partitions = 2;
+  uint64 capacity = 3;
+  uint64 remaining = 4;
+  float usedPercent = 5;
+  int64 lastUpdate = 6;
+  uint64 cacheCapacity = 7;
+  uint64 cacheUsed = 8;
+  float memUsedPercent = 9;
 }
+
 
 ///////////////////////////////
 // All information about node
@@ -119,8 +122,6 @@ message NodeInfo {
     DECOMMISSIONED = 2;
   }
   State state = 5;
-  int32 pagesCapacity = 6;
-  NodeMetrics metrics = 7;
 }
 
 

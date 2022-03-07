@@ -63,7 +63,7 @@ func NewNodesMap(registry *Registry, nodes map[string]*transport_pb.NodeInfo) (*
 
 		// ping new node
 		client := transport_pb.NewTransportServiceClient(conn)
-		_, err = client.Ping(context.Background(), &transport_pb.PingRequest{})
+		_, err = client.Heartbeat(context.Background(), &transport_pb.HeartbeatRequest{})
 		if err != nil {
 			logrus.Errorf("error pinging node %v: %v", info.Id, err)
 			continue
@@ -101,7 +101,7 @@ func (m *NodesMap) AddNode(name string, info *transport_pb.NodeInfo) error {
 	}
 	// ping new node
 	client := transport_pb.NewTransportServiceClient(conn)
-	_, err = client.Ping(context.Background(), &transport_pb.PingRequest{})
+	_, err = client.Heartbeat(context.Background(), &transport_pb.HeartbeatRequest{})
 	if err != nil {
 		return err
 	}
@@ -173,7 +173,7 @@ func (m *NodesMap) WatchNodes() {
 					defer wg.Done()
 					conn := *node.conn
 
-					_, err := conn.Ping(context.Background(), &transport_pb.PingRequest{})
+					res, err := conn.Heartbeat(context.Background(), &transport_pb.HeartbeatRequest{})
 					if err != nil {
 						// Node does not respond to health probes
 
@@ -193,6 +193,9 @@ func (m *NodesMap) WatchNodes() {
 
 						return
 					}
+
+					node.metrics = res.Metrics
+					node.lastActivity = time.Now()
 
 					m.mu.Lock()
 					aliveNodes++
