@@ -63,10 +63,13 @@ message BlockPlacementInfo {
 }
 
 message RemoveBlocksRequest {
-  repeated string ids = 1;
+  repeated BlockPlacementInfo blocks = 1;
 }
 
-message RemoveBlocksResponse {}
+message RemoveBlocksResponse {
+  bool success = 1;
+  string error = 2;
+}
 
 message PlacePartitionRequest {
 }

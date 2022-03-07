@@ -102,6 +102,29 @@ func (m *Manager) WriteBlocks(blocks []*fs_pb.Block) ([]*transport_pb.BlockPlace
 	return placement, nil
 }
 
+func (m *Manager) RemoveBlocks(blocks []*transport_pb.BlockPlacementInfo) error {
+	m.mu.RLock()
+	if m.shutdown {
+		m.mu.RUnlock()
+		return ErrShutdown
+	}
+	m.mu.RUnlock()
+
+	for _, block := range blocks {
+		part, err := m.parts.getPartition(block.PartitionID)
+		if err != nil {
+			return err
+		}
+
+		err = part.RemoveBlocks([]*transport_pb.BlockPlacementInfo{block})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (m *Manager) ReadBlock(block *transport_pb.BlockPlacementInfo) (*fs_pb.Block, error) {
 	m.mu.RLock()
 	if m.shutdown {

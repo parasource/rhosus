@@ -284,6 +284,24 @@ func (p *Partition) loadHeader() error {
 	return nil
 }
 
+func (p *Partition) RemoveBlocks(blocks []*transport_pb.BlockPlacementInfo) error {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+	if p.closed {
+		return ErrPartitionClosed
+	}
+
+	for _, block := range blocks {
+		delete(p.blocksMap, block.BlockID)
+	}
+
+	if len(p.blocksMap) < partitionBlocksCount {
+		p.full = false
+	}
+
+	return nil
+}
+
 func (p *Partition) writeBlockContents(block int, data []byte) (int, error) {
 	offset := int64(block * defaultBlockSize)
 
