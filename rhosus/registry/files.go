@@ -5,6 +5,7 @@ import (
 	"fmt"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
+	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/sirupsen/logrus"
 	"strings"
 	"sync"
@@ -201,21 +202,41 @@ func (r *Registry) GetFileHandler(path string, transport func(block *fs_pb.Block
 		return fmt.Errorf("error getting blocks: %v", err)
 	}
 
-	// just getting first node for example
-	var nodeID string
-	for id := range r.NodesManager.nodes {
-		nodeID = id
-		break
+	// mapping blocks to nodes map
+	bMap := make(map[string][]*transport_pb.BlockPlacementInfo)
+	for _, block := range blocks {
+		if _, ok := bMap[block.Blocks[0].NodeID]; !ok {
+			bMap[block.Blocks[0].NodeID] = []*transport_pb.BlockPlacementInfo{}
+		}
+
+		bMap[block.Blocks[0].NodeID] = append(bMap[block.Blocks[0].NodeID], &transport_pb.BlockPlacementInfo{
+			BlockID:     block.Id,
+			PartitionID: block.Blocks[0].PartitionID,
+		})
 	}
 
-	actualBlocks, err := r.NodesManager.GetBlocks(nodeID, blocksInfoToPlacement(blocks))
-	if err != nil {
-		return fmt.Errorf("error getting blocks from node: %v", err)
+	var result []*fs_pb.Block
+
+	var wg sync.WaitGroup
+	for nodeID, blocks := range bMap {
+		wg.Add(1)
+		go func(nodeID string, blocks []*transport_pb.BlockPlacementInfo) {
+			defer wg.Done()
+			actualBlocks, err := r.NodesManager.GetBlocks(nodeID, blocks)
+			if err != nil {
+				return
+			}
+
+			result = append(result, actualBlocks...)
+		}(nodeID, blocks)
 	}
-	actualBlocks = fillAndSortBlocks(blocks, actualBlocks)
+
+	wg.Wait()
+
+	result = fillAndSortBlocks(blocks, result)
 
 	// todo: refactor
-	for _, block := range actualBlocks {
+	for _, block := range result {
 		transport(block)
 	}
 
