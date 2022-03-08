@@ -193,15 +193,16 @@ func (s *Server) handlePostPut(w http.ResponseWriter, r *http.Request) error {
 	filePathSplit := strings.Split(filePath, "/")
 	fileName := filePathSplit[len(filePathSplit)-1]
 	file := &control_pb.FileInfo{
-		Id:         uid.String(),
-		Name:       fileName,
-		Type:       control_pb.FileInfo_FILE,
-		Path:       filePath,
-		Size_:      0,
-		Permission: nil,
-		Owner:      "",
-		Group:      "",
-		Symlink:    "",
+		Id:          uid.String(),
+		Name:        fileName,
+		Type:        control_pb.FileInfo_FILE,
+		Path:        filePath,
+		Size_:       0,
+		Permission:  nil,
+		Owner:       "",
+		Group:       "",
+		Symlink:     "",
+		Replication: 2,
 	}
 	err = s.registry.RegisterFile(file)
 	if err != nil {
@@ -309,7 +310,7 @@ func (s *Server) handlePostPut(w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
-	err = s.registry.TransportAndRegisterBlocks(file.Id, dataToTransfer)
+	err = s.registry.TransportAndRegisterBlocks(file.Id, dataToTransfer, int(file.Replication))
 	if err != nil {
 		logrus.Errorf("error transporting blocks to node: %v", err)
 	}

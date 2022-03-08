@@ -145,8 +145,11 @@ message BlockInfo {
   uint64 index = 2; // position in source file
   int64 size = 3;
   string fileID = 4;
-  string nodeID = 5;
-  string partitionID = 6;
+  message Placement {
+    string nodeID = 1;
+    string partitionID = 2;
+  }
+  repeated Placement blocks = 5;
 }
 
 message DirectoryListing {

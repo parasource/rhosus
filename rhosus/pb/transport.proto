@@ -22,6 +22,7 @@ message HeartbeatRequest {}
 message HeartbeatResponse{
   string name = 1;
   NodeMetrics metrics = 2;
+  uint64 latency = 3;
 }
 
 // In case we need to shutdown node by a registry

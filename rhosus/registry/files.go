@@ -1,12 +1,10 @@
 package registry
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
-	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/sirupsen/logrus"
 	"strings"
 	"sync"
@@ -16,6 +14,7 @@ import (
 var (
 	ErrFileExists            = errors.New("file already exists")
 	ErrNoSuchFileOrDirectory = errors.New("no such file or directory")
+	ErrReplicationImpossible = errors.New("insufficient nodes to replicate to")
 )
 
 func (r *Registry) RegisterFile(file *control_pb.FileInfo) error {
@@ -50,39 +49,82 @@ func (r *Registry) RegisterFile(file *control_pb.FileInfo) error {
 	return nil
 }
 
-func (r *Registry) TransportAndRegisterBlocks(fileID string, blocks []*fs_pb.Block) error {
+func (r *Registry) TransportAndRegisterBlocks(fileID string, blocks []*fs_pb.Block, replicationFactor int) error {
 
-	var nodeID string
-	for _, node := range r.NodesManager.nodes {
-		nodeID = node.info.Id
-		break
-	}
+	nodes := r.NodesManager.GetNodesWithLeastBlocks(replicationFactor)
 
-	start := time.Now()
-	res, err := r.NodesManager.AssignBlocks(nodeID, blocks)
-	if err != nil {
-		logrus.Errorf("error assigning blocks to node: %v", err)
-	}
-	logrus.Infof("transported blocks in %v", time.Since(start).String())
-
-	bMap := make(map[string]*fs_pb.Block)
+	blockSeq := make(map[string]uint64, len(blocks))
 	for _, block := range blocks {
-		bMap[block.Id] = block
+		blockSeq[block.Id] = block.Index
 	}
 
+	// we can assign blocks to different nodes in parallel,
+	// so we map blocks to nodes and process them separately
+	blocksAssignment := make(map[*Node][]*fs_pb.Block, len(nodes))
+	switch true {
+	case len(nodes) < replicationFactor:
+		// In this case we should disable replication for this file
+		// and store all blocks on one node
+		node := nodes[0]
+		if _, ok := blocksAssignment[node]; !ok {
+			blocksAssignment[node] = []*fs_pb.Block{}
+		}
+
+		blocksAssignment[node] = append(blocksAssignment[node], blocks...)
+	case len(nodes) == replicationFactor:
+		// In this case we just assign all blocks to all nodes
+		for _, node := range nodes {
+			blocksAssignment[node] = blocks
+		}
+	case len(nodes) > replicationFactor:
+		// This is a bit trickier than other cases, since we have to choose
+		// optimal node for every block
+	}
+
+	var resMu sync.Mutex
+	assignResult := make(map[string][]*control_pb.BlockInfo_Placement, len(blocks))
+
+	var wg sync.WaitGroup
+	for node, blocks := range blocksAssignment {
+		wg.Add(1)
+		go func(node *Node, blocks []*fs_pb.Block) {
+			defer wg.Done()
+
+			start := time.Now()
+			res, err := r.NodesManager.AssignBlocks(node.info.Id, blocks)
+			if err != nil {
+				logrus.Errorf("error assigning blocks to node: %v", err)
+			}
+			logrus.Infof("transported blocks to node %v in %v", node.info.Id, time.Since(start).String())
+
+			resMu.Lock()
+			for _, pInfo := range res {
+				if _, ok := assignResult[pInfo.BlockID]; !ok {
+					assignResult[pInfo.BlockID] = []*control_pb.BlockInfo_Placement{}
+				}
+				assignResult[pInfo.BlockID] = append(assignResult[pInfo.BlockID], &control_pb.BlockInfo_Placement{
+					NodeID:      node.info.Id,
+					PartitionID: pInfo.PartitionID,
+				})
+			}
+			resMu.Unlock()
+		}(node, blocks)
+	}
+
+	wg.Wait()
+
+	// transfer is complete, now store blocks info
 	var bInfos []*control_pb.BlockInfo
-	for _, block := range res {
+	for blockID, result := range assignResult {
 		bInfos = append(bInfos, &control_pb.BlockInfo{
-			Id:          block.BlockID,
-			Index:       bMap[block.BlockID].Index,
-			FileID:      fileID,
-			NodeID:      nodeID,
-			PartitionID: block.PartitionID,
+			Id:     blockID,
+			Index:  blockSeq[blockID],
+			FileID: fileID,
+			Blocks: result,
 		})
-		logrus.Infof("IDX STORED: %v", bMap[block.BlockID].Index)
 	}
 
-	err = r.MemoryStorage.PutBlocks(bInfos)
+	err := r.MemoryStorage.PutBlocks(bInfos)
 	if err != nil {
 		logrus.Errorf("error putting blocks: %v", err)
 	}
@@ -94,53 +136,53 @@ func (r *Registry) TransportAndRegisterBlocks(fileID string, blocks []*fs_pb.Blo
 
 func (r *Registry) RemoveFileBlocks(file *control_pb.FileInfo) (error, map[string]error) {
 
-	blocks, err := r.MemoryStorage.GetBlocks(file.Id)
-	if err != nil {
-		return fmt.Errorf("error getting blocks: %v", err), nil
-	}
+	//blocks, err := r.MemoryStorage.GetBlocks(file.Id)
+	//if err != nil {
+	//	return fmt.Errorf("error getting blocks: %v", err), nil
+	//}
 
-	bMap := make(map[string][]*transport_pb.BlockPlacementInfo, len(r.NodesManager.nodes))
-	for _, block := range blocks {
-		if _, ok := bMap[block.NodeID]; !ok {
-			bMap[block.NodeID] = []*transport_pb.BlockPlacementInfo{}
-		}
-		bMap[block.NodeID] = append(bMap[block.NodeID], &transport_pb.BlockPlacementInfo{
-			BlockID:     block.Id,
-			PartitionID: block.PartitionID,
-		})
-	}
+	//bMap := make(map[string][]*transport_pb.BlockPlacementInfo, len(r.NodesManager.nodes))
+	//for _, block := range blocks {
+	//	if _, ok := bMap[block.NodeID]; !ok {
+	//		bMap[block.NodeID] = []*transport_pb.BlockPlacementInfo{}
+	//	}
+	//	bMap[block.NodeID] = append(bMap[block.NodeID], &transport_pb.BlockPlacementInfo{
+	//		BlockID:     block.Id,
+	//		PartitionID: block.PartitionID,
+	//	})
+	//}
+	//
+	//var wg sync.WaitGroup
+	//
+	//errs := make(map[string]error, len(bMap))
+	//for nodeId, blocks := range bMap {
+	//	wg.Add(1)
+	//	go func(nodeId string, blocks []*transport_pb.BlockPlacementInfo) {
+	//		defer wg.Done()
+	//		node := r.NodesManager.GetNode(nodeId)
+	//		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	//		defer cancel()
+	//
+	//		res, err := (*node.conn).RemoveBlocks(ctx, &transport_pb.RemoveBlocksRequest{
+	//			Blocks: blocks,
+	//		})
+	//		if err != nil {
+	//			errs[nodeId] = err
+	//			return
+	//		}
+	//		if !res.Success {
+	//			errs[nodeId] = errors.New(res.Error)
+	//		}
+	//	}(nodeId, blocks)
+	//}
+	//wg.Wait()
+	//
+	//err = r.MemoryStorage.DeleteFileWithBlocks(file)
+	//if err != nil {
+	//	return err, nil
+	//}
 
-	var wg sync.WaitGroup
-
-	errs := make(map[string]error, len(bMap))
-	for nodeId, blocks := range bMap {
-		wg.Add(1)
-		go func(nodeId string, blocks []*transport_pb.BlockPlacementInfo) {
-			defer wg.Done()
-			node := r.NodesManager.GetNode(nodeId)
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-			defer cancel()
-
-			res, err := (*node.conn).RemoveBlocks(ctx, &transport_pb.RemoveBlocksRequest{
-				Blocks: blocks,
-			})
-			if err != nil {
-				errs[nodeId] = err
-				return
-			}
-			if !res.Success {
-				errs[nodeId] = errors.New(res.Error)
-			}
-		}(nodeId, blocks)
-	}
-	wg.Wait()
-
-	err = r.MemoryStorage.DeleteFileWithBlocks(file)
-	if err != nil {
-		return err, nil
-	}
-
-	return nil, errs
+	return nil, nil
 }
 
 func (r *Registry) GetFileHandler(path string, transport func(block *fs_pb.Block)) error {

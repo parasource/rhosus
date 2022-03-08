@@ -9,9 +9,9 @@ import (
 
 func blocksInfoToPlacement(blocks []*control_pb.BlockInfo) []*transport_pb.BlockPlacementInfo {
 	placement := make([]*transport_pb.BlockPlacementInfo, len(blocks))
-	for i, block := range blocks {
-		placement[i] = &transport_pb.BlockPlacementInfo{BlockID: block.Id, PartitionID: block.PartitionID}
-	}
+	//for i, block := range blocks {
+	//	placement[i] = &transport_pb.BlockPlacementInfo{BlockID: block.Id, PartitionID: block.PartitionID}
+	//}
 	return placement
 }
 
