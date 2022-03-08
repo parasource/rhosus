@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc"
 	"io"
 	"net"
+	"sort"
 	"sync"
 	"time"
 )
@@ -34,6 +35,7 @@ type NodesMap struct {
 type Node struct {
 	info    *transport_pb.NodeInfo
 	metrics *transport_pb.NodeMetrics
+	latency int64
 
 	conn         *transport_pb.TransportServiceClient
 	mu           sync.RWMutex
@@ -173,6 +175,7 @@ func (m *NodesMap) WatchNodes() {
 					defer wg.Done()
 					conn := *node.conn
 
+					start := time.Now()
 					res, err := conn.Heartbeat(context.Background(), &transport_pb.HeartbeatRequest{})
 					if err != nil {
 						// Node does not respond to health probes
@@ -193,9 +196,10 @@ func (m *NodesMap) WatchNodes() {
 
 						return
 					}
-
+					end := time.Since(start)
 					node.metrics = res.Metrics
 					node.lastActivity = time.Now()
+					node.latency = end.Milliseconds()
 
 					m.mu.Lock()
 					aliveNodes++
@@ -284,6 +288,25 @@ func (m *NodesMap) AssignBlocks(nodeID string, blocks []*fs_pb.Block) ([]*transp
 	}
 
 	return res.Placement, nil
+}
+
+func (m *NodesMap) GetNodesWithLeastBlocks(n int) []*Node {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var nodes []*Node
+	for _, node := range m.nodes {
+		nodes = append(nodes, node)
+	}
+	sort.Slice(nodes, func(i, j int) bool {
+		return nodes[i].metrics.BlocksUsed < nodes[j].metrics.BlocksUsed
+	})
+
+	if len(nodes) < n {
+		return nodes
+	}
+
+	return nodes[:n-1]
 }
 
 func (m *NodesMap) StartRecoveryProcess(node *transport_pb.NodeInfo) error {

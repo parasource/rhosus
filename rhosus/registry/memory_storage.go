@@ -69,12 +69,6 @@ func NewMemoryStorage(registry *Registry) (*MemoryStorage, error) {
 						Unique:       false,
 						Indexer:      &memdb.StringFieldIndex{Field: "FileID"},
 					},
-					"partition_id": {
-						Name:         "partition_id",
-						AllowMissing: false,
-						Unique:       false,
-						Indexer:      &memdb.StringFieldIndex{Field: "PartitionID"},
-					},
 				},
 			},
 		},
