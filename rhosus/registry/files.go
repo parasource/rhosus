@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
@@ -137,51 +138,55 @@ func (r *Registry) TransportAndRegisterBlocks(fileID string, blocks []*fs_pb.Blo
 
 func (r *Registry) RemoveFileBlocks(file *control_pb.FileInfo) (error, map[string]error) {
 
-	//blocks, err := r.MemoryStorage.GetBlocks(file.Id)
-	//if err != nil {
-	//	return fmt.Errorf("error getting blocks: %v", err), nil
-	//}
+	blocks, err := r.MemoryStorage.GetBlocks(file.Id)
+	if err != nil {
+		return fmt.Errorf("error getting blocks: %v", err), nil
+	}
 
-	//bMap := make(map[string][]*transport_pb.BlockPlacementInfo, len(r.NodesManager.nodes))
-	//for _, block := range blocks {
-	//	if _, ok := bMap[block.NodeID]; !ok {
-	//		bMap[block.NodeID] = []*transport_pb.BlockPlacementInfo{}
-	//	}
-	//	bMap[block.NodeID] = append(bMap[block.NodeID], &transport_pb.BlockPlacementInfo{
-	//		BlockID:     block.Id,
-	//		PartitionID: block.PartitionID,
-	//	})
-	//}
-	//
-	//var wg sync.WaitGroup
-	//
-	//errs := make(map[string]error, len(bMap))
-	//for nodeId, blocks := range bMap {
-	//	wg.Add(1)
-	//	go func(nodeId string, blocks []*transport_pb.BlockPlacementInfo) {
-	//		defer wg.Done()
-	//		node := r.NodesManager.GetNode(nodeId)
-	//		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	//		defer cancel()
-	//
-	//		res, err := (*node.conn).RemoveBlocks(ctx, &transport_pb.RemoveBlocksRequest{
-	//			Blocks: blocks,
-	//		})
-	//		if err != nil {
-	//			errs[nodeId] = err
-	//			return
-	//		}
-	//		if !res.Success {
-	//			errs[nodeId] = errors.New(res.Error)
-	//		}
-	//	}(nodeId, blocks)
-	//}
-	//wg.Wait()
-	//
-	//err = r.MemoryStorage.DeleteFileWithBlocks(file)
-	//if err != nil {
-	//	return err, nil
-	//}
+	bMap := make(map[string][]*transport_pb.BlockPlacementInfo)
+
+	for _, block := range blocks {
+		for _, placement := range block.Blocks {
+			if _, ok := bMap[placement.NodeID]; !ok {
+				bMap[placement.NodeID] = []*transport_pb.BlockPlacementInfo{}
+			}
+			bMap[placement.NodeID] = append(bMap[placement.NodeID], &transport_pb.BlockPlacementInfo{
+				BlockID:     block.Id,
+				PartitionID: placement.PartitionID,
+			})
+		}
+	}
+
+	var wg sync.WaitGroup
+
+	for nodeId, blocks := range bMap {
+		wg.Add(1)
+		go func(nodeId string, blocks []*transport_pb.BlockPlacementInfo) {
+			defer wg.Done()
+			node := r.NodesManager.GetNode(nodeId)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+			defer cancel()
+
+			res, err := (*node.conn).RemoveBlocks(ctx, &transport_pb.RemoveBlocksRequest{
+				Blocks: blocks,
+			})
+			if err != nil {
+				logrus.Errorf("error removing blocks: %v", err)
+				return
+			}
+			if !res.Success {
+				logrus.Errorf("error removing blocks: %v", res.Error)
+			}
+		}(nodeId, blocks)
+	}
+	wg.Wait()
+
+	err = r.MemoryStorage.DeleteFileWithBlocks(file)
+	if err != nil {
+		return err, nil
+	}
+
+	logrus.Infof("file deleted")
 
 	return nil, nil
 }
