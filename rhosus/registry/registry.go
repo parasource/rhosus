@@ -238,6 +238,7 @@ func (r *Registry) Start() {
 			logrus.Errorf("error unregistering: %v", err)
 		}
 
+		r.ApiServer.Shutdown()
 		r.FileServer.Shutdown()
 		r.Backend.Shutdown()
 		r.Cluster.Shutdown()

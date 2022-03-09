@@ -127,3 +127,22 @@ func (f *IdxFile) Write(blocks map[int]IdxBlock) error {
 	}
 	return f.file.Sync()
 }
+
+func (f *IdxFile) Erase(blocks []int) {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+
+	for _, blockN := range blocks {
+		start := blockN * idxBlockSize
+		end := (blockN + 1) * idxBlockSize
+		for pos := start; pos < end; pos++ {
+			_, err := f.file.WriteAt([]byte{0}, int64(pos))
+			if err != nil {
+				f.file.Sync()
+				return
+			}
+		}
+	}
+
+	f.file.Sync()
+}

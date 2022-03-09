@@ -60,6 +60,10 @@ func NewAPIServer(r *Registry, config APIConfig) (*API, error) {
 	return a, nil
 }
 
+func (a *API) Shutdown() {
+	// todo
+}
+
 func (a *API) Ping(ctx context.Context, r *api_pb.Void) (*api_pb.Void, error) {
 	return &api_pb.Void{}, nil
 }
@@ -134,6 +138,7 @@ func (a *API) Remove(ctx context.Context, r *api_pb.RemoveRequest) (*api_pb.Comm
 		return nil, err
 	}
 	if rootFile.Type == control_pb.FileInfo_FILE {
+		logrus.Infof("removing file blocks: %v", rootFile)
 		err, errs := a.r.RemoveFileBlocks(rootFile)
 		if err != nil {
 			return nil, err

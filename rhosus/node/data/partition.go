@@ -286,18 +286,23 @@ func (p *Partition) loadHeader() error {
 
 func (p *Partition) RemoveBlocks(blocks []*transport_pb.BlockPlacementInfo) error {
 	p.lock.Lock()
-	defer p.lock.Unlock()
 	if p.closed {
+		p.lock.Unlock()
 		return ErrPartitionClosed
 	}
 
-	for _, block := range blocks {
+	toDelete := make([]int, len(blocks))
+	for i, block := range blocks {
+		toDelete[i] = int(p.blocksMap[block.BlockID].Offset / idxBlockSize)
 		delete(p.blocksMap, block.BlockID)
 	}
+	p.lock.Unlock()
 
 	if len(p.blocksMap) < partitionBlocksCount {
 		p.full = false
 	}
+
+	p.idxFile.Erase(toDelete)
 
 	return nil
 }
