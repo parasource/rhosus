@@ -83,6 +83,8 @@ func (r *Registry) TransportAndRegisterBlocks(fileID string, blocks []*fs_pb.Blo
 		// optimal node for every block
 	}
 
+	logrus.Infof("nodes: %v ; factor: %v", len(nodes), replicationFactor)
+
 	var resMu sync.Mutex
 	assignResult := make(map[string][]*control_pb.BlockInfo_Placement, len(blocks))
 

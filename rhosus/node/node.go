@@ -22,7 +22,7 @@ type Config struct {
 	RegistryHost string
 	RegistryPort string
 	Timeout      time.Duration
-	Dir          []string
+	Dir          string
 }
 
 type Node struct {
@@ -53,26 +53,7 @@ func NewNode(config Config) (*Node, error) {
 		readyC:    make(chan struct{}, 1),
 	}
 
-	//b, err := backend.NewBackend(backend.StorageConfig{})
-	//if err != nil {
-	//	logrus.Fatalf("error creating backend storage: %v", err)
-	//}
-	//node.backend = b
-
-	//err = node.backend.PutBlocks(map[string]backend.Block{"testblock1": {
-	//	From: 0,
-	//	To:   63,
-	//	Size: 64,
-	//}, "testblock2": {
-	//	From: 64,
-	//	To:   127,
-	//	Size: 64,
-	//}})
-	//if err != nil {
-	//	logrus.Errorf("error putting blocks: %v", err)
-	//}
-
-	dataManager, err := data.NewManager()
+	dataManager, err := data.NewManager(config.Dir)
 	if err != nil {
 		logrus.Fatalf("error creating data manager: %v", err)
 	}

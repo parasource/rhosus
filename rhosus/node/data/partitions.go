@@ -156,7 +156,7 @@ func (p *PartitionsMap) createPartition() (string, error) {
 		return "", err
 	}
 
-	p.parts[id], err = newPartition(id, file)
+	p.parts[id], err = newPartition(p.dir, id, file)
 
 	return id, err
 }
@@ -217,7 +217,7 @@ func (p *PartitionsMap) loadPartitions() error {
 			return err
 		}
 
-		part, err := newPartition(name, file)
+		part, err := newPartition(p.dir, name, file)
 		if err != nil {
 			logrus.Errorf("error loading partition: %v", err)
 			file.Close()
@@ -256,7 +256,7 @@ func (p *PartitionsMap) loadPartitions() error {
 				logrus.Errorf("error sync: %v", err)
 			}
 
-			part, err := newPartition(name, file)
+			part, err := newPartition(p.dir, name, file)
 			if err != nil {
 				logrus.Errorf("error loading partition: %v", err)
 				file.Close()
