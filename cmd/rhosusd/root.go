@@ -15,14 +15,14 @@ var configDefaults = map[string]interface{}{
 	"gomaxprocs":       0,
 	"registry_host":    "127.0.0.1",
 	"registry_port":    "6435",
-	"dir":              os.TempDir(),
+	"dir":              "./data",
 	"shutdown_timeout": 30,
 }
 
 func init() {
 	rootCmd.Flags().String("registry_host", "127.0.0.1", "registry grpc node server host")
 	rootCmd.Flags().String("registry_port", "6435", "registry grpc node server host")
-	rootCmd.Flags().String("dir", os.TempDir(), "node files directory")
+	rootCmd.Flags().String("dir", os.TempDir(), "data directory")
 	rootCmd.Flags().Int("shutdown_timeout", 30, "node shutdown timeout")
 
 	viper.BindPFlag("registry_host", rootCmd.Flags().Lookup("registry_host"))
@@ -63,10 +63,12 @@ var rootCmd = &cobra.Command{
 
 		rHost := v.GetString("registry_host")
 		rPort := v.GetString("registry_port")
+		dir := v.GetString("dir")
 
 		config := rhosusnode.Config{
 			RegistryHost: rHost,
 			RegistryPort: rPort,
+			Dir:          dir,
 		}
 
 		node, _ := rhosusnode.NewNode(config)

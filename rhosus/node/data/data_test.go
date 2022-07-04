@@ -1,7 +1,6 @@
 package data
 
 import (
-	"github.com/parasource/rhosus/rhosus/backend"
 	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	"github.com/parasource/rhosus/rhosus/util/uuid"
 	"github.com/stretchr/testify/assert"
@@ -20,14 +19,6 @@ func TestManager_WriteBlocks(t *testing.T) {
 	assert.Nil(t, err)
 	m.parts = pmap
 	pmap.minPartitionsCount = 1
-
-	b, err := backend.NewStorage(backend.Config{
-		DbFilePath:    "indices.db",
-		WriteTimeoutS: 1,
-		NumWorkers:    1,
-	})
-	assert.Nil(t, err)
-	m.backend = b
 
 	var data []byte
 	for i := 0; i < 15*1024*1024; i++ {

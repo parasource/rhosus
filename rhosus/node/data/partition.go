@@ -131,7 +131,7 @@ type Partition struct {
 	closed       bool
 }
 
-func newPartition(id string, file *os.File) (*Partition, error) {
+func newPartition(dir string, id string, file *os.File) (*Partition, error) {
 	p := &Partition{
 		file: file,
 
@@ -143,7 +143,7 @@ func newPartition(id string, file *os.File) (*Partition, error) {
 		full:         false,
 		closed:       false,
 	}
-	idxFile, err := NewIdxFile("./parts", id)
+	idxFile, err := NewIdxFile(dir, id)
 	if err != nil {
 		return nil, err
 	}

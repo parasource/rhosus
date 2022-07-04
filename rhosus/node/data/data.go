@@ -15,14 +15,14 @@ type Manager struct {
 	isReceivingPages bool
 }
 
-func NewManager() (*Manager, error) {
+func NewManager(dir string) (*Manager, error) {
 
 	m := &Manager{
 		shutdown:         false,
 		isReceivingPages: false,
 	}
 
-	pmap, err := NewPartitionsMap(defaultPartitionsDir, 1024)
+	pmap, err := NewPartitionsMap(dir, 1024)
 	if err != nil {
 		return nil, err
 	}

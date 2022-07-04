@@ -306,7 +306,7 @@ func (m *NodesMap) GetNodesWithLeastBlocks(n int) []*Node {
 		return nodes
 	}
 
-	return nodes[:n-1]
+	return nodes[:n]
 }
 
 func (m *NodesMap) StartRecoveryProcess(node *transport_pb.NodeInfo) error {
