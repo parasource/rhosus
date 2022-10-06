@@ -5,7 +5,6 @@ import (
 	"errors"
 	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
-	"github.com/parasource/rhosus/rhosus/registry/transport"
 	"github.com/parasource/rhosus/rhosus/util/tickers"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -25,7 +24,7 @@ type NodesMap struct {
 
 	mu        sync.RWMutex
 	nodes     map[string]*Node
-	transport *transport.Transport
+	transport *Transport
 
 	// max number of ping retries, before the node is marked as unavailable
 	pingIntervalMs int
@@ -85,7 +84,7 @@ func NewNodesMap(registry *Registry, nodes map[string]*transport_pb.NodeInfo) (*
 	for id, node := range n.nodes {
 		conns[id] = node.conn
 	}
-	t := transport.NewTransport(transport.Config{
+	t := NewTransport(TransportConfig{
 		WriteTimeoutMs: 800,
 	}, conns)
 	n.transport = t

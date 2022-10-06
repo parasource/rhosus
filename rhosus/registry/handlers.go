@@ -1,8 +1,14 @@
+/*
+ * Copyright (c) 2022.
+ * Licensed to the Parasource Foundation under one or more contributor license agreements.  See the NOTICE file distributed with this work for additional information regarding copyright ownership.  The Parasource licenses this file to you under the Parasource License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at http://www.parasource.org/licenses/LICENSE-2.0 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and limitations under the License.
+ */
+
 package registry
 
 import (
 	"bytes"
-	"context"
 	"crypto/md5"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
@@ -10,7 +16,6 @@ import (
 	"github.com/parasource/rhosus/rhosus/util/uuid"
 	"github.com/sirupsen/logrus"
 	"io"
-	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -23,121 +28,16 @@ var bufPool = sync.Pool{
 	},
 }
 
-type ServerConfig struct {
-	Host      string
-	Port      string
-	MaxSizeMb int32
-	BlockSize int64
-	PageSize  int64
-}
+func (r *Registry) HandleGetFile(rw http.ResponseWriter, req *http.Request) error {
+	filePath := strings.Trim(req.URL.Path, "/")
 
-type Server struct {
-	mu     sync.RWMutex
-	Config ServerConfig
-
-	http *http.Server
-
-	shutdownC chan struct{}
-	readyC    chan struct{}
-
-	registry *Registry
-}
-
-func NewServer(r *Registry, conf ServerConfig) (*Server, error) {
-	s := &Server{
-		registry:  r,
-		Config:    conf,
-		shutdownC: make(chan struct{}),
-		readyC:    make(chan struct{}, 1),
-	}
-
-	httpServer := &http.Server{
-		Addr:    net.JoinHostPort(s.Config.Host, s.Config.Port),
-		Handler: http.HandlerFunc(s.Handle),
-		//TLSConfig:         nil,
-		//ReadTimeout:       0,
-		//ReadHeaderTimeout: 0,
-		//WriteTimeout:      0,
-		//IdleTimeout:       0,
-		//MaxHeaderBytes:    0,
-		//TLSNextProto:      nil,
-		//ConnState:         nil,
-		//ErrorLog:          nil,
-		//BaseContext:       nil,
-		//ConnContext:       nil,
-	}
-
-	s.http = httpServer
-
-	return s, nil
-}
-
-func (s *Server) RunHTTP() {
-
-	go func() {
-		err := s.http.ListenAndServe()
-		if err != nil && err != http.ErrServerClosed {
-			logrus.Errorf("error listening: %v", err)
-		}
-	}()
-
-	logrus.Infof("HTTP file server is up and running on %v", net.JoinHostPort(s.Config.Host, s.Config.Port))
-	s.readyC <- struct{}{}
-
-	if <-s.NotifyShutdown(); true {
-		logrus.Infof("shutting down HTTP server")
-		err := s.http.Shutdown(context.Background())
-		if err != nil {
-			logrus.Errorf("error occured while shutting down http server: %v", err)
-		}
-	}
-}
-
-func (s *Server) Shutdown() {
-	close(s.shutdownC)
-}
-
-func (s *Server) NotifyShutdown() <-chan struct{} {
-	return s.shutdownC
-}
-
-func (s *Server) NotifyReady() <-chan struct{} {
-	return s.readyC
-}
-
-func (s *Server) Handle(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Server", "Rhosus file Server "+util.VERSION)
-	//if r.Header.Get("Origin") != "" {
-	//	w.Header().Set("Access-Control-Allow-Origin", "*")
-	//	w.Header().Set("Access-Control-Allow-Credentials", "true")
-	//}
-
-	switch r.Method {
-	case http.MethodGet:
-		s.handleGet(w, r)
-	case http.MethodPost, http.MethodPut:
-		err := s.handlePostPut(w, r)
-		if err != nil {
-			logrus.Errorf("error uploading file: %v", err)
-		}
-	case http.MethodDelete:
-		s.handleDelete(w, r)
-	case http.MethodOptions:
-		s.handleOptions(w, r)
-	}
-}
-
-func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
-
-	filePath := strings.Trim(r.URL.Path, "/")
-
-	w.Header().Set("Accept-Ranges", "bytes")
+	rw.Header().Set("Accept-Ranges", "bytes")
 
 	// Returns file
 
-	err := s.registry.GetFileHandler(filePath, func(block *fs_pb.Block) {
+	err := r.GetFileHandler(filePath, func(block *fs_pb.Block) {
 		reader := io.NopCloser(bytes.NewReader(block.Data))
-		n, err := io.CopyN(w, reader, int64(block.Len))
+		n, err := io.CopyN(rw, reader, int64(block.Len))
 		if err != nil || n != int64(len(block.Data)) {
 			logrus.Errorf("something went wrong: %v, %v - %v", err, n, len(block.Data))
 		}
@@ -146,21 +46,22 @@ func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err {
 		case ErrNoSuchFileOrDirectory:
-			w.WriteHeader(404)
-			return
+			rw.WriteHeader(404)
+			return ErrNoSuchFileOrDirectory
 		default:
 			logrus.Errorf("error getting blocks: %v", err)
 		}
 	}
+
+	return err
 }
 
-func (s *Server) handlePostPut(w http.ResponseWriter, r *http.Request) error {
-
+func (r *Registry) HandlePutFile(rw http.ResponseWriter, req *http.Request) error {
 	var err error
 
-	logrus.Infof(r.URL.String())
+	logrus.Infof(req.URL.String())
 
-	multipartReader, err := r.MultipartReader()
+	multipartReader, err := req.MultipartReader()
 	if err != nil {
 		return err
 	}
@@ -189,7 +90,7 @@ func (s *Server) handlePostPut(w http.ResponseWriter, r *http.Request) error {
 	counter := 1
 
 	uid, _ := uuid.NewV4()
-	filePath := strings.Trim(r.URL.String(), "/")
+	filePath := strings.Trim(req.URL.String(), "/")
 	filePathSplit := strings.Split(filePath, "/")
 	fileName := filePathSplit[len(filePathSplit)-1]
 	file := &control_pb.FileInfo{
@@ -204,19 +105,19 @@ func (s *Server) handlePostPut(w http.ResponseWriter, r *http.Request) error {
 		Symlink:     "",
 		Replication: 2,
 	}
-	err = s.registry.RegisterFile(file)
+	err = r.RegisterFile(file)
 	if err != nil {
 		switch err {
 		case ErrFileExists:
-			w.WriteHeader(http.StatusConflict)
+			rw.WriteHeader(http.StatusConflict)
 			return nil
 		case ErrNoSuchFileOrDirectory:
-			w.WriteHeader(http.StatusBadRequest)
+			rw.WriteHeader(http.StatusBadRequest)
 			return nil
 		default:
 			logrus.Errorf("error registring file: %v", err)
-			w.WriteHeader(500)
-			w.Write([]byte("server error. see logs"))
+			rw.WriteHeader(500)
+			rw.Write([]byte("server error. see logs"))
 			return nil
 		}
 	}
@@ -310,24 +211,16 @@ func (s *Server) handlePostPut(w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
-	err = s.registry.TransportAndRegisterBlocks(file.Id, dataToTransfer, int(file.Replication))
+	err = r.TransportAndRegisterBlocks(file.Id, dataToTransfer, int(file.Replication))
 	if err != nil {
 		logrus.Errorf("error transporting blocks to node: %v", err)
 	}
 
-	w.Write([]byte("OK"))
+	rw.Write([]byte("OK"))
 
 	return err
-
-	// Stores or Updates file
 }
 
-func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
-
-	// Deletes file
-}
-
-func (s *Server) handleOptions(w http.ResponseWriter, r *http.Request) {
-
-	// Deletes file
+func (r *Registry) HandleDeleteFile(rw http.ResponseWriter, req *http.Request) error {
+	return nil
 }

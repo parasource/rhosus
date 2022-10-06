@@ -3,7 +3,7 @@ module github.com/parasource/rhosus
 go 1.15
 
 require (
-	github.com/apex/log v1.9.0 // indirect
+	github.com/apex/log v1.9.0
 	github.com/dustinkirkland/golang-petname v0.0.0-20191129215211-8e5a1ed0cff0
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/protobuf v1.5.2

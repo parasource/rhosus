@@ -15,9 +15,7 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"io"
 	"os"
-	"os/signal"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -31,8 +29,6 @@ type Config struct {
 	ClusterPort     string `json:"cluster_port"`
 	ClusterUsername string `json:"cluster_username"`
 	ClusterPassword string `json:"cluster_password"`
-
-	ServerConfig ServerConfig `mapstructure:"http_server"`
 }
 
 type Registry struct {
@@ -41,10 +37,7 @@ type Registry struct {
 	mu     sync.RWMutex
 	Config Config
 
-	IsLeader bool
-
 	NodesManager   *NodesMap
-	FileServer     *Server
 	ApiServer      *API
 	Backend        *backend.Storage
 	MemoryStorage  *MemoryStorage
@@ -148,16 +141,6 @@ func NewRegistry(config Config) (*Registry, error) {
 		logrus.Fatalf("%v", err)
 	}
 
-	fileServer, err := NewServer(r, ServerConfig{
-		Host:      r.Config.ServerConfig.Host,
-		Port:      r.Config.ServerConfig.Port,
-		MaxSizeMb: 500,
-	})
-	if err != nil {
-		logrus.Fatalf("error starting file server: %v", err)
-	}
-	r.FileServer = fileServer
-
 	apiServer, err := NewAPIServer(r, APIConfig{
 		Host: "localhost",
 		Port: "5050",
@@ -213,17 +196,11 @@ func getId(persistent bool) string {
 
 func (r *Registry) Start() {
 
-	//var err error
-
-	go r.FileServer.RunHTTP()
-
 	go r.NodesManager.WatchNodes()
 	go r.StatsCollector.Run()
 
 	go r.RunServiceDiscovery()
 	go r.MemoryStorage.Start()
-
-	go r.handleSignals()
 
 	r.readyC <- struct{}{}
 
@@ -239,7 +216,6 @@ func (r *Registry) Start() {
 		}
 
 		r.ApiServer.Shutdown()
-		r.FileServer.Shutdown()
 		r.Backend.Shutdown()
 		r.Cluster.Shutdown()
 
@@ -253,6 +229,11 @@ func (r *Registry) Start() {
 		return
 	}
 
+}
+
+func (r *Registry) Shutdown() error {
+	close(r.shutdownC)
+	return nil
 }
 
 func (r *Registry) registerItself(info *control_pb.RegistryInfo) error {
@@ -269,33 +250,6 @@ func (r *Registry) NotifyShutdown() <-chan struct{} {
 
 func (r *Registry) NotifyReady() <-chan struct{} {
 	return r.readyC
-}
-
-func (r *Registry) handleSignals() {
-	sigc := make(chan os.Signal, 1)
-	signal.Notify(sigc, syscall.SIGHUP, syscall.SIGINT, os.Interrupt, syscall.SIGTERM)
-	for {
-		sig := <-sigc
-		logrus.Infof("signal received: %v", sig)
-		switch sig {
-		case syscall.SIGHUP:
-
-		case syscall.SIGINT, os.Interrupt, syscall.SIGTERM:
-
-			pidFile := viper.GetString("pid_file")
-			shutdownTimeout := time.Duration(viper.GetInt("shutdown_timeout")) * time.Second
-
-			close(r.shutdownC)
-
-			go time.AfterFunc(shutdownTimeout, func() {
-				if pidFile != "" {
-					os.Remove(pidFile)
-				}
-				os.Exit(1)
-			})
-		}
-	}
-
 }
 
 func (r *Registry) getExistingRegistries() (map[string]*control_pb.RegistryInfo, error) {

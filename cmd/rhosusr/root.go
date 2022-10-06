@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/parasource/rhosus/rhosus/api"
 	"github.com/parasource/rhosus/rhosus/registry"
 	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/sirupsen/logrus"
@@ -9,7 +10,10 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"os"
+	"os/signal"
 	"runtime"
+	"syscall"
+	"time"
 )
 
 var configDefaults = map[string]interface{}{
@@ -99,25 +103,64 @@ var rootCmd = &cobra.Command{
 			logrus.Warn("file server http address is not set explicitly")
 		}
 
-		httpHost := v.GetString("http_host")
-		httpPort := v.GetString("http_port")
+		shutdownCh := make(chan struct{}, 1)
 
-		conf := registry.Config{
-			ServerConfig: registry.ServerConfig{
-				Host:      httpHost,
-				Port:      httpPort,
-				MaxSizeMb: 0,
-				BlockSize: 0,
-				PageSize:  0,
-			},
-		}
+		conf := registry.Config{}
+
 		r, err := registry.NewRegistry(conf)
 		if err != nil {
 			logrus.Fatalf("error creating registry instance: %v", err)
 		}
 
-		r.Start()
+		go r.Start()
+
+		httpHost := v.GetString("http_host")
+		httpPort := v.GetString("http_port")
+
+		httpApi, err := api.NewApi(r, api.Config{
+			Host: httpHost,
+			Port: httpPort,
+		})
+		go httpApi.Run()
+
+		go handleSignals(shutdownCh)
+		for {
+			if _, ok := <-shutdownCh; ok {
+				httpApi.Shutdown()
+				err := r.Shutdown()
+				if err != nil {
+
+				}
+				return
+			}
+		}
 	},
+}
+
+func handleSignals(shutdownCh chan<- struct{}) {
+	sigc := make(chan os.Signal, 1)
+	signal.Notify(sigc, syscall.SIGHUP, syscall.SIGINT, os.Interrupt, syscall.SIGTERM)
+	for {
+		sig := <-sigc
+		logrus.Infof("signal received: %v", sig)
+		switch sig {
+		case syscall.SIGHUP:
+
+		case syscall.SIGINT, os.Interrupt, syscall.SIGTERM:
+
+			pidFile := viper.GetString("pid_file")
+			shutdownTimeout := time.Duration(viper.GetInt("shutdown_timeout")) * time.Second
+
+			close(shutdownCh)
+
+			go time.AfterFunc(shutdownTimeout, func() {
+				if pidFile != "" {
+					os.Remove(pidFile)
+				}
+				os.Exit(1)
+			})
+		}
+	}
 }
 
 func printWelcome() {
