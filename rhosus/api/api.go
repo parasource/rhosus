@@ -9,11 +9,14 @@ package api
 
 import (
 	"context"
+	"github.com/golang/protobuf/jsonpb"
+	api_pb "github.com/parasource/rhosus/rhosus/pb/api"
 	"github.com/parasource/rhosus/rhosus/registry"
 	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/sirupsen/logrus"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 )
 
@@ -34,6 +37,9 @@ type Api struct {
 
 	shutdownCh chan struct{}
 	shutdown   bool
+
+	encoder jsonpb.Marshaler
+	decoder jsonpb.Unmarshaler
 }
 
 func NewApi(r *registry.Registry, conf Config) (*Api, error) {
@@ -42,6 +48,9 @@ func NewApi(r *registry.Registry, conf Config) (*Api, error) {
 		Config:     conf,
 		shutdownCh: make(chan struct{}, 1),
 		shutdown:   false,
+
+		encoder: jsonpb.Marshaler{},
+		decoder: jsonpb.Unmarshaler{},
 	}
 
 	httpServer := &http.Server{
@@ -84,26 +93,117 @@ func (a *Api) Run() {
 	}
 }
 
-func (a *Api) Handle(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Server", "Rhosus file Server "+util.VERSION)
+func (a *Api) Handle(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Server", "Rhosus file Server "+util.VERSION)
 	//if r.Header.Get("Origin") != "" {
-	//	w.Header().Set("Access-Control-Allow-Origin", "*")
-	//	w.Header().Set("Access-Control-Allow-Credentials", "true")
+	//	rw.Header().Set("Access-Control-Allow-Origin", "*")
+	//	rw.Header().Set("Access-Control-Allow-Credentials", "true")
 	//}
 
-	switch r.Method {
-	case http.MethodGet:
-		a.handleGet(w, r)
-	case http.MethodPost, http.MethodPut:
-		err := a.handlePostPut(w, r)
+	var err error
+
+	// We handle sys requests separately
+	if strings.HasPrefix(strings.Trim(r.URL.Path, "/"), "sys") {
+		err = a.HandleSys(rw, r)
 		if err != nil {
-			logrus.Errorf("error uploading file: %v", err)
+			rw.WriteHeader(500)
+			return
 		}
-	case http.MethodDelete:
-		a.handleDelete(w, r)
-	case http.MethodOptions:
-		a.handleOptions(w, r)
+	} else {
+		switch r.Method {
+		case http.MethodGet:
+			a.handleGet(rw, r)
+		case http.MethodPost, http.MethodPut:
+			err := a.handlePostPut(rw, r)
+			if err != nil {
+				logrus.Errorf("error uploading file: %v", err)
+			}
+		case http.MethodDelete:
+			a.handleDelete(rw, r)
+		case http.MethodOptions:
+			a.handleOptions(rw, r)
+		}
 	}
+}
+
+func (a *Api) HandleSys(rw http.ResponseWriter, r *http.Request) error {
+	var body []byte
+
+	switch strings.Trim(r.URL.Path, "/") {
+	case "sys/mkdir":
+		_, err := r.Body.Read(body)
+		if err != nil {
+			logrus.Errorf("error reading request body: %v", err)
+			return err
+		}
+
+		var msg api_pb.MakeDirRequest
+		err = a.decoder.Unmarshal(r.Body, &msg)
+		if err != nil {
+			logrus.Errorf("error unmarshaling sys request: %v", err)
+			return err
+		}
+
+		res, err := a.registry.HandleMakeDir(&msg)
+		if err != nil {
+			return err
+		}
+
+		rw.WriteHeader(200)
+		a.encoder.Marshal(rw, res)
+
+		return nil
+	case "sys/rm":
+		_, err := r.Body.Read(body)
+		if err != nil {
+			logrus.Errorf("error reading request body: %v", err)
+			return err
+		}
+
+		var msg api_pb.RemoveRequest
+		err = a.decoder.Unmarshal(r.Body, &msg)
+		if err != nil {
+			logrus.Errorf("error unmarshaling sys request: %v", err)
+			return err
+		}
+
+		res, err := a.registry.HandleRemoveFileOrPath(&msg)
+		if err != nil {
+			return err
+		}
+
+		rw.WriteHeader(200)
+		a.encoder.Marshal(rw, res)
+
+		return nil
+	case "sys/list":
+		_, err := r.Body.Read(body)
+		if err != nil {
+			logrus.Errorf("error reading request body: %v", err)
+			return err
+		}
+
+		var msg api_pb.ListRequest
+		err = a.decoder.Unmarshal(r.Body, &msg)
+		if err != nil {
+			logrus.Errorf("error unmarshaling sys request: %v", err)
+			return err
+		}
+
+		res, err := a.registry.HandleList(&msg)
+		if err != nil {
+			return err
+		}
+
+		rw.WriteHeader(200)
+		a.encoder.Marshal(rw, res)
+
+		return nil
+	case "sys/hierarchy":
+
+	}
+
+	return nil
 }
 
 func (a *Api) handleGet(rw http.ResponseWriter, r *http.Request) error {

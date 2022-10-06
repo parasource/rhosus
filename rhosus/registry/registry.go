@@ -38,7 +38,6 @@ type Registry struct {
 	Config Config
 
 	NodesManager   *NodesMap
-	ApiServer      *API
 	Backend        *backend.Storage
 	MemoryStorage  *MemoryStorage
 	StatsCollector *StatsCollector
@@ -141,15 +140,6 @@ func NewRegistry(config Config) (*Registry, error) {
 		logrus.Fatalf("%v", err)
 	}
 
-	apiServer, err := NewAPIServer(r, APIConfig{
-		Host: "localhost",
-		Port: "5050",
-	})
-	if err != nil {
-		logrus.Fatalf("error starting api server: %v", err)
-	}
-	r.ApiServer = apiServer
-
 	return r, nil
 }
 
@@ -215,7 +205,6 @@ func (r *Registry) Start() {
 			logrus.Errorf("error unregistering: %v", err)
 		}
 
-		r.ApiServer.Shutdown()
 		r.Backend.Shutdown()
 		r.Cluster.Shutdown()
 
