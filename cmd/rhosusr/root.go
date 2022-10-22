@@ -125,12 +125,10 @@ var rootCmd = &cobra.Command{
 
 		go handleSignals(shutdownCh)
 		for {
-			if _, ok := <-shutdownCh; ok {
+			select {
+			case <-shutdownCh:
 				httpApi.Shutdown()
-				err := r.Shutdown()
-				if err != nil {
-
-				}
+				r.Shutdown()
 				return
 			}
 		}

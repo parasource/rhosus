@@ -50,6 +50,7 @@ type Registry struct {
 	readyC  chan struct{}
 	readyWg sync.WaitGroup
 
+	shutdown  bool
 	shutdownC chan struct{}
 }
 
@@ -187,49 +188,70 @@ func getId(persistent bool) string {
 func (r *Registry) Start() {
 
 	go r.NodesManager.WatchNodes()
-	go r.StatsCollector.Run()
-
 	go r.RunServiceDiscovery()
-	go r.MemoryStorage.Start()
+
+	go r.StatsCollector.Run()
 
 	r.readyC <- struct{}{}
 
 	logrus.Infof("Registry %v:%v is ready", r.Name, r.Id)
 
-	if <-r.NotifyShutdown(); true {
-
-		logrus.Infof("shutting down registry")
-		pidFile := viper.GetString("pid_file")
-		err := r.unregisterItself()
-		if err != nil {
-			logrus.Errorf("error unregistering: %v", err)
-		}
-
-		r.Backend.Shutdown()
-		r.Cluster.Shutdown()
-
-		if pidFile != "" {
-			err := os.Remove(pidFile)
-			if err != nil {
-				logrus.Errorf("error removing pid file: %v", err)
-			}
-		}
-		os.Exit(0)
+	select {
+	case <-r.NotifyShutdown():
 		return
 	}
 
 }
 
-func (r *Registry) Shutdown() error {
+func (r *Registry) Shutdown() {
+	r.mu.RLock()
+	if r.shutdown {
+		r.mu.RUnlock()
+		return
+	}
+	r.mu.RUnlock()
+
 	close(r.shutdownC)
-	return nil
+
+	logrus.Infof("shutting down registry")
+	pidFile := viper.GetString("pid_file")
+	err := r.unregisterItself()
+	if err != nil {
+		logrus.Errorf("error unregistering: %v", err)
+	}
+
+	r.Backend.Shutdown()
+	r.Cluster.Shutdown()
+
+	if pidFile != "" {
+		err := os.Remove(pidFile)
+		if err != nil {
+			logrus.Errorf("error removing pid file: %v", err)
+		}
+	}
+
+	os.Exit(0)
 }
 
 func (r *Registry) registerItself(info *control_pb.RegistryInfo) error {
+	r.mu.RLock()
+	if r.shutdown {
+		r.mu.RUnlock()
+		return nil
+	}
+	r.mu.RUnlock()
+
 	return r.etcdClient.RegisterRegistry(info.Id, info)
 }
 
 func (r *Registry) unregisterItself() error {
+	r.mu.RLock()
+	if r.shutdown {
+		r.mu.RUnlock()
+		return nil
+	}
+	r.mu.RUnlock()
+
 	return r.etcdClient.UnregisterRegistry(r.Id)
 }
 
@@ -242,6 +264,12 @@ func (r *Registry) NotifyReady() <-chan struct{} {
 }
 
 func (r *Registry) getExistingRegistries() (map[string]*control_pb.RegistryInfo, error) {
+	r.mu.RLock()
+	if r.shutdown {
+		r.mu.RUnlock()
+		return map[string]*control_pb.RegistryInfo{}, nil
+	}
+	r.mu.RUnlock()
 
 	registries, err := r.etcdClient.GetExistingRegistries()
 	if err != nil {
@@ -268,6 +296,12 @@ func (r *Registry) getExistingRegistries() (map[string]*control_pb.RegistryInfo,
 }
 
 func (r *Registry) getExistingNodes() (map[string]*transport_pb.NodeInfo, error) {
+	r.mu.RLock()
+	if r.shutdown {
+		r.mu.RUnlock()
+		return map[string]*transport_pb.NodeInfo{}, nil
+	}
+	r.mu.RUnlock()
 
 	nodes, err := r.etcdClient.GetExistingNodes()
 	if err != nil {
@@ -296,6 +330,12 @@ func (r *Registry) getExistingNodes() (map[string]*transport_pb.NodeInfo, error)
 // <------------------------------------->
 
 func (r *Registry) RunServiceDiscovery() {
+	r.mu.RLock()
+	if r.shutdown {
+		r.mu.RUnlock()
+		return
+	}
+	r.mu.RUnlock()
 
 	// Waiting for new nodes to connect
 

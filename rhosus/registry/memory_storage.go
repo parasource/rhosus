@@ -90,24 +90,24 @@ func NewMemoryStorage(registry *Registry) (*MemoryStorage, error) {
 		return nil, err
 	}
 
-	return m, nil
-}
+	go func() {
+		ticker := tickers.SetTicker(time.Second * time.Duration(m.flushIntervalS))
+		defer ticker.Stop()
 
-func (s *MemoryStorage) Start() {
-	ticker := tickers.SetTicker(time.Second * time.Duration(s.flushIntervalS))
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			err := s.FlushToBackend()
-			if err != nil {
-				logrus.Errorf("error flushing memory to backend: %v", err)
+		for {
+			select {
+			case <-ticker.C:
+				err := m.FlushToBackend()
+				if err != nil {
+					logrus.Errorf("error flushing memory to backend: %v", err)
+				}
+			case <-m.registry.NotifyShutdown():
+				return
 			}
-		case <-s.registry.NotifyShutdown():
-			return
 		}
-	}
+	}()
+
+	return m, nil
 }
 
 func (s *MemoryStorage) loadFromBackend() error {

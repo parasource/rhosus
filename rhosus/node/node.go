@@ -139,17 +139,10 @@ func (n *Node) Start() {
 
 	logrus.Infof("Node %v : %v is ready", n.Name, n.ID)
 
-	if <-n.NotifyShutdown(); true {
-
-		n.data.Shutdown()
-
-		err := n.unregisterItself()
-		if err != nil {
-			logrus.Errorf("error unregistering node: %v", err)
-		}
+	select {
+	case <-n.NotifyShutdown():
 		return
 	}
-
 }
 
 func (n *Node) registerItself() error {
@@ -163,6 +156,22 @@ func (n *Node) registerItself() error {
 		Location: "/dir/1",
 	}
 	return n.etcd.RegisterNode(n.ID, info)
+}
+
+func (n *Node) Shutdown() error {
+	logrus.Infof("shutting down node")
+
+	n.data.Shutdown()
+
+	err := n.unregisterItself()
+	if err != nil {
+		logrus.Errorf("error unregistering node: %v", err)
+		return err
+	}
+
+	close(n.shutdownC)
+
+	return err
 }
 
 func (n *Node) unregisterItself() error {
@@ -183,7 +192,6 @@ func (n *Node) handleSignals() {
 		case syscall.SIGHUP:
 
 		case syscall.SIGINT, os.Interrupt, syscall.SIGTERM:
-			logrus.Infof("shutting down node")
 			pidFile := viper.GetString("pid_file")
 			shutdownTimeout := time.Duration(viper.GetInt("shutdown_timeout")) * time.Second
 			go time.AfterFunc(shutdownTimeout, func() {
@@ -193,7 +201,10 @@ func (n *Node) handleSignals() {
 				os.Exit(1)
 			})
 
-			close(n.shutdownC)
+			err := n.Shutdown()
+			if err != nil {
+
+			}
 
 			if pidFile != "" {
 				err := os.Remove(pidFile)
