@@ -66,6 +66,8 @@ func NewRegistry(config Config) (*Registry, error) {
 
 		shutdownC: make(chan struct{}),
 		readyC:    make(chan struct{}, 1),
+
+		shutdown: false,
 	}
 
 	statsCollector := NewStatsCollector(r, 5)
@@ -80,8 +82,12 @@ func NewRegistry(config Config) (*Registry, error) {
 	}
 	r.etcdClient = etcdClient
 
+	v := viper.GetViper()
+	dbFilePath := v.GetString("db_file_path")
+
 	s, err := backend.NewStorage(backend.Config{
 		WriteTimeoutS: 1,
+		DbFilePath:    dbFilePath,
 	})
 	if err != nil {
 		logrus.Fatalf("error creating storage: %v", err)
@@ -361,6 +367,8 @@ func (r *Registry) RunServiceDiscovery() {
 
 				// Node added or updated
 				case clientv3.EventTypePut:
+
+					logrus.Info("RECEIVED EVENT PUT")
 
 					data := string(event.Kv.Value)
 

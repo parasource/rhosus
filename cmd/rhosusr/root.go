@@ -19,8 +19,9 @@ import (
 var configDefaults = map[string]interface{}{
 	"gomaxprocs": 0,
 	// http file server host and port
-	"http_host": "127.0.0.1",
-	"http_port": "8000",
+	"http_host":    "127.0.0.1",
+	"http_port":    "8000",
+	"db_file_path": "./data.db",
 
 	// path for wal
 	"wal_path": "wal",
@@ -51,6 +52,7 @@ func init() {
 	rootCmd.Flags().String("http_host", "127.0.0.1", "file server http host")
 	rootCmd.Flags().String("http_port", "8000", "file server http port")
 	rootCmd.Flags().String("wal_path", "wal", "path for wal")
+	rootCmd.Flags().String("db_file_path", "./data.db", "database file path")
 	rootCmd.Flags().Int("shutdown_timeout", 30, "node graceful shutdown timeout")
 	rootCmd.Flags().Int("replication_factor", 30, "replication factor")
 	rootCmd.Flags().Int("block_size", 4096, "block size in bytes")
@@ -58,6 +60,7 @@ func init() {
 	viper.BindPFlag("http_host", rootCmd.Flags().Lookup("http_host"))
 	viper.BindPFlag("http_port", rootCmd.Flags().Lookup("http_port"))
 	viper.BindPFlag("wal_path", rootCmd.Flags().Lookup("wal_path"))
+	viper.BindPFlag("db_file_path", rootCmd.Flags().Lookup("db_file_path"))
 	viper.BindPFlag("shutdown_timeout", rootCmd.Flags().Lookup("shutdown_timeout"))
 	viper.BindPFlag("replication_factor", rootCmd.Flags().Lookup("replication_factor"))
 	viper.BindPFlag("block_size", rootCmd.Flags().Lookup("block size in bytes"))
@@ -80,7 +83,7 @@ var rootCmd = &cobra.Command{
 		bindEnvs := []string{
 			"http_host", "http_port", "grpc_host", "grpc_port", "redis_host", "redis_port",
 			"shutdown_timeout",
-			"replication_factor", "block_size", "wal_path",
+			"replication_factor", "block_size", "wal_path", "db_file_path",
 		}
 		for _, env := range bindEnvs {
 			err := viper.BindEnv(env)

@@ -55,6 +55,7 @@ type Cluster struct {
 
 	currentTerm  uint32
 	lastLogIndex uint64
+	lastLogTerm  uint32
 	state        control_pb.State
 
 	entriesAppendedC chan struct{}
@@ -142,29 +143,29 @@ func NewCluster(config Config, peers map[string]*control_pb.RegistryInfo) *Clust
 
 	go c.Run()
 
-	//go func() {
-	//	for {
-	//		time.Sleep(time.Second * 2)
-	//
-	//		if !c.isLeader() {
-	//			continue
-	//		}
-	//
-	//		err := c.WriteEntries([]*control_pb.Entry{
-	//			{
-	//				Index:     c.lastLogIndex + 1,
-	//				Term:      c.GetCurrentTerm(),
-	//				Type:      control_pb.Entry_ASSIGN,
-	//				Data:      []byte("azazazaza"),
-	//				Timestamp: time.Now().Unix(),
-	//			},
-	//		})
-	//		if err != nil {
-	//			logrus.Errorf("error writing entries: %v", err)
-	//		}
-	//	}
-	//
-	//}()
+	go func() {
+		for {
+			time.Sleep(time.Second * 2)
+
+			if !c.isLeader() {
+				continue
+			}
+
+			err := c.WriteEntries([]*control_pb.Entry{
+				{
+					Index:     c.lastLogIndex + 1,
+					Term:      c.GetCurrentTerm(),
+					Type:      control_pb.Entry_ASSIGN,
+					Data:      []byte("ENTRY"),
+					Timestamp: time.Now().Unix(),
+				},
+			})
+			if err != nil {
+				logrus.Errorf("error writing entries: %v", err)
+			}
+		}
+
+	}()
 
 	return c
 }
@@ -192,12 +193,19 @@ func (c *Cluster) setInitialTermAndIndex() {
 	entry.Unmarshal(data)
 
 	c.SetLastLogIndex(entry.Index)
+	c.SetLastLogTerm(entry.Term)
 	c.SetCurrentTerm(entry.Term)
 }
 
 func (c *Cluster) SetEntriesHandler(f func(entries []*control_pb.Entry)) {
 	c.mu.Lock()
 	c.handleEntries = f
+	c.mu.Unlock()
+}
+
+func (c *Cluster) SetLastLogTerm(term uint32) {
+	c.mu.Lock()
+	c.lastLogTerm = term
 	c.mu.Unlock()
 }
 
@@ -298,10 +306,11 @@ func (c *Cluster) Run() {
 	c.WritePipeline()
 }
 
+// LoopWriteEntries writes new entries to
+// followers
 func (c *Cluster) LoopWriteEntries() {
 
 	for {
-
 		c.mu.RLock()
 		if c.shutdown {
 			c.mu.RUnlock()
@@ -311,7 +320,7 @@ func (c *Cluster) LoopWriteEntries() {
 
 		// if observer doesn't hear from leader in 150 to 300 ms, current peer becomes a candidate
 		// and starts an election
-		heartbeatTick := timers.SetTimer(getIntervalMs(150, 300))
+		heartbeatTick := timers.SetTimer(750 * time.Millisecond)
 
 		if <-heartbeatTick.C; true {
 
@@ -323,6 +332,50 @@ func (c *Cluster) LoopWriteEntries() {
 			c.mu.RUnlock()
 
 			c.dispatchEntries()
+		}
+	}
+}
+
+// LoopReadEntries listens for incoming entries
+// from the leader. If it does not hear from leader
+// for some time, it will start a new voting
+func (c *Cluster) LoopReadEntries() {
+
+	for {
+		c.mu.RLock()
+		if c.shutdown {
+			c.mu.RUnlock()
+			return
+		}
+		c.mu.RUnlock()
+
+		// We need to set random interval between 150 and 300 ms
+		// It is something similar to RAFT, but not completely
+		electionTimout := timers.SetTimer(getIntervalMs(1500, 2000))
+
+		select {
+		// Leader is alright, so we discard timeout
+		case <-c.entriesAppendedC:
+
+			logrus.Info("HEARD FROM LEADER")
+
+			timers.ReleaseTimer(electionTimout)
+
+		case <-electionTimout.C:
+
+			timers.ReleaseTimer(electionTimout)
+
+			c.mu.RLock()
+			if c.isLeader() {
+				c.mu.RUnlock()
+				continue
+			}
+			c.mu.RUnlock()
+
+			err := c.StartElection()
+			if err != nil {
+				logrus.Errorf("error starting election proccess: %v", err)
+			}
 		}
 	}
 }
@@ -357,7 +410,7 @@ func (c *Cluster) dispatchEntries() {
 
 			res, err := c.service.AppendEntries(uid, req)
 			if err != nil {
-				logrus.Warnf("error appending entries: %v", err)
+				//logrus.Warnf("error appending entries: %v", err)
 				return
 			}
 
@@ -423,45 +476,10 @@ func (c *Cluster) startLogRecovering(uid string, from uint64) error {
 	return ErrPeerNotFound
 }
 
-func (c *Cluster) LoopReadEntries() {
-
-	for {
-
-		c.mu.RLock()
-		if c.shutdown {
-			c.mu.RUnlock()
-			return
-		}
-		c.mu.RUnlock()
-
-		// We need to set random interval between 150 and 300 ms
-		// It is something similar to RAFT, but not completely
-		electionTimout := timers.SetTimer(getIntervalMs(300, 500))
-
-		select {
-		// Leader is alright, so we discard timeout
-		case <-c.entriesAppendedC:
-			timers.ReleaseTimer(electionTimout)
-
-		case <-electionTimout.C:
-			timers.ReleaseTimer(electionTimout)
-
-			c.mu.RLock()
-			if c.isLeader() {
-				c.mu.RUnlock()
-				continue
-			}
-			c.mu.RUnlock()
-
-			err := c.StartElection()
-			if err != nil {
-				logrus.Errorf("error starting election proccess: %v", err)
-			}
-		}
-	}
-}
-
 func (c *Cluster) StartElection() error {
+
+	logrus.Info("STARTING ELECTION")
+
 	c.becomeCandidate()
 
 	c.mu.Lock()
@@ -472,7 +490,7 @@ func (c *Cluster) StartElection() error {
 	}
 	c.mu.Unlock()
 
-	logrus.Debugf("election started for %v peers at term %v", len(c.peers), c.GetCurrentTerm())
+	logrus.Infof("ELECTION started for %v peers at term %v", len(c.peers), c.GetCurrentTerm())
 
 	var voted, responded int32
 	var wg sync.WaitGroup
@@ -484,7 +502,7 @@ func (c *Cluster) StartElection() error {
 
 			res, err := c.service.sendVoteRequest(uid)
 			if err != nil {
-				logrus.Warnf("error sending vote request to %v: %v", uid, err)
+				//logrus.Warnf("error sending vote request to %v: %v", uid, err)
 				return
 			}
 
@@ -505,20 +523,21 @@ func (c *Cluster) StartElection() error {
 	return nil
 }
 
+// becomeFollower changes node state to follower
 func (c *Cluster) becomeFollower() {
 	c.mu.Lock()
 	c.state = control_pb.State_FOLLOWER
 	c.mu.Unlock()
 }
 
+// becomeLeader changes node state to leader
 func (c *Cluster) becomeLeader() {
 	c.mu.Lock()
 	c.state = control_pb.State_LEADER
 	c.mu.Unlock()
 }
 
-// Leader cannot become a candidate, so
-// we need to stop only a read loop
+// becomeCandidate changes node state to candidate
 func (c *Cluster) becomeCandidate() {
 	c.mu.Lock()
 	c.state = control_pb.State_CANDIDATE

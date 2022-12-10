@@ -52,6 +52,7 @@ func (c *Cluster) WritePipeline() {
 			}
 
 			c.SetLastLogIndex(entry.Index)
+			c.SetLastLogTerm(entry.Term)
 		}
 
 		peers := make(map[string]*Peer)
@@ -128,6 +129,7 @@ func (c *Cluster) WriteEntriesFromLeader(entries []*control_pb.Entry) error {
 		}
 
 		c.SetLastLogIndex(entry.Index)
+		c.SetLastLogTerm(entry.Term)
 	}
 
 	return nil

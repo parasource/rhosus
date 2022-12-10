@@ -4,7 +4,7 @@
 
 ![rhosus](https://github.com/parasource/rhosus/blob/master/assets/logo_new.svg)
 
-**Rhosus** is a multi-purpose super-fast distributed file system (DFS) written in Go. It is build on top of BoltDB and
+**Rhosus** is a multi-purpose fast distributed file system written in Go. It is build on top of BoltDB and
 uses etcd for service discovery.
 
 ## What is Rhosus
@@ -15,4 +15,26 @@ make something out of it.
 ### Rhosus architecture
 
 In Rhosus there are two types of working units: Registry and Node. Node's only purpose is to store raw blocks on
-machine. The main complexity is on Registry, which decides, where to store blocks, how to store it and so on. 
+machine. The main complexity is on Registry, which decides, where to store blocks, how to store it and so on.
+
+## Getting started
+
+### Installation
+
+First you need to install etcd for service discovery.
+Please follow steps on this [page](https://etcd.io/docs/v3.4/install/)
+
+Once you installed etcd, you can now install **Rhosus**
+
+```bash
+$ go install github.com/parasource/rhosus
+```
+
+For very basic deployment you need at least one registry and one data node.
+
+```bash
+$ make build
+...
+$ bin/rhosusr
+$ bin/rhosusd
+```

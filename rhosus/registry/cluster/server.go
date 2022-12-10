@@ -82,7 +82,7 @@ func (s *ControlServer) RequestVote(c context.Context, req *control_pb.RequestVo
 
 	// If we already voted in this term - we decline
 	if s.lastVotedTerm == req.Term {
-		logrus.Debug("declined request vote: already voted")
+		logrus.Info("declined request vote: already voted")
 		return &control_pb.RequestVoteResponse{
 			From:        s.cluster.ID,
 			Term:        s.cluster.currentTerm,
@@ -91,7 +91,25 @@ func (s *ControlServer) RequestVote(c context.Context, req *control_pb.RequestVo
 	}
 
 	if req.LastLogIndex < s.cluster.lastLogIndex {
-		logrus.Debugf("declined request vote from a node %v with less last log index", req.CandidateId)
+		logrus.Infof("rejected candidate %v with outdated logs idx", req.CandidateId)
+		return &control_pb.RequestVoteResponse{
+			From:        s.cluster.ID,
+			Term:        s.cluster.currentTerm,
+			VoteGranted: false,
+		}, nil
+	}
+
+	if req.LastLogTerm < s.cluster.lastLogTerm {
+		logrus.Infof("rejected candidate %v with outdated logs term --- %v:%v", req.CandidateId, req.LastLogTerm, s.cluster.lastLogTerm)
+		return &control_pb.RequestVoteResponse{
+			From:        s.cluster.ID,
+			Term:        s.cluster.currentTerm,
+			VoteGranted: false,
+		}, nil
+	}
+
+	if req.LastLogTerm == s.cluster.lastLogTerm && req.LastLogIndex < s.cluster.lastLogIndex {
+		logrus.Infof("rejected candidate %v with short logs", req.CandidateId)
 		return &control_pb.RequestVoteResponse{
 			From:        s.cluster.ID,
 			Term:        s.cluster.currentTerm,
@@ -113,7 +131,7 @@ func (s *ControlServer) AppendEntries(c context.Context, req *control_pb.AppendE
 
 	currentTerm := s.cluster.GetCurrentTerm()
 
-	if req.Term > currentTerm {
+	if req.Term > currentTerm || (len(req.Entries) > 0 && req.Entries[len(req.Entries)-1].Index > s.cluster.lastLogIndex) {
 		s.cluster.becomeFollower()
 		s.cluster.SetCurrentTerm(req.Term)
 		s.votedFor = ""

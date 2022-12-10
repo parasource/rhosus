@@ -138,6 +138,7 @@ func (s *ControlService) sendVoteRequest(uid string) (*control_pb.RequestVoteRes
 		return conn.RequestVote(ctx, &control_pb.RequestVoteRequest{
 			Term:         s.cluster.GetCurrentTerm(),
 			LastLogIndex: s.cluster.lastLogIndex,
+			LastLogTerm:  s.cluster.GetCurrentTerm(),
 			CandidateId:  s.cluster.ID,
 		})
 	}
