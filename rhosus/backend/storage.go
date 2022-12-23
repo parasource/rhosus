@@ -2,11 +2,14 @@ package backend
 
 import (
 	"errors"
+	"fmt"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/parasource/rhosus/rhosus/util/timers"
 	"github.com/sirupsen/logrus"
 	bolt "go.etcd.io/bbolt"
+	"os"
+	"path"
 	"sync"
 	"time"
 )
@@ -17,7 +20,7 @@ var (
 )
 
 const (
-	defaultDbFilePath = "data.db"
+	defaultDbFileName = "data.db"
 
 	filesStorageBucketName  = "__files"
 	blocksStorageBucketName = "__blocks"
@@ -25,7 +28,7 @@ const (
 )
 
 type Config struct {
-	DbFilePath string
+	Path string
 
 	WriteTimeoutS int
 	NumWorkers    int
@@ -44,7 +47,6 @@ type Storage struct {
 }
 
 func NewStorage(config Config) (*Storage, error) {
-
 	s := &Storage{
 		config: config,
 
@@ -53,11 +55,16 @@ func NewStorage(config Config) (*Storage, error) {
 		shutdownC:  make(chan struct{}),
 	}
 
-	path := defaultDbFilePath
-	if config.DbFilePath != "" {
-		path = config.DbFilePath
+	backendPath := config.Path
+	err := os.Mkdir(backendPath, 0755)
+	if os.IsExist(err) {
+		// triggers if dir already exists
+		logrus.Debugf("backend path already exists, skipping")
+	} else if err != nil {
+		return nil, fmt.Errorf("error creating backend folder in %v: %v", config.Path, err)
 	}
-	db, err := bolt.Open(path, 0666, nil)
+
+	db, err := bolt.Open(path.Join(backendPath, defaultDbFileName), 0666, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -83,6 +90,7 @@ func NewStorage(config Config) (*Storage, error) {
 	return s, nil
 }
 
+// setup creates necessary bboltdb buckets
 func (s *Storage) setup() (err error) {
 
 	err = s.db.Update(func(tx *bolt.Tx) error {

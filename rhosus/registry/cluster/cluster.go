@@ -2,13 +2,13 @@ package cluster
 
 import (
 	"errors"
+	"fmt"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	"github.com/parasource/rhosus/rhosus/registry/wal"
 	"github.com/parasource/rhosus/rhosus/util/timers"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"math"
-	"net"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -23,9 +23,9 @@ var (
 )
 
 type Config struct {
-	ID string
-
-	RegistryInfo *control_pb.RegistryInfo
+	ID          string
+	WalPath     string
+	ClusterAddr string
 
 	HeartbeatIntervalMinMs int
 	HeartbeatIntervalMaxMs int
@@ -47,9 +47,10 @@ type Cluster struct {
 	syncedPeers map[string]bool
 	leader      string
 
-	server  *ControlServer
-	service *ControlService
-	wal     *wal.WAL
+	server       *ControlServer
+	service      *ControlService
+	wal          *wal.WAL
+	RegistryInfo *control_pb.RegistryInfo
 
 	writeEntriesC chan *writeRequest
 
@@ -67,7 +68,7 @@ type Cluster struct {
 	readyC    chan struct{}
 }
 
-func NewCluster(config Config, peers map[string]*control_pb.RegistryInfo) *Cluster {
+func NewCluster(config Config, peers map[string]*control_pb.RegistryInfo) (*Cluster, error) {
 
 	c := &Cluster{
 
@@ -89,25 +90,30 @@ func NewCluster(config Config, peers map[string]*control_pb.RegistryInfo) *Clust
 		readyC:    make(chan struct{}, 1),
 	}
 
-	v := viper.GetViper()
-	walPath := v.GetString("wal_path")
-
 	// First, we create a Write-ahead Log
+	walPath := config.WalPath
+	err := os.Mkdir(walPath, 0755)
+	if os.IsExist(err) {
+		// triggers if dir already exists
+		logrus.Debugf("backend path already exists, skipping")
+	} else if err != nil {
+		return nil, fmt.Errorf("error creating backend folder in %v: %v", walPath, err)
+	}
+
 	w, err := wal.Create(walPath, nil)
 	if err != nil {
-		logrus.Fatalf("error creating wal: %v", err)
-		return nil
+		return nil, fmt.Errorf("error creating wal: %w", err)
 	}
 	c.wal = w
 	c.setInitialTermAndIndex()
 
 	// Server to accept other conns connections
-	srvAddress := net.JoinHostPort(config.RegistryInfo.Address.Host, config.RegistryInfo.Address.Port)
-	server, err := NewControlServer(c, srvAddress)
+	clusterAddr := config.ClusterAddr
+	server, err := NewControlServer(c, clusterAddr)
 	if err != nil {
 		logrus.Fatalf("error creating control server: %v", err)
 	}
-	logrus.Infof("listening control on %v", srvAddress)
+	logrus.Infof("listening control on %v", clusterAddr)
 
 	// Creating a service that holds connections to other conns
 	addresses := make(map[string]string, len(peers))
@@ -116,7 +122,7 @@ func NewCluster(config Config, peers map[string]*control_pb.RegistryInfo) *Clust
 		if uid == c.ID {
 			continue
 		}
-		addresses[uid] = composeRegistryAddress(info.Address)
+		addresses[uid] = info.Address
 	}
 	service, sanePeers, err := NewControlService(c, addresses)
 	if err != nil {
@@ -167,7 +173,11 @@ func NewCluster(config Config, peers map[string]*control_pb.RegistryInfo) *Clust
 
 	}()
 
-	return c
+	return c, nil
+}
+
+func (c *Cluster) SetRegistryInfo(info *control_pb.RegistryInfo) {
+	c.RegistryInfo = info
 }
 
 func (c *Cluster) setInitialTermAndIndex() {
@@ -243,7 +253,7 @@ func (c *Cluster) DiscoverOrUpdate(uid string, info *control_pb.RegistryInfo) (e
 		//TODO
 
 	} else {
-		err = c.service.AddPeer(uid, composeRegistryAddress(info.Address))
+		err = c.service.AddPeer(uid, info.Address)
 		if err != nil {
 			return err
 		}

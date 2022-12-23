@@ -24,11 +24,16 @@ const (
 	uuidFilePath     = "uuid"
 )
 
+// Config is a main configuration of Registry node
 type Config struct {
-	ClusterHost     string `json:"cluster_host" mapstructure:"cluster_host"`
-	ClusterPort     string `json:"cluster_port"`
-	ClusterUsername string `json:"cluster_username"`
-	ClusterPassword string `json:"cluster_password"`
+	ID          string // it's being set dynamically
+	ApiAddr     string `json:"api_addr"`
+	EtcdAddr    string `json:"etcd_addr"`
+	StoragePath string `json:"storage_path"`
+	RhosusPath  string `json:"rhosus_path"`
+
+	Backend backend.Config `json:"backend"`
+	Cluster cluster.Config `json:"cluster"`
 }
 
 type Registry struct {
@@ -74,21 +79,14 @@ func NewRegistry(config Config) (*Registry, error) {
 	r.StatsCollector = statsCollector
 
 	etcdClient, err := rhosus_etcd.NewEtcdClient(rhosus_etcd.EtcdClientConfig{
-		Host: "localhost",
-		Port: "2379",
+		Address: "localhost:2379",
 	})
 	if err != nil {
 		logrus.Fatalf("error connecting to etcd: %v", err)
 	}
 	r.etcdClient = etcdClient
 
-	v := viper.GetViper()
-	dbFilePath := v.GetString("db_file_path")
-
-	s, err := backend.NewStorage(backend.Config{
-		WriteTimeoutS: 1,
-		DbFilePath:    dbFilePath,
-	})
+	s, err := backend.NewStorage(config.Backend)
 	if err != nil {
 		logrus.Fatalf("error creating storage: %v", err)
 	}
@@ -101,7 +99,7 @@ func NewRegistry(config Config) (*Registry, error) {
 	r.MemoryStorage = memStorage
 
 	// Here we load all the existing nodes and registries from etcd
-	// Error occurs only in non-usual conditions, so we kill process
+	// Error occurs only in non-usual conditions, so we shut down
 	regs, err := r.getExistingRegistries()
 	if err != nil {
 		logrus.Fatalf("error getting existing registries from etcd: %v", err)
@@ -112,27 +110,19 @@ func NewRegistry(config Config) (*Registry, error) {
 		logrus.Fatalf("error getting existing nodes from etcd: %v", err)
 	}
 
-	port, err := util.GetFreePort()
-	if err != nil {
-		logrus.Fatalf("couldn't get free port: %v", err)
-	}
 	info := &control_pb.RegistryInfo{
-		Id:   r.Id,
-		Name: r.Name,
-		Address: &control_pb.RegistryInfo_Address{
-			Host:     "localhost",
-			Port:     fmt.Sprintf("%v", port),
-			Username: "",
-			Password: "",
-		},
+		Id:      r.Id,
+		Name:    r.Name,
+		Address: config.Cluster.ClusterAddr,
 	}
 
 	// Setting up registries cluster from existing peers
-	c := cluster.NewCluster(cluster.Config{
-		ID:           r.Id,
-		RegistryInfo: info,
-	}, regs)
+	c, err := cluster.NewCluster(config.Cluster, regs)
+	if err != nil {
+		return nil, fmt.Errorf("error setting up cluster: %w", err)
+	}
 	r.Cluster = c
+	r.Cluster.SetRegistryInfo(info)
 
 	// Setting up nodes map from existing nodes
 	nMap, err := NewNodesMap(r, nodes)

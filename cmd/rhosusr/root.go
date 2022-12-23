@@ -3,14 +3,18 @@ package main
 import (
 	"fmt"
 	"github.com/parasource/rhosus/rhosus/api"
+	"github.com/parasource/rhosus/rhosus/backend"
 	"github.com/parasource/rhosus/rhosus/registry"
+	"github.com/parasource/rhosus/rhosus/registry/cluster"
 	"github.com/parasource/rhosus/rhosus/util"
+	"github.com/parasource/rhosus/rhosus/util/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"os"
 	"os/signal"
+	"path"
 	"runtime"
 	"syscall"
 	"time"
@@ -49,18 +53,14 @@ func (c *DefaultChecker) checkIfUsingDefault(name string) bool {
 var checker *DefaultChecker
 
 func init() {
-	rootCmd.Flags().String("http_host", "127.0.0.1", "file server http host")
-	rootCmd.Flags().String("http_port", "8000", "file server http port")
-	rootCmd.Flags().String("wal_path", "wal", "path for wal")
-	rootCmd.Flags().String("db_file_path", "./data.db", "database file path")
+	rootCmd.Flags().String("api_addr", "127.0.0.1:8000", "api server address")
+	rootCmd.Flags().String("rhosus_path", "./data.db", "rhosus data path")
 	rootCmd.Flags().Int("shutdown_timeout", 30, "node graceful shutdown timeout")
 	rootCmd.Flags().Int("replication_factor", 30, "replication factor")
 	rootCmd.Flags().Int("block_size", 4096, "block size in bytes")
 
-	viper.BindPFlag("http_host", rootCmd.Flags().Lookup("http_host"))
-	viper.BindPFlag("http_port", rootCmd.Flags().Lookup("http_port"))
-	viper.BindPFlag("wal_path", rootCmd.Flags().Lookup("wal_path"))
-	viper.BindPFlag("db_file_path", rootCmd.Flags().Lookup("db_file_path"))
+	viper.BindPFlag("cluster_addr", rootCmd.Flags().Lookup("cluster_addr"))
+	viper.BindPFlag("rhosus_path", rootCmd.Flags().Lookup("rhosus_path"))
 	viper.BindPFlag("shutdown_timeout", rootCmd.Flags().Lookup("shutdown_timeout"))
 	viper.BindPFlag("replication_factor", rootCmd.Flags().Lookup("replication_factor"))
 	viper.BindPFlag("block_size", rootCmd.Flags().Lookup("block size in bytes"))
@@ -81,9 +81,8 @@ var rootCmd = &cobra.Command{
 		}
 
 		bindEnvs := []string{
-			"http_host", "http_port", "grpc_host", "grpc_port", "redis_host", "redis_port",
-			"shutdown_timeout",
-			"replication_factor", "block_size", "wal_path", "db_file_path",
+			"api_addr", "cluster_addr",
+			"shutdown_timeout", "replication_factor", "block_size", "rhosus_path",
 		}
 		for _, env := range bindEnvs {
 			err := viper.BindEnv(env)
@@ -102,13 +101,9 @@ var rootCmd = &cobra.Command{
 
 		v := viper.GetViper()
 
-		if checker.checkIfUsingDefault("http_host") || checker.checkIfUsingDefault("http_port") {
-			logrus.Warn("file server http address is not set explicitly")
-		}
-
 		shutdownCh := make(chan struct{}, 1)
 
-		conf := registry.Config{}
+		conf, err := registryConfig(v)
 
 		r, err := registry.NewRegistry(conf)
 		if err != nil {
@@ -117,12 +112,9 @@ var rootCmd = &cobra.Command{
 
 		go r.Start()
 
-		httpHost := v.GetString("http_host")
-		httpPort := v.GetString("http_port")
-
+		apiAddr := v.GetString("api_addr")
 		httpApi, err := api.NewApi(r, api.Config{
-			Host: httpHost,
-			Port: httpPort,
+			Address: apiAddr,
 		})
 		go httpApi.Run()
 
@@ -136,6 +128,38 @@ var rootCmd = &cobra.Command{
 			}
 		}
 	},
+}
+
+func registryConfig(v *viper.Viper) (registry.Config, error) {
+	if checker.checkIfUsingDefault("api_addr") {
+		logrus.Warn("api address is not set explicitly")
+	}
+	if checker.checkIfUsingDefault("cluster_addr") {
+		logrus.Warn("cluster address is not set explicitly")
+	}
+
+	v4uid, _ := uuid.NewV4()
+	id := v4uid.String()
+
+	clusterAddr := v.GetString("cluster_addr")
+	rhosusPath := v.GetString("rhosus_path")
+
+	conf := registry.Config{
+		ID:         id,
+		RhosusPath: rhosusPath,
+		Backend: backend.Config{
+			Path:          path.Join(rhosusPath, "data"),
+			WriteTimeoutS: 10,
+			NumWorkers:    5,
+		},
+		Cluster: cluster.Config{
+			WalPath:     path.Join(rhosusPath, "wal"),
+			ClusterAddr: clusterAddr,
+			ID:          id,
+		},
+	}
+
+	return conf, nil
 }
 
 func handleSignals(shutdownCh chan<- struct{}) {

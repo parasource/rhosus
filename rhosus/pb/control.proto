@@ -93,13 +93,7 @@ message EntryDelete {
 message RegistryInfo {
   string Id = 1;
   string name = 2;
-  message Address {
-    string host = 1;
-    string port = 2;
-    string username = 3;
-    string password = 4;
-  }
-  Address address = 3;
+  string address = 3;
 }
 
 message FileInfo {

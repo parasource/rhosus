@@ -7,7 +7,6 @@ import (
 	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
-	"net"
 	"strings"
 	"time"
 )
@@ -18,8 +17,8 @@ const (
 )
 
 type EtcdClientConfig struct {
-	Host string
-	Port string
+	Address string `json:"address"`
+	Timeout int    `json:"timeout"`
 }
 
 type EtcdClient struct {
@@ -34,10 +33,10 @@ func NewEtcdClient(conf EtcdClientConfig) (*EtcdClient, error) {
 		Config: conf,
 	}
 
-	address := net.JoinHostPort(conf.Host, conf.Port)
+	address := strings.Split(conf.Address, ",")
 	etcdClient, err := etcd.New(etcd.Config{
-		Endpoints:   []string{address},
-		DialTimeout: 5 * time.Second,
+		Endpoints:   address,
+		DialTimeout: time.Duration(conf.Timeout) * time.Second,
 	})
 	if err != nil {
 		return nil, err

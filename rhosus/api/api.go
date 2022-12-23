@@ -14,15 +14,13 @@ import (
 	"github.com/parasource/rhosus/rhosus/registry"
 	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/sirupsen/logrus"
-	"net"
 	"net/http"
 	"strings"
 	"sync"
 )
 
 type Config struct {
-	Host      string
-	Port      string
+	Address   string
 	MaxSizeMb int32
 	BlockSize int64
 	PageSize  int64
@@ -54,7 +52,7 @@ func NewApi(r *registry.Registry, conf Config) (*Api, error) {
 	}
 
 	httpServer := &http.Server{
-		Addr:    net.JoinHostPort(conf.Host, conf.Port),
+		Addr:    conf.Address,
 		Handler: http.HandlerFunc(a.Handle),
 		//TLSConfig:         nil,
 		//ReadTimeout:       0,
@@ -82,7 +80,7 @@ func (a *Api) Run() {
 		}
 	}()
 
-	logrus.Infof("HTTP file server is up and running on %v", net.JoinHostPort(a.Config.Host, a.Config.Port))
+	logrus.Infof("API server is up and running on %v", a.Config.Address)
 
 	if <-a.NotifyShutdown(); true {
 		logrus.Infof("shutting down API server")

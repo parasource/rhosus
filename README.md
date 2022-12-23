@@ -38,3 +38,14 @@ $ make build
 $ bin/rhosusr
 $ bin/rhosusd
 ```
+
+### Starting up
+
+The bare minimum env configuration:
+
+```bash
+API_ADDR=127.0.0.1:8001
+CLUSTER_ADDR=127.0.0.1:8401
+RHOSUS_PATH=/var/lib/rhosus
+ETCD_ADRR=127.0.0.1:2379
+```

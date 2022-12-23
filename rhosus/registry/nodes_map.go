@@ -9,7 +9,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"io"
-	"net"
 	"sort"
 	"sync"
 	"time"
@@ -54,9 +53,7 @@ func NewNodesMap(registry *Registry, nodes map[string]*transport_pb.NodeInfo) (*
 	}
 
 	for id, info := range nodes {
-		address := net.JoinHostPort(info.Address.Host, info.Address.Port)
-
-		conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.MaxCallSendMsgSize(32<<20), grpc.MaxCallRecvMsgSize(32<<20)))
+		conn, err := grpc.Dial(info.Address, grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.MaxCallSendMsgSize(32<<20), grpc.MaxCallRecvMsgSize(32<<20)))
 		if err != nil {
 			logrus.Errorf("error connnecting to node %v: %v", info.Id, err)
 			continue
@@ -77,7 +74,7 @@ func NewNodesMap(registry *Registry, nodes map[string]*transport_pb.NodeInfo) (*
 			recovering:   false,
 		}
 
-		logrus.Infof("added existing node %v on %v", info.Id, address)
+		logrus.Infof("added existing node %v on %v", info.Id, info.Address)
 	}
 
 	conns := make(map[string]*transport_pb.TransportServiceClient)
@@ -94,9 +91,7 @@ func NewNodesMap(registry *Registry, nodes map[string]*transport_pb.NodeInfo) (*
 
 func (m *NodesMap) AddNode(name string, info *transport_pb.NodeInfo) error {
 
-	address := net.JoinHostPort(info.Address.Host, info.Address.Port)
-
-	conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.MaxCallSendMsgSize(32<<20), grpc.MaxCallRecvMsgSize(32<<20)))
+	conn, err := grpc.Dial(info.Address, grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.MaxCallSendMsgSize(32<<20), grpc.MaxCallRecvMsgSize(32<<20)))
 	if err != nil {
 		return err
 	}
@@ -117,7 +112,7 @@ func (m *NodesMap) AddNode(name string, info *transport_pb.NodeInfo) error {
 	}
 	m.mu.Unlock()
 
-	logrus.Infof("added new node to nodes map: %v %v", info.Id, address)
+	logrus.Infof("added new node to nodes map: %v %v", info.Id, info.Address)
 
 	return nil
 }
