@@ -1,11 +1,18 @@
+/*
+ * Copyright (c) 2022.
+ * Licensed to the Parasource Foundation under one or more contributor license agreements.  See the NOTICE file distributed with this work for additional information regarding copyright ownership.  The Parasource licenses this file to you under the Parasource License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at http://www.parasource.org/licenses/LICENSE-2.0 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and limitations under the License.
+ */
+
 package main
 
 import (
 	"fmt"
 	"github.com/parasource/rhosus/rhosus/api"
-	"github.com/parasource/rhosus/rhosus/backend"
 	"github.com/parasource/rhosus/rhosus/registry"
 	"github.com/parasource/rhosus/rhosus/registry/cluster"
+	"github.com/parasource/rhosus/rhosus/storage"
 	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/parasource/rhosus/rhosus/util/uuid"
 	"github.com/sirupsen/logrus"
@@ -23,9 +30,10 @@ import (
 var configDefaults = map[string]interface{}{
 	"gomaxprocs": 0,
 	// http file server host and port
-	"http_host":    "127.0.0.1",
-	"http_port":    "8000",
-	"db_file_path": "./data.db",
+	"api_addr":     "127.0.0.1:8000",
+	"cluster_addr": "127.0.0.1:8100",
+	"etcd_addr":    "127.0.0.1:2379",
+	"rhosus_path":  "/var/lib/rhosus",
 
 	// path for wal
 	"wal_path": "wal",
@@ -54,12 +62,16 @@ var checker *DefaultChecker
 
 func init() {
 	rootCmd.Flags().String("api_addr", "127.0.0.1:8000", "api server address")
-	rootCmd.Flags().String("rhosus_path", "./data.db", "rhosus data path")
+	rootCmd.Flags().String("cluster_addr", "127.0.0.1:8100", "cluster server address")
+	rootCmd.Flags().String("etcd_addr", "127.0.0.1:2379", "etcd service discovery address")
+	rootCmd.Flags().String("rhosus_path", "/var/lib/rhosus", "rhosus data path")
 	rootCmd.Flags().Int("shutdown_timeout", 30, "node graceful shutdown timeout")
 	rootCmd.Flags().Int("replication_factor", 30, "replication factor")
 	rootCmd.Flags().Int("block_size", 4096, "block size in bytes")
 
+	viper.BindPFlag("api_addr", rootCmd.Flags().Lookup("cluster_addr"))
 	viper.BindPFlag("cluster_addr", rootCmd.Flags().Lookup("cluster_addr"))
+	viper.BindPFlag("etcd_addr", rootCmd.Flags().Lookup("etcd_addr"))
 	viper.BindPFlag("rhosus_path", rootCmd.Flags().Lookup("rhosus_path"))
 	viper.BindPFlag("shutdown_timeout", rootCmd.Flags().Lookup("shutdown_timeout"))
 	viper.BindPFlag("replication_factor", rootCmd.Flags().Lookup("replication_factor"))
@@ -81,8 +93,8 @@ var rootCmd = &cobra.Command{
 		}
 
 		bindEnvs := []string{
-			"api_addr", "cluster_addr",
-			"shutdown_timeout", "replication_factor", "block_size", "rhosus_path",
+			"api_addr", "cluster_addr", "etcd_addr", "rhosus_path",
+			"shutdown_timeout", "replication_factor", "block_size",
 		}
 		for _, env := range bindEnvs {
 			err := viper.BindEnv(env)
@@ -138,17 +150,20 @@ func registryConfig(v *viper.Viper) (registry.Config, error) {
 		logrus.Warn("cluster address is not set explicitly")
 	}
 
+	// Generating id for Registry
 	v4uid, _ := uuid.NewV4()
 	id := v4uid.String()
 
 	clusterAddr := v.GetString("cluster_addr")
 	rhosusPath := v.GetString("rhosus_path")
+	etcdAddr := v.GetString("etcd_addr")
 
 	conf := registry.Config{
 		ID:         id,
 		RhosusPath: rhosusPath,
-		Backend: backend.Config{
-			Path:          path.Join(rhosusPath, "data"),
+		EtcdAddr:   etcdAddr,
+		Backend: storage.Config{
+			Path:          path.Join(rhosusPath, "registry"),
 			WriteTimeoutS: 10,
 			NumWorkers:    5,
 		},

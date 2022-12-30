@@ -1,7 +1,13 @@
+/*
+ * Copyright (c) 2022.
+ * Licensed to the Parasource Foundation under one or more contributor license agreements.  See the NOTICE file distributed with this work for additional information regarding copyright ownership.  The Parasource licenses this file to you under the Parasource License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at http://www.parasource.org/licenses/LICENSE-2.0 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and limitations under the License.
+ */
+
 package rhosus_node
 
 import (
-	"fmt"
 	rhosus_etcd "github.com/parasource/rhosus/rhosus/etcd"
 	"github.com/parasource/rhosus/rhosus/node/data"
 	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
@@ -13,16 +19,17 @@ import (
 	"github.com/spf13/viper"
 	"os"
 	"os/signal"
+	"path"
 	"syscall"
 	"time"
 )
 
 type Config struct {
-	Name         string
-	RegistryHost string
-	RegistryPort string
-	Timeout      time.Duration
-	Dir          string
+	Name        string
+	EtcdAddress string
+	Address     string
+	Timeout     time.Duration
+	RhosusPath  string
 }
 
 type Node struct {
@@ -53,7 +60,8 @@ func NewNode(config Config) (*Node, error) {
 		readyC:    make(chan struct{}, 1),
 	}
 
-	dataManager, err := data.NewManager(config.Dir)
+	dataPath := path.Join(config.RhosusPath, "data")
+	dataManager, err := data.NewManager(dataPath)
 	if err != nil {
 		logrus.Fatalf("error creating data manager: %v", err)
 	}
@@ -69,21 +77,16 @@ func NewNode(config Config) (*Node, error) {
 	node.profiler = nodeProfiler
 
 	etcdClient, err := rhosus_etcd.NewEtcdClient(rhosus_etcd.EtcdClientConfig{
-		Host: "localhost",
-		Port: "2379",
+		Address: config.EtcdAddress,
+		Timeout: 5,
 	})
 	if err != nil {
 		logrus.Fatalf("error connecting to etcd: %v", err)
 	}
 	node.etcd = etcdClient
 
-	freePortForGrpc, err := util.GetFreePort()
-	if err != nil {
-		logrus.Fatalf("could not resolve free random port for grpc: %v", err)
-	}
 	grpcServer, err := NewGrpcServer(GrpcServerConfig{
-		Host: "localhost",
-		Port: fmt.Sprintf("%v", freePortForGrpc),
+		Address: config.Address,
 	}, node)
 	if err != nil {
 		logrus.Errorf("error creating node grpc server: %v", err)
@@ -147,13 +150,10 @@ func (n *Node) Start() {
 
 func (n *Node) registerItself() error {
 	info := &transport_pb.NodeInfo{
-		Id:   n.ID,
-		Name: n.Name,
-		Address: &transport_pb.NodeInfo_Address{
-			Host: n.server.Config.Host,
-			Port: n.server.Config.Port,
-		},
-		Location: "/dir/1",
+		Id:       n.ID,
+		Name:     n.Name,
+		Address:  n.Config.Address,
+		Location: n.Config.RhosusPath,
 	}
 	return n.etcd.RegisterNode(n.ID, info)
 }

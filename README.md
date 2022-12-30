@@ -4,8 +4,9 @@
 
 ![rhosus](https://github.com/parasource/rhosus/blob/master/assets/logo_new.svg)
 
-**Rhosus** is a multi-purpose fast distributed file system written in Go. It is build on top of BoltDB and
-uses etcd for service discovery.
+**Rhosus** is a fast multi-purpose distributed file system written in Go. It uses BoltDB for memory-based storage backup
+and
+uses etcd for service discovery and password-based authentication.
 
 ## What is Rhosus
 
@@ -43,9 +44,19 @@ $ bin/rhosusd
 
 The bare minimum env configuration:
 
+**Registry**
+
 ```bash
 API_ADDR=127.0.0.1:8001
 CLUSTER_ADDR=127.0.0.1:8401
+RHOSUS_PATH=/var/lib/rhosus
+ETCD_ADRR=127.0.0.1:2379
+```
+
+**Data Node**
+
+```bash
+SERVICE_ADDR=127.0.0.1:4500
 RHOSUS_PATH=/var/lib/rhosus
 ETCD_ADRR=127.0.0.1:2379
 ```

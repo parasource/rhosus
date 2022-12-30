@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2022.
+ * Licensed to the Parasource Foundation under one or more contributor license agreements.  See the NOTICE file distributed with this work for additional information regarding copyright ownership.  The Parasource licenses this file to you under the Parasource License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at http://www.parasource.org/licenses/LICENSE-2.0 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and limitations under the License.
+ */
+
 package rhosus_node
 
 import (
@@ -11,8 +18,7 @@ import (
 )
 
 type GrpcServerConfig struct {
-	Host     string
-	Port     string
+	Address  string
 	Password string
 }
 
@@ -42,7 +48,6 @@ func NewGrpcServer(config GrpcServerConfig, node *Node) (*GrpcServer, error) {
 }
 
 func (s *GrpcServer) Heartbeat(c context.Context, r *transport_pb.HeartbeatRequest) (*transport_pb.HeartbeatResponse, error) {
-
 	disk := s.node.profiler.GetPathDiskUsage("/")
 	mem, err := s.node.profiler.GetMem()
 	if err != nil {
@@ -70,9 +75,7 @@ func (s *GrpcServer) ShutdownNode(c context.Context, r *transport_pb.ShutdownNod
 }
 
 func (s *GrpcServer) GetBlocks(r *transport_pb.GetBlocksRequest, stream transport_pb.TransportService_GetBlocksServer) error {
-
 	for _, blockID := range r.Blocks {
-
 		data, err := s.node.HandleGetBlock(blockID)
 		if err != nil {
 			return err
@@ -84,7 +87,6 @@ func (s *GrpcServer) GetBlocks(r *transport_pb.GetBlocksRequest, stream transpor
 		if err != nil {
 			return err
 		}
-
 	}
 
 	return nil
@@ -137,7 +139,6 @@ func (s *GrpcServer) AssignBlocks(srv transport_pb.TransportService_AssignBlocks
 }
 
 func (s *GrpcServer) RemoveBlocks(c context.Context, r *transport_pb.RemoveBlocksRequest) (*transport_pb.RemoveBlocksResponse, error) {
-
 	err := s.node.data.RemoveBlocks(r.Blocks)
 	if err != nil {
 		return &transport_pb.RemoveBlocksResponse{
@@ -169,9 +170,7 @@ func (s *GrpcServer) FetchMetrics(c context.Context, r *transport_pb.FetchMetric
 }
 
 func (s *GrpcServer) Run() {
-
-	address := net.JoinHostPort(s.Config.Host, s.Config.Port)
-	lis, err := net.Listen("tcp", address)
+	lis, err := net.Listen("tcp", s.Config.Address)
 	if err != nil {
 		logrus.Fatalf("error listening tcp: %v", err)
 	}
@@ -186,7 +185,7 @@ func (s *GrpcServer) Run() {
 	}()
 
 	s.readyC <- struct{}{}
-	logrus.Infof("node service server successfully started on %v", address)
+	logrus.Infof("node service server successfully started on %v", s.Config.Address)
 
 	if <-s.NotifyShutdown(); true {
 		err := lis.Close()

@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2022.
+ * Licensed to the Parasource Foundation under one or more contributor license agreements.  See the NOTICE file distributed with this work for additional information regarding copyright ownership.  The Parasource licenses this file to you under the Parasource License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at http://www.parasource.org/licenses/LICENSE-2.0 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and limitations under the License.
+ */
+
 package main
 
 import (
@@ -13,21 +20,20 @@ import (
 
 var configDefaults = map[string]interface{}{
 	"gomaxprocs":       0,
-	"registry_host":    "127.0.0.1",
-	"registry_port":    "6435",
-	"dir":              "./data",
+	"service_addr":     "127.0.0.1:5400",
+	"rhosus_path":      "/var/lib/rhosus",
 	"shutdown_timeout": 30,
 }
 
 func init() {
-	rootCmd.Flags().String("registry_host", "127.0.0.1", "registry grpc node server host")
-	rootCmd.Flags().String("registry_port", "6435", "registry grpc node server host")
-	rootCmd.Flags().String("dir", os.TempDir(), "data directory")
+	rootCmd.Flags().String("service_addr", "127.0.0.1:5400", "data node service address")
+	rootCmd.Flags().String("etcd_addr", "127.0.0.1:2379", "etcd service discovery address")
+	rootCmd.Flags().String("rhosus_path", "/var/lib/rhosus", "rhosus root path")
 	rootCmd.Flags().Int("shutdown_timeout", 30, "node shutdown timeout")
 
-	viper.BindPFlag("registry_host", rootCmd.Flags().Lookup("registry_host"))
-	viper.BindPFlag("registry_port", rootCmd.Flags().Lookup("registry_port"))
-	viper.BindPFlag("dir", rootCmd.Flags().Lookup("dir"))
+	viper.BindPFlag("service_addr", rootCmd.Flags().Lookup("service_addr"))
+	viper.BindPFlag("etcd_addr", rootCmd.Flags().Lookup("etcd_addr"))
+	viper.BindPFlag("rhosus_path", rootCmd.Flags().Lookup("rhosus_path"))
 	viper.BindPFlag("shutdown_timeout", rootCmd.Flags().Lookup("shutdown_timeout"))
 }
 
@@ -42,7 +48,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		bindEnvs := []string{
-			"registry_host", "registry_port", "dir", "shutdown_timeout",
+			"service_addr", "rhosus_path", "shutdown_timeout", "etcd_addr",
 		}
 		for _, env := range bindEnvs {
 			err := viper.BindEnv(env)
@@ -61,14 +67,14 @@ var rootCmd = &cobra.Command{
 
 		v := viper.GetViper()
 
-		rHost := v.GetString("registry_host")
-		rPort := v.GetString("registry_port")
-		dir := v.GetString("dir")
+		serviceAddr := v.GetString("service_addr")
+		rhosusPath := v.GetString("rhosus_path")
+		etcdAddr := v.GetString("etcd_addr")
 
 		config := rhosusnode.Config{
-			RegistryHost: rHost,
-			RegistryPort: rPort,
-			Dir:          dir,
+			EtcdAddress: etcdAddr,
+			Address:     serviceAddr,
+			RhosusPath:  rhosusPath,
 		}
 
 		node, _ := rhosusnode.NewNode(config)

@@ -5,6 +5,11 @@ option go_package = "github.com/rhosus/rhosus/pb/transport_pb";
 
 import "fs.proto";
 
+// Transport is used by registries to
+// connect to DataNodes. DataNode is basically
+// under full control of registry, so this service
+// implements all necessary calls
+
 service TransportService {
   rpc Heartbeat (HeartbeatRequest) returns (HeartbeatResponse);
   rpc ShutdownNode (ShutdownNodeRequest) returns (ShutdownNodeResponse);

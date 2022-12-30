@@ -1,12 +1,19 @@
+/*
+ * Copyright (c) 2022.
+ * Licensed to the Parasource Foundation under one or more contributor license agreements.  See the NOTICE file distributed with this work for additional information regarding copyright ownership.  The Parasource licenses this file to you under the Parasource License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at http://www.parasource.org/licenses/LICENSE-2.0 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and limitations under the License.
+ */
+
 package registry
 
 import (
 	"fmt"
-	"github.com/parasource/rhosus/rhosus/backend"
 	rhosus_etcd "github.com/parasource/rhosus/rhosus/etcd"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/parasource/rhosus/rhosus/registry/cluster"
+	"github.com/parasource/rhosus/rhosus/storage"
 	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/parasource/rhosus/rhosus/util/tickers"
 	"github.com/parasource/rhosus/rhosus/util/uuid"
@@ -32,7 +39,7 @@ type Config struct {
 	StoragePath string `json:"storage_path"`
 	RhosusPath  string `json:"rhosus_path"`
 
-	Backend backend.Config `json:"backend"`
+	Backend storage.Config `json:"backend"`
 	Cluster cluster.Config `json:"cluster"`
 }
 
@@ -43,7 +50,7 @@ type Registry struct {
 	Config Config
 
 	NodesManager   *NodesMap
-	Backend        *backend.Storage
+	Backend        *storage.Storage
 	MemoryStorage  *MemoryStorage
 	StatsCollector *StatsCollector
 
@@ -79,14 +86,14 @@ func NewRegistry(config Config) (*Registry, error) {
 	r.StatsCollector = statsCollector
 
 	etcdClient, err := rhosus_etcd.NewEtcdClient(rhosus_etcd.EtcdClientConfig{
-		Address: "localhost:2379",
+		Address: config.EtcdAddr,
 	})
 	if err != nil {
 		logrus.Fatalf("error connecting to etcd: %v", err)
 	}
 	r.etcdClient = etcdClient
 
-	s, err := backend.NewStorage(config.Backend)
+	s, err := storage.NewStorage(config.Backend)
 	if err != nil {
 		logrus.Fatalf("error creating storage: %v", err)
 	}
