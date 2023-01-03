@@ -263,10 +263,41 @@ func (s *MemoryStorage) DeleteFileWithBlocks(file *control_pb.FileInfo) error {
 	for obj := res.Next(); obj != nil; obj = res.Next() {
 		err := txn.Delete(defaultBlocksTableName, obj.(*control_pb.BlockInfo))
 		if err != nil {
+			txn.Abort()
 			return err
 		}
 	}
-	txn.Delete(defaultFilesTableName, file)
+	err = txn.Delete(defaultFilesTableName, file)
+	if err != nil {
+		txn.Abort()
+		return err
+	}
+	txn.Commit()
+
+	return nil
+}
+
+func (s *MemoryStorage) DeleteFile(file *control_pb.FileInfo) error {
+	txn := s.db.Txn(true)
+	err := txn.Delete(defaultFilesTableName, file)
+	if err != nil {
+		txn.Abort()
+		return err
+	}
+	txn.Commit()
+
+	return nil
+}
+
+func (s *MemoryStorage) DeleteBlocks(blocks []*control_pb.BlockInfo) error {
+	txn := s.db.Txn(true)
+	for _, block := range blocks {
+		err := txn.Delete(defaultBlocksTableName, block)
+		if err != nil {
+			txn.Abort()
+			return err
+		}
+	}
 	txn.Commit()
 
 	return nil

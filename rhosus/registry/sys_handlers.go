@@ -87,6 +87,11 @@ func (r *Registry) HandleRemoveFileOrPath(req *api_pb.RemoveRequest) (*api_pb.Co
 		}, nil
 	}
 
+	blocks, err := r.MemoryStorage.GetBlocks(rootFile.Id)
+	if err != nil {
+		return nil, err
+	}
+
 	err = r.killChildren(rootFile)
 	if err != nil {
 		return nil, err
@@ -100,6 +105,17 @@ func (r *Registry) HandleRemoveFileOrPath(req *api_pb.RemoveRequest) (*api_pb.Co
 		if errs != nil && len(errs) > 0 {
 			// todo
 		}
+	}
+
+	err = r.Cluster.WriteDeleteFileEntry(rootFile)
+	if err != nil {
+		// todo revert changes
+		return nil, err
+	}
+	err = r.Cluster.WriteDeleteBlocksEntry(blocks)
+	if err != nil {
+		// todo revert changes
+		return nil, err
 	}
 
 	return &api_pb.CommonResponse{

@@ -108,7 +108,7 @@ func (c *Cluster) WriteAssignBlocksEntry(blocks []*control_pb.BlockInfo) error {
 
 // WriteDeleteBlocksEntry writes a delete entry to buffer,
 // which will be distributed to other nodes
-func (c *Cluster) WriteDeleteBlocksEntry(blocks []string) error {
+func (c *Cluster) WriteDeleteBlocksEntry(blocks []*control_pb.BlockInfo) error {
 	deleteEntry := &control_pb.EntryDeleteBlocks{
 		NodeId: c.ID,
 		Blocks: blocks,

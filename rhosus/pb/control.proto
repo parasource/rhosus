@@ -94,7 +94,7 @@ message EntryAssignBlocks {
 
 message EntryDeleteBlocks {
   string nodeId = 1;
-  repeated string blocks = 2;
+  repeated BlockInfo blocks = 2;
 }
 
 // <------------------------->

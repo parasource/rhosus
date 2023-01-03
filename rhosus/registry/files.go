@@ -65,6 +65,21 @@ func (r *Registry) registerFile(file *control_pb.FileInfo) error {
 	return r.MemoryStorage.StoreFile(file)
 }
 
+// unregisterFile deletes file from registry storage
+func (r *Registry) unregisterFile(file *control_pb.FileInfo) error {
+	return r.MemoryStorage.DeleteFile(file)
+}
+
+// registerBlocks writes blocks to registry storage
+func (r *Registry) registerBlocks(blocks []*control_pb.BlockInfo) error {
+	return r.MemoryStorage.PutBlocks(blocks)
+}
+
+// unregisterBlocks deletes blocks from registry storage
+func (r *Registry) unregisterBlocks(blocks []*control_pb.BlockInfo) error {
+	return r.MemoryStorage.DeleteBlocks(blocks)
+}
+
 func (r *Registry) TransportAndRegisterBlocks(fileID string, blocks []*fs_pb.Block, replicationFactor int) error {
 
 	nodes := r.NodesManager.GetNodesWithLeastBlocks(replicationFactor)
@@ -153,10 +168,6 @@ func (r *Registry) TransportAndRegisterBlocks(fileID string, blocks []*fs_pb.Blo
 	}
 
 	return nil
-}
-
-func (r *Registry) registerBlocks(blocks []*control_pb.BlockInfo) error {
-	return r.MemoryStorage.PutBlocks(blocks)
 }
 
 func (r *Registry) RemoveFileBlocks(file *control_pb.FileInfo) (error, map[string]error) {

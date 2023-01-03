@@ -157,6 +157,17 @@ func (r *Registry) handleEntriesFromLeader(entries []*control_pb.Entry) {
 			if err != nil {
 				logrus.Errorf("error registering file: %v", err)
 			}
+		case control_pb.Entry_DELETE_FILE:
+			var entryDelete control_pb.EntryDeleteFile
+			err = entryDelete.Unmarshal(entry.Data)
+			if err != nil {
+				logrus.Errorf("error unmarshalling delete file entry: %v", err)
+				continue
+			}
+			err = r.unregisterFile(entryDelete.File)
+			if err != nil {
+				logrus.Errorf("error unregistering file: %v", err)
+			}
 		case control_pb.Entry_ASSIGN_BLOCKS:
 			var entryAssign control_pb.EntryAssignBlocks
 			err = entryAssign.Unmarshal(entry.Data)
@@ -167,6 +178,17 @@ func (r *Registry) handleEntriesFromLeader(entries []*control_pb.Entry) {
 			err = r.registerBlocks(entryAssign.Blocks)
 			if err != nil {
 				logrus.Errorf("error registering blocks: %v", err)
+			}
+		case control_pb.Entry_DELETE_BLOCKS:
+			var entryDelete control_pb.EntryDeleteBlocks
+			err = entryDelete.Unmarshal(entry.Data)
+			if err != nil {
+				logrus.Errorf("error unmarshalling delete blocks entry: %v", err)
+				continue
+			}
+			err = r.unregisterBlocks(entryDelete.Blocks)
+			if err != nil {
+				logrus.Errorf("error unregistering blocks: %v", err)
 			}
 		}
 	}
