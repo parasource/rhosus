@@ -11,11 +11,18 @@ import (
 	"fmt"
 	rhosusnode "github.com/parasource/rhosus/rhosus/node"
 	"github.com/parasource/rhosus/rhosus/util"
+	"github.com/parasource/rhosus/rhosus/util/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"io"
 	"os"
+	"path"
 	"runtime"
+)
+
+const (
+	uuidFileName = "datanode.uuid"
 )
 
 var configDefaults = map[string]interface{}{
@@ -71,7 +78,10 @@ var rootCmd = &cobra.Command{
 		rhosusPath := v.GetString("rhosus_path")
 		etcdAddr := v.GetString("etcd_addr")
 
+		nodeId := getId(rhosusPath, true)
+
 		config := rhosusnode.Config{
+			ID:          nodeId,
 			EtcdAddress: etcdAddr,
 			Address:     serviceAddr,
 			RhosusPath:  rhosusPath,
@@ -80,6 +90,46 @@ var rootCmd = &cobra.Command{
 		node, _ := rhosusnode.NewNode(config)
 		node.Start()
 	},
+}
+
+func getId(rhosusPath string, persistent bool) string {
+	var id string
+
+	if !persistent {
+		v4id, _ := uuid.NewV4()
+		return v4id.String()
+	}
+
+	uuidFilePath := path.Join(rhosusPath, uuidFileName)
+
+	// since we are just testing, we don't need that yet
+	if util.FileExists(uuidFilePath) {
+		file, err := os.OpenFile(uuidFilePath, os.O_RDONLY, 0666)
+		defer file.Close()
+
+		if err != nil {
+			logrus.Errorf("error opening node uuid file: %v", err)
+		}
+		data, err := io.ReadAll(file)
+		if err != nil {
+			logrus.Fatalf("error reading uuid file")
+		}
+
+		id = string(data)
+	} else {
+		v4uid, _ := uuid.NewV4()
+		id = v4uid.String()
+
+		file, err := os.OpenFile(uuidFilePath, os.O_CREATE|os.O_RDWR, 0755)
+		defer file.Close()
+
+		if err != nil {
+
+		}
+		file.Write([]byte(id))
+	}
+
+	return id
 }
 
 func printWelcome() {

@@ -210,10 +210,8 @@ func (a *Api) handleGet(rw http.ResponseWriter, r *http.Request) error {
 }
 
 func (a *Api) handlePostPut(rw http.ResponseWriter, r *http.Request) error {
-
 	err := a.registry.HandlePutFile(rw, r)
 	return err
-
 }
 
 func (a *Api) handleDelete(rw http.ResponseWriter, r *http.Request) error {

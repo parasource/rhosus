@@ -14,7 +14,6 @@ import (
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/parasource/rhosus/rhosus/profiler"
 	"github.com/parasource/rhosus/rhosus/util"
-	"github.com/parasource/rhosus/rhosus/util/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"os"
@@ -25,6 +24,7 @@ import (
 )
 
 type Config struct {
+	ID          string
 	Name        string
 	EtcdAddress string
 	Address     string
@@ -48,11 +48,8 @@ type Node struct {
 }
 
 func NewNode(config Config) (*Node, error) {
-
-	v4uuid, _ := uuid.NewV4()
-
 	node := &Node{
-		ID:     v4uuid.String(),
+		ID:     config.ID,
 		Name:   util.GenerateRandomName(3),
 		Config: config,
 

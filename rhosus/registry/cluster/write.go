@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"fmt"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	"github.com/parasource/rhosus/rhosus/util/timers"
 	"github.com/sirupsen/logrus"
@@ -76,8 +77,80 @@ func (c *Cluster) WritePipeline() {
 	}
 }
 
-func (c *Cluster) WriteEntries(entries []*control_pb.Entry) error {
+// WriteAssignEntry writes an assign entry to buffer,
+// which will be distributed to other nodes
+func (c *Cluster) WriteAssignEntry(info *control_pb.FileInfo, blocks []*control_pb.BlockInfo) error {
+	assignEntry := &control_pb.EntryAssign{
+		NodeId: c.ID,
+		File:   info,
+		Blocks: blocks,
+	}
+	entryBytes, err := assignEntry.Marshal()
+	if err != nil {
+		return fmt.Errorf("error marshaling assign entry to bytes: %v", err)
+	}
 
+	return c.writeEntry(control_pb.Entry_ASSIGN, entryBytes)
+}
+
+// WriteDeleteEntry writes a delete entry to buffer,
+// which will be distributed to other nodes
+func (c *Cluster) WriteDeleteEntry(info *control_pb.FileInfo, blocks []string) error {
+	deleteEntry := &control_pb.EntryDelete{
+		NodeId: c.ID,
+		File:   info,
+		Blocks: blocks,
+	}
+	entryBytes, err := deleteEntry.Marshal()
+	if err != nil {
+		return fmt.Errorf("error marshaling delete entry to bytes: %v", err)
+	}
+
+	return c.writeEntry(control_pb.Entry_DELETE, entryBytes)
+}
+
+// WriteEntry writes an entry to buffer, which
+// will be distributed to other nodes
+func (c *Cluster) WriteEntry(typ control_pb.Entry_Type, data []byte) error {
+	return c.writeEntry(typ, data)
+}
+
+func (c *Cluster) writeEntry(typ control_pb.Entry_Type, data []byte) error {
+	c.mu.RLock()
+	if c.shutdown {
+		c.mu.RUnlock()
+		return ErrShutdown
+	}
+	c.mu.RUnlock()
+
+	lastLogIndex := c.GetLastLogIndex()
+	currentTerm := c.GetCurrentTerm()
+
+	entry := &control_pb.Entry{
+		Index:     lastLogIndex + 1,
+		Term:      currentTerm,
+		Type:      typ,
+		Data:      data,
+		Timestamp: time.Now().Unix(),
+	}
+
+	req := newWriteRequest([]*control_pb.Entry{entry})
+	select {
+	case c.writeEntriesC <- req:
+	default:
+		writeTimeout := timers.SetTimer(time.Millisecond * 50)
+
+		select {
+		case c.writeEntriesC <- req:
+		case <-writeTimeout.C:
+			return ErrWriteTimeout
+		}
+	}
+
+	return req.result()
+}
+
+func (c *Cluster) writeEntries(entries []*control_pb.Entry) error {
 	c.mu.RLock()
 	if c.shutdown {
 		c.mu.RUnlock()
@@ -112,10 +185,10 @@ func (c *Cluster) WriteEntriesFromLeader(entries []*control_pb.Entry) error {
 
 	// First, we need to call registry callback to write entries to database
 	c.mu.RLock()
-	if c.handleEntries != nil {
+	if c.entriesHandler != nil {
 		c.mu.RUnlock()
 
-		c.handleEntries(entries)
+		c.entriesHandler(entries)
 	}
 	c.mu.RUnlock()
 

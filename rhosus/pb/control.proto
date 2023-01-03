@@ -77,13 +77,14 @@ message Entry {
 message EntryAssign {
   string nodeId = 1;
   FileInfo file = 2;
-  map<string, BlockInfo> blocks = 3; // Map blocks to pages on node
+  repeated BlockInfo blocks = 3;
   string rack = 4;
 }
 
 message EntryDelete {
   string nodeId = 1;
-  repeated string blocks = 2;
+  FileInfo file = 2;
+  repeated string blocks = 3;
 }
 
 // <------------------------->

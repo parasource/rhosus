@@ -19,12 +19,17 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"io"
 	"os"
 	"os/signal"
 	"path"
 	"runtime"
 	"syscall"
 	"time"
+)
+
+const (
+	uuidFileName = "registry.uuid"
 )
 
 var configDefaults = map[string]interface{}{
@@ -150,16 +155,15 @@ func registryConfig(v *viper.Viper) (registry.Config, error) {
 		logrus.Warn("cluster address is not set explicitly")
 	}
 
-	// Generating id for Registry
-	v4uid, _ := uuid.NewV4()
-	id := v4uid.String()
-
 	clusterAddr := v.GetString("cluster_addr")
 	rhosusPath := v.GetString("rhosus_path")
 	etcdAddr := v.GetString("etcd_addr")
 
+	// Generating id for Registry
+	registryId := getId(rhosusPath, true)
+
 	conf := registry.Config{
-		ID:         id,
+		ID:         registryId,
 		RhosusPath: rhosusPath,
 		EtcdAddr:   etcdAddr,
 		Backend: storage.Config{
@@ -170,11 +174,51 @@ func registryConfig(v *viper.Viper) (registry.Config, error) {
 		Cluster: cluster.Config{
 			WalPath:     path.Join(rhosusPath, "wal"),
 			ClusterAddr: clusterAddr,
-			ID:          id,
+			ID:          registryId,
 		},
 	}
 
 	return conf, nil
+}
+
+func getId(rhosusPath string, persistent bool) string {
+	var id string
+
+	if !persistent {
+		v4id, _ := uuid.NewV4()
+		return v4id.String()
+	}
+
+	uuidFilePath := path.Join(rhosusPath, uuidFileName)
+
+	// since we are just testing, we don't need that yet
+	if util.FileExists(uuidFilePath) {
+		file, err := os.OpenFile(uuidFilePath, os.O_RDONLY, 0666)
+		defer file.Close()
+
+		if err != nil {
+			logrus.Errorf("error opening node uuid file: %v", err)
+		}
+		data, err := io.ReadAll(file)
+		if err != nil {
+			logrus.Fatalf("error reading uuid file")
+		}
+
+		id = string(data)
+	} else {
+		v4uid, _ := uuid.NewV4()
+		id = v4uid.String()
+
+		file, err := os.OpenFile(uuidFilePath, os.O_CREATE|os.O_RDWR, 0755)
+		defer file.Close()
+
+		if err != nil {
+
+		}
+		file.Write([]byte(id))
+	}
+
+	return id
 }
 
 func handleSignals(shutdownCh chan<- struct{}) {

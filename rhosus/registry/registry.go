@@ -16,11 +16,9 @@ import (
 	"github.com/parasource/rhosus/rhosus/storage"
 	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/parasource/rhosus/rhosus/util/tickers"
-	"github.com/parasource/rhosus/rhosus/util/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	clientv3 "go.etcd.io/etcd/client/v3"
-	"io"
 	"os"
 	"sync"
 	"time"
@@ -28,7 +26,6 @@ import (
 
 const (
 	etcdPingInterval = 1
-	uuidFilePath     = "uuid"
 )
 
 // Config is a main configuration of Registry node
@@ -67,11 +64,8 @@ type Registry struct {
 }
 
 func NewRegistry(config Config) (*Registry, error) {
-
-	id := getId(false)
-
 	r := &Registry{
-		Id:      id,
+		Id:      config.ID,
 		Name:    util.GenerateRandomName(2),
 		Config:  config,
 		readyWg: sync.WaitGroup{},
@@ -145,44 +139,6 @@ func NewRegistry(config Config) (*Registry, error) {
 	}
 
 	return r, nil
-}
-
-func getId(persistent bool) string {
-	var id string
-
-	if !persistent {
-		v4id, _ := uuid.NewV4()
-		return v4id.String()
-	}
-
-	// since we are just testing, we don't need that yet
-	if util.FileExists(uuidFilePath) {
-		file, err := os.OpenFile(uuidFilePath, os.O_RDONLY, 0666)
-		defer file.Close()
-
-		if err != nil {
-			logrus.Errorf("error opening node uuid file: %v", err)
-		}
-		data, err := io.ReadAll(file)
-		if err != nil {
-
-		}
-
-		id = string(data)
-	} else {
-		v4uid, _ := uuid.NewV4()
-		id = v4uid.String()
-
-		file, err := os.Create(uuidFilePath)
-		defer file.Close()
-
-		if err != nil {
-
-		}
-		file.Write([]byte(id))
-	}
-
-	return id
 }
 
 ///////////////////////////////////////////

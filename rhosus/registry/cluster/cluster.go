@@ -14,8 +14,6 @@ import (
 	"time"
 )
 
-const ElectionTimeoutThresholdPercent = 0.8
-
 var (
 	ErrShutdown     = errors.New("cluster is shut down")
 	ErrPeerNotFound = errors.New("peer not found")
@@ -35,6 +33,8 @@ type Config struct {
 
 	MaxEntriesPerRequest int
 }
+
+type EntriesHandler func([]*control_pb.Entry) error
 
 // Cluster watches and starts and election if there is no signal within an interval
 type Cluster struct {
@@ -61,7 +61,7 @@ type Cluster struct {
 
 	entriesAppendedC chan struct{}
 
-	handleEntries func(entries []*control_pb.Entry)
+	entriesHandler EntriesHandler
 
 	shutdown  bool
 	shutdownC chan struct{}
@@ -149,30 +149,6 @@ func NewCluster(config Config, peers map[string]*control_pb.RegistryInfo) (*Clus
 
 	go c.Run()
 
-	go func() {
-		for {
-			time.Sleep(time.Second * 2)
-
-			if !c.isLeader() {
-				continue
-			}
-
-			err := c.WriteEntries([]*control_pb.Entry{
-				{
-					Index:     c.lastLogIndex + 1,
-					Term:      c.GetCurrentTerm(),
-					Type:      control_pb.Entry_ASSIGN,
-					Data:      []byte("ENTRY"),
-					Timestamp: time.Now().Unix(),
-				},
-			})
-			if err != nil {
-				logrus.Errorf("error writing entries: %v", err)
-			}
-		}
-
-	}()
-
 	return c, nil
 }
 
@@ -207,21 +183,15 @@ func (c *Cluster) setInitialTermAndIndex() {
 	c.SetCurrentTerm(entry.Term)
 }
 
-func (c *Cluster) SetEntriesHandler(f func(entries []*control_pb.Entry)) {
+func (c *Cluster) SetEntriesHandler(f EntriesHandler) {
 	c.mu.Lock()
-	c.handleEntries = f
+	c.entriesHandler = f
 	c.mu.Unlock()
 }
 
 func (c *Cluster) SetLastLogTerm(term uint32) {
 	c.mu.Lock()
 	c.lastLogTerm = term
-	c.mu.Unlock()
-}
-
-func (c *Cluster) SetLastLogIndex(index uint64) {
-	c.mu.Lock()
-	c.lastLogIndex = index
 	c.mu.Unlock()
 }
 
@@ -236,6 +206,19 @@ func (c *Cluster) GetCurrentTerm() uint32 {
 	defer c.mu.RUnlock()
 
 	return c.currentTerm
+}
+
+func (c *Cluster) SetLastLogIndex(index uint64) {
+	c.mu.Lock()
+	c.lastLogIndex = index
+	c.mu.Unlock()
+}
+
+func (c *Cluster) GetLastLogIndex() uint64 {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return c.lastLogIndex
 }
 
 func (c *Cluster) DiscoverOrUpdate(uid string, info *control_pb.RegistryInfo) (err error) {

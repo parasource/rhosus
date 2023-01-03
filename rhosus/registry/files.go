@@ -20,7 +20,6 @@ var (
 )
 
 func (r *Registry) RegisterFile(file *control_pb.FileInfo) error {
-
 	test, err := r.MemoryStorage.GetFileByPath(file.Path)
 	if err != nil {
 		return err
@@ -46,6 +45,11 @@ func (r *Registry) RegisterFile(file *control_pb.FileInfo) error {
 	err = r.MemoryStorage.StoreFile(file)
 	if err != nil {
 		return err
+	}
+
+	err = r.Cluster.WriteAssignEntry(file, nil)
+	if err != nil {
+		logrus.Errorf("error writing assign entry for file: %v", err)
 	}
 
 	return nil
@@ -134,6 +138,11 @@ func (r *Registry) TransportAndRegisterBlocks(fileID string, blocks []*fs_pb.Blo
 	}
 	bs, _ := r.MemoryStorage.GetBlocks(fileID)
 	logrus.Infof("TOTAL BLOCKS STORED: %v", len(bs))
+
+	err = r.Cluster.WriteAssignEntry(nil, bInfos)
+	if err != nil {
+		logrus.Errorf("error writinng assign entry for file blocks: %v", err)
+	}
 
 	return nil
 }
