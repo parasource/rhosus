@@ -61,8 +61,10 @@ message Entry {
   uint64 index = 1;
   uint32 term = 2;
   enum Type {
-    ASSIGN = 0;
-    DELETE = 1;
+    ASSIGN_FILE = 0;
+    DELETE_FILE = 1;
+    ASSIGN_BLOCKS = 3;
+    DELETE_BLOCKS = 4;
   }
   Type type = 3;
 
@@ -74,17 +76,25 @@ message Entry {
 }
 
 
-message EntryAssign {
+message EntryAssignFile {
   string nodeId = 1;
   FileInfo file = 2;
-  repeated BlockInfo blocks = 3;
-  string rack = 4;
 }
 
-message EntryDelete {
+message EntryDeleteFile {
   string nodeId = 1;
   FileInfo file = 2;
-  repeated string blocks = 3;
+}
+
+message EntryAssignBlocks {
+  string nodeId = 1;
+  repeated BlockInfo blocks = 2;
+  string rack = 3;
+}
+
+message EntryDeleteBlocks {
+  string nodeId = 1;
+  repeated string blocks = 2;
 }
 
 // <------------------------->

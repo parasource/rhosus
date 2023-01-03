@@ -42,7 +42,6 @@ func NewControlService(cluster *Cluster, addresses map[string]string) (*ControlS
 
 	var sanePeers []string
 	for uid, address := range addresses {
-
 		conn, err := grpc.Dial(address, grpc.WithInsecure())
 		if err != nil {
 			logrus.Errorf("couldn't connect to a registry peer: %v", err)
@@ -81,7 +80,6 @@ func NewControlService(cluster *Cluster, addresses map[string]string) (*ControlS
 }
 
 func (s *ControlService) AppendEntries(uid string, req *control_pb.AppendEntriesRequest) (*control_pb.AppendEntriesResponse, error) {
-
 	if peer, ok := s.conns[uid]; ok {
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)

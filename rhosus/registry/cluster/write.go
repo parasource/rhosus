@@ -4,7 +4,6 @@ import (
 	"fmt"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	"github.com/parasource/rhosus/rhosus/util/timers"
-	"github.com/sirupsen/logrus"
 	"time"
 )
 
@@ -35,26 +34,13 @@ func newWriteRequest(entries []*control_pb.Entry) *writeRequest {
 }
 
 func (c *Cluster) WritePipeline() {
-
 	for req := range c.writeEntriesC {
-
 		c.mu.RLock()
 		if c.shutdown {
 			c.mu.RUnlock()
 			return
 		}
 		c.mu.RUnlock()
-
-		for _, entry := range req.entries {
-			bytes, _ := entry.Marshal()
-			err := c.wal.Write(entry.Index, bytes)
-			if err != nil {
-				logrus.Errorf("error writing to wal: %v", err)
-			}
-
-			c.SetLastLogIndex(entry.Index)
-			c.SetLastLogTerm(entry.Term)
-		}
 
 		peers := make(map[string]*Peer)
 		c.mu.RLock()
@@ -64,25 +50,52 @@ func (c *Cluster) WritePipeline() {
 		c.mu.RUnlock()
 
 		for _, peer := range peers {
-
 			err := peer.WriteToBuffer(req.entries)
 			if err != nil {
 				req.done(err)
 				return
 			}
-
 		}
 
 		req.done(nil)
 	}
 }
 
-// WriteAssignEntry writes an assign entry to buffer,
+// WriteAssignFileEntry writes an assign entry to buffer,
 // which will be distributed to other nodes
-func (c *Cluster) WriteAssignEntry(info *control_pb.FileInfo, blocks []*control_pb.BlockInfo) error {
-	assignEntry := &control_pb.EntryAssign{
+func (c *Cluster) WriteAssignFileEntry(info *control_pb.FileInfo) error {
+	assignEntry := &control_pb.EntryAssignFile{
 		NodeId: c.ID,
 		File:   info,
+	}
+	entryBytes, err := assignEntry.Marshal()
+	if err != nil {
+		return fmt.Errorf("error marshaling assign entry to bytes: %v", err)
+	}
+
+	return c.writeEntry(control_pb.Entry_ASSIGN_FILE, entryBytes)
+}
+
+// WriteDeleteFileEntry writes a delete entry to buffer,
+// which will be distributed to other nodes
+func (c *Cluster) WriteDeleteFileEntry(info *control_pb.FileInfo) error {
+	deleteEntry := &control_pb.EntryDeleteFile{
+		NodeId: c.ID,
+		File:   info,
+	}
+	entryBytes, err := deleteEntry.Marshal()
+	if err != nil {
+		return fmt.Errorf("error marshaling delete entry to bytes: %v", err)
+	}
+
+	return c.writeEntry(control_pb.Entry_DELETE_FILE, entryBytes)
+}
+
+// WriteAssignBlocksEntry writes an assign entry to buffer,
+// which will be distributed to other nodes
+func (c *Cluster) WriteAssignBlocksEntry(blocks []*control_pb.BlockInfo) error {
+	assignEntry := &control_pb.EntryAssignBlocks{
+		NodeId: c.ID,
 		Blocks: blocks,
 	}
 	entryBytes, err := assignEntry.Marshal()
@@ -90,15 +103,14 @@ func (c *Cluster) WriteAssignEntry(info *control_pb.FileInfo, blocks []*control_
 		return fmt.Errorf("error marshaling assign entry to bytes: %v", err)
 	}
 
-	return c.writeEntry(control_pb.Entry_ASSIGN, entryBytes)
+	return c.writeEntry(control_pb.Entry_ASSIGN_BLOCKS, entryBytes)
 }
 
-// WriteDeleteEntry writes a delete entry to buffer,
+// WriteDeleteBlocksEntry writes a delete entry to buffer,
 // which will be distributed to other nodes
-func (c *Cluster) WriteDeleteEntry(info *control_pb.FileInfo, blocks []string) error {
-	deleteEntry := &control_pb.EntryDelete{
+func (c *Cluster) WriteDeleteBlocksEntry(blocks []string) error {
+	deleteEntry := &control_pb.EntryDeleteBlocks{
 		NodeId: c.ID,
-		File:   info,
 		Blocks: blocks,
 	}
 	entryBytes, err := deleteEntry.Marshal()
@@ -106,7 +118,7 @@ func (c *Cluster) WriteDeleteEntry(info *control_pb.FileInfo, blocks []string) e
 		return fmt.Errorf("error marshaling delete entry to bytes: %v", err)
 	}
 
-	return c.writeEntry(control_pb.Entry_DELETE, entryBytes)
+	return c.writeEntry(control_pb.Entry_DELETE_BLOCKS, entryBytes)
 }
 
 // WriteEntry writes an entry to buffer, which
@@ -132,6 +144,17 @@ func (c *Cluster) writeEntry(typ control_pb.Entry_Type, data []byte) error {
 		Type:      typ,
 		Data:      data,
 		Timestamp: time.Now().Unix(),
+	}
+	c.SetLastLogIndex(lastLogIndex + 1)
+	c.SetLastLogTerm(currentTerm)
+
+	// Writing to wal storage
+	bytes, _ := entry.Marshal()
+	err := c.wal.Write(entry.Index, bytes)
+	if err != nil {
+		// rolling back to prev index
+		c.SetLastLogIndex(lastLogIndex)
+		return fmt.Errorf("error writing entry to wal storage: %v", err)
 	}
 
 	req := newWriteRequest([]*control_pb.Entry{entry})
@@ -177,23 +200,17 @@ func (c *Cluster) writeEntries(entries []*control_pb.Entry) error {
 // WriteEntriesFromLeader is called by registry to write entries to
 // local version of WAL
 func (c *Cluster) WriteEntriesFromLeader(entries []*control_pb.Entry) error {
-
 	err := validateEntriesSequence(entries)
 	if err != nil {
 		return err
 	}
 
 	// First, we need to call registry callback to write entries to database
-	c.mu.RLock()
 	if c.entriesHandler != nil {
-		c.mu.RUnlock()
-
 		c.entriesHandler(entries)
 	}
-	c.mu.RUnlock()
 
 	for _, entry := range entries {
-
 		bytes, _ := entry.Marshal()
 
 		err := c.wal.Write(entry.Index, bytes)

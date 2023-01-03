@@ -19,7 +19,12 @@ var (
 	ErrReplicationImpossible = errors.New("insufficient nodes to replicate to")
 )
 
+// RegisterFile registers file in registry storage
+// and writes an entry to wal
 func (r *Registry) RegisterFile(file *control_pb.FileInfo) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	test, err := r.MemoryStorage.GetFileByPath(file.Path)
 	if err != nil {
 		return err
@@ -42,17 +47,22 @@ func (r *Registry) RegisterFile(file *control_pb.FileInfo) error {
 		file.ParentID = "root"
 	}
 
-	err = r.MemoryStorage.StoreFile(file)
+	err = r.registerFile(file)
 	if err != nil {
-		return err
+		return fmt.Errorf("error registering file: %w", err)
 	}
 
-	err = r.Cluster.WriteAssignEntry(file, nil)
+	err = r.Cluster.WriteAssignFileEntry(file)
 	if err != nil {
-		logrus.Errorf("error writing assign entry for file: %v", err)
+		return fmt.Errorf("error writing assign entry for file: %v", err)
 	}
 
 	return nil
+}
+
+// registerFile writes file to registry storage
+func (r *Registry) registerFile(file *control_pb.FileInfo) error {
+	return r.MemoryStorage.StoreFile(file)
 }
 
 func (r *Registry) TransportAndRegisterBlocks(fileID string, blocks []*fs_pb.Block, replicationFactor int) error {
@@ -132,19 +142,21 @@ func (r *Registry) TransportAndRegisterBlocks(fileID string, blocks []*fs_pb.Blo
 		})
 	}
 
-	err := r.MemoryStorage.PutBlocks(bInfos)
+	err := r.registerBlocks(bInfos)
 	if err != nil {
 		logrus.Errorf("error putting blocks: %v", err)
 	}
-	bs, _ := r.MemoryStorage.GetBlocks(fileID)
-	logrus.Infof("TOTAL BLOCKS STORED: %v", len(bs))
 
-	err = r.Cluster.WriteAssignEntry(nil, bInfos)
+	err = r.Cluster.WriteAssignBlocksEntry(bInfos)
 	if err != nil {
-		logrus.Errorf("error writinng assign entry for file blocks: %v", err)
+		return fmt.Errorf("error writinng assign entry for file blocks: %v", err)
 	}
 
 	return nil
+}
+
+func (r *Registry) registerBlocks(blocks []*control_pb.BlockInfo) error {
+	return r.MemoryStorage.PutBlocks(blocks)
 }
 
 func (r *Registry) RemoveFileBlocks(file *control_pb.FileInfo) (error, map[string]error) {

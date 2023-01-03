@@ -128,10 +128,10 @@ func (s *ControlServer) RequestVote(c context.Context, req *control_pb.RequestVo
 }
 
 func (s *ControlServer) AppendEntries(c context.Context, req *control_pb.AppendEntriesRequest) (*control_pb.AppendEntriesResponse, error) {
-
 	currentTerm := s.cluster.GetCurrentTerm()
+	lastLogIndex := s.cluster.GetLastLogIndex()
 
-	if req.Term > currentTerm || (len(req.Entries) > 0 && req.Entries[len(req.Entries)-1].Index > s.cluster.lastLogIndex) {
+	if req.Term > currentTerm || (len(req.Entries) > 0 && req.Entries[len(req.Entries)-1].Index > lastLogIndex) {
 		s.cluster.becomeFollower()
 		s.cluster.SetCurrentTerm(req.Term)
 		s.votedFor = ""
@@ -150,29 +150,16 @@ func (s *ControlServer) AppendEntries(c context.Context, req *control_pb.AppendE
 
 	s.cluster.entriesAppendedC <- struct{}{}
 
-	// If there are no entries then it is used just for the heartbeat
-	if len(req.Entries) < 1 {
-
-		return &control_pb.AppendEntriesResponse{
-			From:               s.cluster.ID,
-			Term:               s.cluster.currentTerm,
-			Success:            true,
-			LastAgreedIndex:    s.cluster.lastLogIndex,
-			LastCommittedIndex: s.cluster.lastLogIndex,
-		}, nil
-	}
-
 	// Consistency is broken, so something below happened:
 	// - current node was down for some time, and we need
 	//   to recover it by loading all the missing entries
 	// - something else
-	if req.Entries[0].Index-s.cluster.lastLogIndex != 1 {
-
+	if req.PrevLogIndex > int64(lastLogIndex) {
 		return &control_pb.AppendEntriesResponse{
 			From:               s.cluster.ID,
-			Term:               s.cluster.currentTerm,
+			Term:               currentTerm,
 			Success:            false,
-			LastCommittedIndex: s.cluster.lastLogIndex,
+			LastCommittedIndex: lastLogIndex,
 		}, nil
 	}
 
@@ -183,9 +170,9 @@ func (s *ControlServer) AppendEntries(c context.Context, req *control_pb.AppendE
 
 	return &control_pb.AppendEntriesResponse{
 		From:               s.cluster.ID,
-		Term:               s.cluster.currentTerm,
+		Term:               s.cluster.GetCurrentTerm(),
 		Success:            true,
-		LastCommittedIndex: s.cluster.lastLogIndex,
+		LastCommittedIndex: s.cluster.GetLastLogIndex(),
 	}, nil
 }
 

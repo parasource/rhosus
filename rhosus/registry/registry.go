@@ -124,6 +124,7 @@ func NewRegistry(config Config) (*Registry, error) {
 	}
 	r.Cluster = c
 	r.Cluster.SetRegistryInfo(info)
+	r.Cluster.SetEntriesHandler(r.handleEntriesFromLeader)
 
 	// Setting up nodes map from existing nodes
 	nMap, err := NewNodesMap(r, nodes)
@@ -139,6 +140,36 @@ func NewRegistry(config Config) (*Registry, error) {
 	}
 
 	return r, nil
+}
+
+func (r *Registry) handleEntriesFromLeader(entries []*control_pb.Entry) {
+	var err error
+	for _, entry := range entries {
+		switch entry.Type {
+		case control_pb.Entry_ASSIGN_FILE:
+			var entryAssign control_pb.EntryAssignFile
+			err = entryAssign.Unmarshal(entry.Data)
+			if err != nil {
+				logrus.Errorf("error unmarshalling assign file entry: %v", err)
+				continue
+			}
+			err = r.registerFile(entryAssign.File)
+			if err != nil {
+				logrus.Errorf("error registering file: %v", err)
+			}
+		case control_pb.Entry_ASSIGN_BLOCKS:
+			var entryAssign control_pb.EntryAssignBlocks
+			err = entryAssign.Unmarshal(entry.Data)
+			if err != nil {
+				logrus.Errorf("error unmarshalling assign blocks entry: %v", err)
+				continue
+			}
+			err = r.registerBlocks(entryAssign.Blocks)
+			if err != nil {
+				logrus.Errorf("error registering blocks: %v", err)
+			}
+		}
+	}
 }
 
 ///////////////////////////////////////////

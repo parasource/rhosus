@@ -8,6 +8,7 @@
 package registry
 
 import (
+	"fmt"
 	api_pb "github.com/parasource/rhosus/rhosus/pb/api"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	"github.com/parasource/rhosus/rhosus/util/uuid"
@@ -60,6 +61,12 @@ func (r *Registry) HandleMakeDir(req *api_pb.MakeDirRequest) (*api_pb.CommonResp
 	err = r.MemoryStorage.StoreFile(file)
 	if err != nil {
 		return nil, err
+	}
+
+	err = r.Cluster.WriteAssignFileEntry(file)
+	if err != nil {
+		// todo delete file
+		return nil, fmt.Errorf("error writing file assign entry: %w", err)
 	}
 
 	return &api_pb.CommonResponse{Success: true}, nil

@@ -34,7 +34,7 @@ type Config struct {
 	MaxEntriesPerRequest int
 }
 
-type EntriesHandler func([]*control_pb.Entry) error
+type EntriesHandler func([]*control_pb.Entry)
 
 // Cluster watches and starts and election if there is no signal within an interval
 type Cluster struct {
@@ -69,9 +69,7 @@ type Cluster struct {
 }
 
 func NewCluster(config Config, peers map[string]*control_pb.RegistryInfo) (*Cluster, error) {
-
 	c := &Cluster{
-
 		ID:     config.ID,
 		config: config,
 
@@ -149,6 +147,21 @@ func NewCluster(config Config, peers map[string]*control_pb.RegistryInfo) (*Clus
 
 	go c.Run()
 
+	//go func() {
+	//	ticker := time.NewTicker(time.Second * 2)
+	//	for {
+	//		select {
+	//		case <-ticker.C:
+	//			if c.isLeader() {
+	//				err := c.writeEntry(control_pb.Entry_ASSIGN_FILE, []byte("ENTRY"))
+	//				if err != nil {
+	//					logrus.Errorf("ERROR WRITING ENTRY: %v", err)
+	//				}
+	//			}
+	//		}
+	//	}
+	//}()
+
 	return c, nil
 }
 
@@ -222,7 +235,6 @@ func (c *Cluster) GetLastLogIndex() uint64 {
 }
 
 func (c *Cluster) DiscoverOrUpdate(uid string, info *control_pb.RegistryInfo) (err error) {
-
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -333,7 +345,6 @@ func (c *Cluster) LoopWriteEntries() {
 // from the leader. If it does not hear from leader
 // for some time, it will start a new voting
 func (c *Cluster) LoopReadEntries() {
-
 	for {
 		c.mu.RLock()
 		if c.shutdown {
@@ -374,7 +385,6 @@ func (c *Cluster) LoopReadEntries() {
 }
 
 func (c *Cluster) dispatchEntries() {
-
 	peers := make(map[string]*Peer)
 
 	c.mu.RLock()
@@ -392,10 +402,13 @@ func (c *Cluster) dispatchEntries() {
 		}
 
 		go func(uid string, peer *Peer) {
+			currentTerm := c.GetCurrentTerm()
+			lastLogIndex := c.GetLastLogIndex()
 
 			entries := peer.buffer.Read()
 			req := &control_pb.AppendEntriesRequest{
-				Term:         c.currentTerm,
+				Term:         currentTerm,
+				PrevLogIndex: int64(lastLogIndex) - 1,
 				LeaderId:     c.ID,
 				Entries:      entries,
 				LeaderCommit: true,
@@ -420,7 +433,6 @@ func (c *Cluster) dispatchEntries() {
 }
 
 func (c *Cluster) startLogRecovering(uid string, from uint64) error {
-
 	c.mu.RLock()
 	if peer, ok := c.peers[uid]; ok {
 		c.mu.RUnlock()
@@ -428,14 +440,13 @@ func (c *Cluster) startLogRecovering(uid string, from uint64) error {
 		peer.SetRecovering(true)
 		defer peer.SetRecovering(false)
 
-		lastIndex := c.lastLogIndex
+		lastIndex := c.GetLastLogIndex()
+		currentTerm := c.GetCurrentTerm()
 
 		for index := from + 1; index <= lastIndex; index++ {
-
 			bytes, err := c.wal.Read(index)
 			if err != nil {
-				logrus.Errorf("error getting entry while recovering peer: %v", err)
-				return err
+				return fmt.Errorf("error getting entry while recovering peer: %w", err)
 			}
 
 			var entry control_pb.Entry
@@ -445,7 +456,8 @@ func (c *Cluster) startLogRecovering(uid string, from uint64) error {
 			}
 
 			res, err := c.service.AppendEntries(uid, &control_pb.AppendEntriesRequest{
-				Term:         c.currentTerm,
+				Term:         currentTerm,
+				PrevLogIndex: int64(index - 1),
 				LeaderId:     c.ID,
 				Entries:      []*control_pb.Entry{&entry},
 				LeaderCommit: true,
@@ -459,7 +471,6 @@ func (c *Cluster) startLogRecovering(uid string, from uint64) error {
 			}
 
 			peer.SetLastCommittedIndex(index)
-
 		}
 
 		return nil
@@ -470,18 +481,20 @@ func (c *Cluster) startLogRecovering(uid string, from uint64) error {
 }
 
 func (c *Cluster) StartElection() error {
-
 	logrus.Info("STARTING ELECTION")
 
 	c.becomeCandidate()
 
-	c.mu.Lock()
-	c.currentTerm++
+	// Incrementing term as the election started
+	currentTerm := c.GetCurrentTerm()
+	c.SetCurrentTerm(currentTerm + 1)
+
+	c.mu.RLock()
 	var peers []*Peer
 	for _, peer := range c.peers {
 		peers = append(peers, peer)
 	}
-	c.mu.Unlock()
+	c.mu.RUnlock()
 
 	logrus.Infof("ELECTION started for %v peers at term %v", len(c.peers), c.GetCurrentTerm())
 
