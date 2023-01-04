@@ -12,7 +12,7 @@ import (
 	"github.com/parasource/rhosus/rhosus/api"
 	"github.com/parasource/rhosus/rhosus/registry"
 	"github.com/parasource/rhosus/rhosus/registry/cluster"
-	"github.com/parasource/rhosus/rhosus/storage"
+	"github.com/parasource/rhosus/rhosus/registry/storage"
 	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/parasource/rhosus/rhosus/util/uuid"
 	"github.com/rs/zerolog/log"

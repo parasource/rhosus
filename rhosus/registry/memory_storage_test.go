@@ -10,7 +10,7 @@ package registry
 import (
 	"fmt"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
-	"github.com/parasource/rhosus/rhosus/storage"
+	"github.com/parasource/rhosus/rhosus/registry/storage"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"path"

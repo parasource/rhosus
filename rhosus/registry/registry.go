@@ -13,7 +13,7 @@ import (
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/parasource/rhosus/rhosus/registry/cluster"
-	"github.com/parasource/rhosus/rhosus/storage"
+	"github.com/parasource/rhosus/rhosus/registry/storage"
 	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/parasource/rhosus/rhosus/util/tickers"
 	"github.com/rs/zerolog/log"
