@@ -1,7 +1,6 @@
 package data
 
 import (
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -25,6 +24,4 @@ func TestIdxFile_Write(t *testing.T) {
 		},
 	})
 	assert.Nil(t, err)
-
-	logrus.Info(file.Load())
 }

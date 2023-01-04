@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/sirupsen/logrus"
+	"github.com/apex/log"
 	"github.com/spf13/cobra"
 )
 
@@ -25,6 +25,6 @@ var downloadCmd = &cobra.Command{
 			print(arg)
 		}
 		println()
-		logrus.Infof("file has been downloaded")
+		log.Infof("file has been downloaded")
 	},
 }

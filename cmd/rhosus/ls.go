@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/apex/log"
-	"github.com/apex/log/handlers/cli"
 	api_pb "github.com/parasource/rhosus/rhosus/pb/api"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -33,8 +32,6 @@ var listCmd = &cobra.Command{
 	Use:   "ls",
 	Short: "list files and directories",
 	Run: func(cmd *cobra.Command, args []string) {
-		log.SetHandler(cli.Default)
-		log.SetLevel(log.DebugLevel)
 
 		if len(args) != 1 {
 			log.Error("wrong arguments number")
