@@ -25,7 +25,7 @@ func (r *Registry) RegisterFile(file *control_pb.FileInfo) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	test, err := r.MemoryStorage.GetFileByPath(file.Path)
+	test, err := r.Storage.GetFileByPath(file.Path)
 	if err != nil {
 		return err
 	}
@@ -35,7 +35,7 @@ func (r *Registry) RegisterFile(file *control_pb.FileInfo) error {
 
 	sPath := strings.Split(file.Path, "/")
 	if len(sPath) > 1 {
-		parent, err := r.MemoryStorage.GetFileByPath(strings.Join(sPath[:len(sPath)-1], "/"))
+		parent, err := r.Storage.GetFileByPath(strings.Join(sPath[:len(sPath)-1], "/"))
 		if err != nil {
 			return err
 		}
@@ -62,22 +62,22 @@ func (r *Registry) RegisterFile(file *control_pb.FileInfo) error {
 
 // registerFile writes file to registry storage
 func (r *Registry) registerFile(file *control_pb.FileInfo) error {
-	return r.MemoryStorage.StoreFile(file)
+	return r.Storage.StoreFile(file)
 }
 
 // unregisterFile deletes file from registry storage
 func (r *Registry) unregisterFile(file *control_pb.FileInfo) error {
-	return r.MemoryStorage.DeleteFile(file)
+	return r.Storage.DeleteFile(file)
 }
 
 // registerBlocks writes blocks to registry storage
 func (r *Registry) registerBlocks(blocks []*control_pb.BlockInfo) error {
-	return r.MemoryStorage.PutBlocks(blocks)
+	return r.Storage.PutBlocks(blocks)
 }
 
 // unregisterBlocks deletes blocks from registry storage
 func (r *Registry) unregisterBlocks(blocks []*control_pb.BlockInfo) error {
-	return r.MemoryStorage.DeleteBlocks(blocks)
+	return r.Storage.DeleteBlocks(blocks)
 }
 
 func (r *Registry) TransportAndRegisterBlocks(fileID string, blocks []*fs_pb.Block, replicationFactor int) error {
@@ -172,7 +172,7 @@ func (r *Registry) TransportAndRegisterBlocks(fileID string, blocks []*fs_pb.Blo
 
 func (r *Registry) RemoveFileBlocks(file *control_pb.FileInfo) (error, map[string]error) {
 
-	blocks, err := r.MemoryStorage.GetBlocks(file.Id)
+	blocks, err := r.Storage.GetBlocks(file.Id)
 	if err != nil {
 		return fmt.Errorf("error getting blocks: %v", err), nil
 	}
@@ -215,7 +215,7 @@ func (r *Registry) RemoveFileBlocks(file *control_pb.FileInfo) (error, map[strin
 	}
 	wg.Wait()
 
-	err = r.MemoryStorage.DeleteFileWithBlocks(file)
+	err = r.Storage.DeleteFileWithBlocks(file)
 	if err != nil {
 		return err, nil
 	}
@@ -225,7 +225,7 @@ func (r *Registry) RemoveFileBlocks(file *control_pb.FileInfo) (error, map[strin
 
 func (r *Registry) GetFileHandler(path string, transport func(block *fs_pb.Block)) error {
 
-	file, err := r.MemoryStorage.GetFileByPath(path)
+	file, err := r.Storage.GetFileByPath(path)
 	if err != nil {
 		return err
 	}
@@ -234,7 +234,7 @@ func (r *Registry) GetFileHandler(path string, transport func(block *fs_pb.Block
 	}
 
 	// Now we fetch BlockInfos from
-	blocks, err := r.MemoryStorage.GetBlocks(file.Id)
+	blocks, err := r.Storage.GetBlocks(file.Id)
 	if err != nil {
 		return fmt.Errorf("error getting blocks: %v", err)
 	}

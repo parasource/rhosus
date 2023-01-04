@@ -10,28 +10,17 @@ package storage
 import (
 	"errors"
 	"fmt"
+	"github.com/hashicorp/go-memdb"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
-	"github.com/parasource/rhosus/rhosus/util"
-	"github.com/parasource/rhosus/rhosus/util/timers"
+	"github.com/parasource/rhosus/rhosus/util/tickers"
 	"github.com/rs/zerolog/log"
-	bolt "go.etcd.io/bbolt"
-	"os"
-	"path"
-	"sync"
+	"sort"
 	"time"
 )
 
 var (
 	ErrWriteTimeout = errors.New("backend storage write timeout")
 	ErrShutdown     = errors.New("backend storage is shut down")
-)
-
-const (
-	defaultDbFileName = "data.db"
-
-	filesStorageBucketName  = "__files"
-	blocksStorageBucketName = "__blocks"
-	metaStorageBucketName   = "__meta"
 )
 
 type Config struct {
@@ -41,489 +30,370 @@ type Config struct {
 	NumWorkers    int
 }
 
+const (
+	defaultFilesTableName  = "__files"
+	defaultBlocksTableName = "__blocks"
+)
+
 type Storage struct {
-	config Config
-	db     *bolt.DB
+	db      *memdb.MemDB
+	backend StorageBackend
 
-	fileReqC   chan StoreReq
-	blocksReqC chan StoreReq
-	shutdownC  chan struct{}
-
-	mu       sync.RWMutex
-	shutdown bool
+	flushIntervalS int
+	flushBatchSize int
 }
 
-func NewStorage(config Config) (*Storage, error) {
-	s := &Storage{
-		config: config,
-
-		fileReqC:   make(chan StoreReq),
-		blocksReqC: make(chan StoreReq),
-		shutdownC:  make(chan struct{}),
-	}
-
-	backendPath := config.Path
-	err := os.Mkdir(backendPath, 0755)
-	if os.IsExist(err) {
-		// triggers if dir already exists
-		log.Debug().Msg("backend path already exists, skipping")
-	} else if err != nil {
-		return nil, fmt.Errorf("error creating backend folder in %v: %v", config.Path, err)
-	}
-
-	db, err := bolt.Open(path.Join(backendPath, defaultDbFileName), 0666, nil)
+func NewStorage(conf Config) (*Storage, error) {
+	db, err := setupMemoryStorage()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error setting up storage schemas: %w", err)
 	}
-	s.db = db
 
-	err = s.setup()
+	backend, err := NewFileStorageBackend(conf)
 	if err != nil {
-		return nil, fmt.Errorf("error setting up backend: %v", err)
+		return nil, fmt.Errorf("error creating storage backend: %w", err)
 	}
 
-	go s.start()
+	m := &Storage{
+		db:      db,
+		backend: backend,
+
+		flushIntervalS: 5,
+		flushBatchSize: 1000,
+	}
+	err = m.loadFromBackend()
+	if err != nil {
+		return nil, fmt.Errorf("error loading memory storage from backend: %w", err)
+	}
 
 	go func() {
-		if <-s.NotifyShutdown(); true {
-			err := db.Close()
-			if err != nil {
-				log.Error().Err(err).Msg("error closing file database")
+		ticker := tickers.SetTicker(time.Second * time.Duration(m.flushIntervalS))
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				err := m.FlushToBackend()
+				if err != nil {
+					log.Error().Err(err).Msg("error saving memory storage to file")
+				}
 			}
-			return
 		}
 	}()
 
-	return s, nil
+	return m, nil
 }
 
-// setup creates necessary bboltdb buckets
-func (s *Storage) setup() (err error) {
+func setupMemoryStorage() (*memdb.MemDB, error) {
+	db, err := memdb.NewMemDB(&memdb.DBSchema{
+		Tables: map[string]*memdb.TableSchema{
 
-	err = s.db.Update(func(tx *bolt.Tx) error {
-		var err error
+			// Files table schema
+			defaultFilesTableName: {
+				Name: defaultFilesTableName,
+				Indexes: map[string]*memdb.IndexSchema{
+					"id": {
+						Name:         "id",
+						AllowMissing: false,
+						Unique:       true,
+						Indexer:      &memdb.StringFieldIndex{Field: "Id"},
+					},
+					"path": {
+						Name:         "path",
+						AllowMissing: false,
+						Unique:       true,
+						Indexer:      &memdb.StringFieldIndex{Field: "Path"},
+					},
+					"parent_id": {
+						Name:         "parent_id",
+						AllowMissing: false,
+						Unique:       false,
+						Indexer:      &memdb.StringFieldIndex{Field: "ParentID"},
+					},
+				},
+			},
 
-		_, err = tx.CreateBucketIfNotExists([]byte(filesStorageBucketName))
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.CreateBucketIfNotExists([]byte(blocksStorageBucketName))
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.CreateBucketIfNotExists([]byte(metaStorageBucketName))
-		if err != nil {
-			return err
-		}
-
-		return nil
+			// Blocks table schema
+			defaultBlocksTableName: {
+				Name: defaultBlocksTableName,
+				Indexes: map[string]*memdb.IndexSchema{
+					"id": {
+						Name:         "id",
+						AllowMissing: false,
+						Unique:       true,
+						Indexer:      &memdb.StringFieldIndex{Field: "Id"},
+					},
+					"file_id": {
+						Name:         "file_id",
+						AllowMissing: false,
+						Unique:       false,
+						Indexer:      &memdb.StringFieldIndex{Field: "FileID"},
+					},
+				},
+			},
+		},
 	})
+	return db, err
+}
+
+func (s *Storage) loadFromBackend() error {
+	var err error
+
+	files, err := s.backend.GetAllFiles()
+	if err != nil {
+		return err
+	}
+	for _, file := range files {
+		err := s.StoreFile(file)
+		if err != nil {
+			log.Error().Err(err).Msg("error loading memory storage from file")
+			continue
+		}
+	}
+
+	blocks, err := s.backend.GetAllBlocks()
+	if err != nil {
+		return err
+	}
+	err = s.PutBlocks(blocks)
+	if err != nil {
+		return err
+	}
 
 	return err
 }
 
-func (s *Storage) start() {
+func (s *Storage) StoreFile(file *control_pb.FileInfo) error {
+	txn := s.db.Txn(true)
 
-	go s.loopFileHandlers()
-	go s.loopBlocksHandlers()
+	err := txn.Insert(defaultFilesTableName, file)
+	if err != nil {
+		txn.Abort()
+		return err
+	}
 
+	txn.Commit()
+
+	return nil
 }
 
-//////////////////////////////
-// ---------------------------
-// file methods
-// ---------------------------
+func (s *Storage) GetFile(id string) (*control_pb.FileInfo, error) {
+	txn := s.db.Txn(false)
 
-func (s *Storage) StoreFilesBatch(files map[string]*control_pb.FileInfo) error {
-
-	s.mu.RLock()
-	if s.shutdown {
-		s.mu.RUnlock()
-		return ErrShutdown
-	}
-	s.mu.RUnlock()
-
-	batch := make(map[string]string, len(files))
-	for path, file := range files {
-
-		bytes, err := file.Marshal()
-		if err != nil {
-			return err
-		}
-		strBytes := util.Base64Encode(bytes)
-
-		batch[path] = strBytes
-	}
-
-	r := NewStoreRequest(dataOpStoreFiles, batch)
-
-	select {
-	case s.fileReqC <- r:
-	default:
-		timer := timers.SetTimer(time.Second * time.Duration(s.config.WriteTimeoutS))
-		defer timers.ReleaseTimer(timer)
-		select {
-		case s.fileReqC <- r:
-		case <-timer.C:
-			return ErrWriteTimeout
-		}
-	}
-
-	res := r.result()
-	return res.err
-}
-
-func (s *Storage) GetFile(path string) (*control_pb.FileInfo, error) {
-
-	s.mu.RLock()
-	if s.shutdown {
-		s.mu.RUnlock()
-		return nil, ErrShutdown
-	}
-	s.mu.RUnlock()
-
-	res, err := s.GetFilesBatch([]string{path})
+	raw, err := txn.First(defaultFilesTableName, "id", id)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(res) < 1 {
-		return nil, errors.New("wrong result length")
+	switch raw.(type) {
+	case *control_pb.FileInfo:
+		return raw.(*control_pb.FileInfo), nil
+	default:
+		return nil, nil
 	}
-
-	return res[0], nil
 }
 
-func (s *Storage) GetFilesBatch(paths []string) ([]*control_pb.FileInfo, error) {
-	s.mu.RLock()
-	if s.shutdown {
-		s.mu.RUnlock()
-		return nil, ErrShutdown
-	}
-	s.mu.RUnlock()
+func (s *Storage) GetFileByPath(path string) (*control_pb.FileInfo, error) {
+	txn := s.db.Txn(false)
 
-	r := NewStoreRequest(dataOpGetFilesBatch, paths)
-	select {
-	case s.fileReqC <- r:
+	raw, err := txn.First(defaultFilesTableName, "path", path)
+	if err != nil {
+		return nil, err
+	}
+
+	switch raw.(type) {
+	case *control_pb.FileInfo:
+		return raw.(*control_pb.FileInfo), nil
 	default:
-		timer := timers.SetTimer(time.Second * time.Duration(s.config.WriteTimeoutS))
-		defer timers.ReleaseTimer(timer)
-		select {
-		case s.fileReqC <- r:
-		case <-timer.C:
-			return nil, ErrWriteTimeout
-		}
+		return nil, nil
 	}
+}
 
-	res := r.result()
-	if res.err != nil {
-		return nil, res.err
-	}
+func (s *Storage) GetFilesByParentId(id string) ([]*control_pb.FileInfo, error) {
+	txn := s.db.Txn(false)
 
 	var files []*control_pb.FileInfo
+	res, err := txn.Get(defaultFilesTableName, "parent_id", id)
+	if err != nil {
+		return nil, err
+	}
 
-	for _, data := range res.reply.([]string) {
-
-		bytes, err := util.Base64Decode(data)
-		if err != nil {
-
-		}
-
-		var file control_pb.FileInfo
-		err = file.Unmarshal(bytes)
-		if err != nil {
-			log.Error().Err(err).Msg("error unmarshaling file info")
-		}
-
-		files = append(files, &file)
+	for obj := res.Next(); obj != nil; obj = res.Next() {
+		files = append(files, obj.(*control_pb.FileInfo))
 	}
 
 	return files, nil
 }
 
-func (s *Storage) GetAllFiles() ([]*control_pb.FileInfo, error) {
-	s.mu.RLock()
-	if s.shutdown {
-		s.mu.RUnlock()
-		return nil, ErrShutdown
-	}
-	s.mu.RUnlock()
+func (s *Storage) PutBlocks(blocks []*control_pb.BlockInfo) error {
+	var err error
 
-	r := NewStoreRequest(dataOpGetAllFiles)
-	select {
-	case s.fileReqC <- r:
-	default:
-		timer := timers.SetTimer(time.Second * time.Duration(s.config.WriteTimeoutS))
-		defer timers.ReleaseTimer(timer)
-		select {
-		case s.fileReqC <- r:
-		case <-timer.C:
-			return nil, ErrWriteTimeout
-		}
-	}
-
-	res := r.result()
-	if res.err != nil {
-		return nil, res.err
-	}
-
-	var files []*control_pb.FileInfo
-	for _, data := range res.reply.([]string) {
-
-		bytes, err := util.Base64Decode(data)
+	txn := s.db.Txn(true)
+	for _, block := range blocks {
+		err = txn.Insert(defaultBlocksTableName, block)
 		if err != nil {
-
+			txn.Abort()
+			return err
 		}
-
-		var file control_pb.FileInfo
-		err = file.Unmarshal(bytes)
-		if err != nil {
-			log.Error().Err(err).Msg("error unmarshaling file info")
-			continue
-		}
-
-		files = append(files, &file)
 	}
+	txn.Commit()
 
-	return files, nil
+	return nil
 }
 
-func (s *Storage) GetAllBlocks() ([]*control_pb.BlockInfo, error) {
-	s.mu.RLock()
-	if s.shutdown {
-		s.mu.RUnlock()
-		return nil, ErrShutdown
-	}
-	s.mu.RUnlock()
+func (s *Storage) GetAllFiles() []*control_pb.FileInfo {
+	txn := s.db.Txn(false)
 
-	r := NewStoreRequest(dataOpGetAllBlocks)
-	select {
-	case s.blocksReqC <- r:
-	default:
-		timer := timers.SetTimer(time.Second * time.Duration(s.config.WriteTimeoutS))
-		defer timers.ReleaseTimer(timer)
-		select {
-		case s.blocksReqC <- r:
-		case <-timer.C:
-			return nil, ErrWriteTimeout
-		}
+	var files []*control_pb.FileInfo
+	res, err := txn.Get(defaultFilesTableName, "id")
+	if err != nil {
+		return nil
 	}
 
-	res := r.result()
-	if res.err != nil {
-		return nil, res.err
+	for obj := res.Next(); obj != nil; obj = res.Next() {
+		files = append(files, obj.(*control_pb.FileInfo))
 	}
+
+	return files
+}
+
+func (s *Storage) GetBlocks(fileID string) ([]*control_pb.BlockInfo, error) {
+	txn := s.db.Txn(false)
 
 	var blocks []*control_pb.BlockInfo
-	for _, data := range res.reply.([]string) {
 
-		bytes, err := util.Base64Decode(data)
-		if err != nil {
-			continue
-		}
-
-		var block control_pb.BlockInfo
-		err = block.Unmarshal(bytes)
-		if err != nil {
-			log.Error().Err(err).Msg("error unmarshaling block info")
-			continue
-		}
-
-		blocks = append(blocks, &block)
+	res, err := txn.Get(defaultBlocksTableName, "file_id", fileID)
+	if err != nil {
+		return nil, err
 	}
+	for obj := res.Next(); obj != nil; obj = res.Next() {
+		blocks = append(blocks, obj.(*control_pb.BlockInfo))
+	}
+
+	// sort blocks in sequence order
+	sort.Slice(blocks, func(i, j int) bool {
+		return blocks[i].Index < blocks[j].Index
+	})
 
 	return blocks, nil
 }
 
-func (s *Storage) RemoveFilesBatch(fileIDs []string) error {
+func (s *Storage) DeleteFileWithBlocks(file *control_pb.FileInfo) error {
+	txn := s.db.Txn(true)
 
-	s.mu.RLock()
-	if s.shutdown {
-		s.mu.RUnlock()
-		return ErrShutdown
+	res, err := txn.Get(defaultBlocksTableName, "file_id", file.Id)
+	if err != nil {
+		return err
 	}
-	s.mu.RUnlock()
-
-	r := NewStoreRequest(dataOpDeleteFiles, fileIDs)
-	select {
-	case s.fileReqC <- r:
-	default:
-		timer := timers.SetTimer(time.Second * time.Duration(s.config.WriteTimeoutS))
-		defer timers.ReleaseTimer(timer)
-		select {
-		case s.fileReqC <- r:
-		case <-timer.C:
-			return ErrWriteTimeout
-		}
-	}
-
-	res := r.result()
-	return res.err
-}
-
-/////////////////////////////
-// --------------------------
-// Blocks methods
-// --------------------------
-
-// PutBlocksBatch is used by node to map block ids to partitions
-func (s *Storage) PutBlocksBatch(blocks map[string]*control_pb.BlockInfo) error {
-	s.mu.RLock()
-	if s.shutdown {
-		s.mu.RUnlock()
-		return ErrShutdown
-	}
-	s.mu.RUnlock()
-
-	data := make(map[string]string, len(blocks))
-	for id, info := range blocks {
-		bytes, err := info.Marshal()
+	for obj := res.Next(); obj != nil; obj = res.Next() {
+		err := txn.Delete(defaultBlocksTableName, obj.(*control_pb.BlockInfo))
 		if err != nil {
-			log.Error().Err(err).Msg("error marshaling block info")
-			continue
-		}
-		data[id] = util.Base64Encode(bytes)
-	}
-
-	r := NewStoreRequest(dataOpStoreBatchBlocks, data)
-
-	select {
-	case s.blocksReqC <- r:
-	default:
-		timer := timers.SetTimer(time.Second * time.Duration(s.config.WriteTimeoutS))
-		defer timers.ReleaseTimer(timer)
-		select {
-		case s.fileReqC <- r:
-		case <-timer.C:
-			return ErrWriteTimeout
+			txn.Abort()
+			return err
 		}
 	}
+	err = txn.Delete(defaultFilesTableName, file)
+	if err != nil {
+		txn.Abort()
+		return err
+	}
+	txn.Commit()
 
-	res := r.result()
-	return res.err
+	return nil
 }
 
-func (s *Storage) GetBlocksBatch(blocks []string) (map[string]string, error) {
-
-	s.mu.RLock()
-	if s.shutdown {
-		s.mu.RUnlock()
-		return nil, ErrShutdown
+func (s *Storage) DeleteFile(file *control_pb.FileInfo) error {
+	txn := s.db.Txn(true)
+	err := txn.Delete(defaultFilesTableName, file)
+	if err != nil {
+		txn.Abort()
+		return err
 	}
-	s.mu.RUnlock()
+	txn.Commit()
 
-	r := NewStoreRequest(dataOpGetBlocks, blocks)
+	return nil
+}
 
-	select {
-	case s.blocksReqC <- r:
-	default:
-		timer := timers.SetTimer(time.Second * time.Duration(s.config.WriteTimeoutS))
-		defer timers.ReleaseTimer(timer)
-		select {
-		case s.fileReqC <- r:
-		case <-timer.C:
-			return nil, ErrWriteTimeout
+func (s *Storage) DeleteBlocks(blocks []*control_pb.BlockInfo) error {
+	txn := s.db.Txn(true)
+	for _, block := range blocks {
+		err := txn.Delete(defaultBlocksTableName, block)
+		if err != nil {
+			txn.Abort()
+			return err
 		}
 	}
+	txn.Commit()
 
-	res := r.result()
-	return res.reply.(map[string]string), res.err
+	return nil
 }
 
-func (s *Storage) RemoveBlocksBatch(blocks []string) error {
+func (s *Storage) FlushToBackend() error {
+	var err error
 
-	s.mu.RLock()
-	if s.shutdown {
-		s.mu.RUnlock()
-		return ErrShutdown
+	txn := s.db.Txn(false)
+
+	err = s.flushFilesToBackend(txn)
+	if err != nil {
+		return fmt.Errorf("error saving files to file: %w", err)
 	}
-	s.mu.RUnlock()
 
-	r := NewStoreRequest(dataOpDeleteBlocks, blocks)
+	err = s.flushBlocksToBackend(txn)
+	if err != nil {
+		return fmt.Errorf("error flusing blocks batch to backend: %v", err)
+	}
 
-	select {
-	case s.blocksReqC <- r:
-	default:
-		timer := timers.SetTimer(time.Second * time.Duration(s.config.WriteTimeoutS))
-		defer timers.ReleaseTimer(timer)
-		select {
-		case s.fileReqC <- r:
-		case <-timer.C:
-			return ErrWriteTimeout
+	return nil
+}
+
+func (s *Storage) flushFilesToBackend(txn *memdb.Txn) error {
+	filesBatch := make(map[string]*control_pb.FileInfo, s.flushBatchSize)
+
+	files, err := txn.Get(defaultFilesTableName, "id")
+	if err != nil {
+		return err
+	}
+	for obj := files.Next(); obj != nil; obj = files.Next() {
+		if len(filesBatch) == s.flushBatchSize {
+			err := s.backend.StoreFilesBatch(filesBatch)
+			if err != nil {
+				log.Error().Err(err).Msg("error flushing files batch to backend")
+			}
+			filesBatch = make(map[string]*control_pb.FileInfo, s.flushBatchSize)
 		}
+		file := obj.(*control_pb.FileInfo)
+		filesBatch[file.Id] = file
+	}
+	err = s.backend.StoreFilesBatch(filesBatch)
+	if err != nil {
+		return err
 	}
 
-	res := r.result()
-	return res.err
+	return nil
 }
 
-////////////////////////////
-// -------------------------
-// Other logic
-// -------------------------
+func (s *Storage) flushBlocksToBackend(txn *memdb.Txn) error {
 
-func (s *Storage) NotifyShutdown() <-chan struct{} {
-	return s.shutdownC
-}
+	blocksBatch := make(map[string]*control_pb.BlockInfo)
 
-func (s *Storage) Shutdown() {
-
-	s.mu.RLock()
-	if s.shutdown {
-		s.mu.RUnlock()
-		return
+	blocks, err := txn.Get(defaultBlocksTableName, "id")
+	if err != nil {
+		return err
 	}
-	s.mu.RUnlock()
-
-	close(s.shutdownC)
-
-	s.mu.Lock()
-	s.shutdown = true
-	s.mu.Unlock()
-}
-
-type StoreResp struct {
-	reply interface{}
-	err   error
-}
-
-type StoreReq struct {
-	op   dataOp
-	args []interface{}
-	resp chan *StoreResp
-}
-
-func NewStoreRequest(op dataOp, args ...interface{}) StoreReq {
-	return StoreReq{op: op, args: args, resp: make(chan *StoreResp, 1)}
-}
-
-func (dr *StoreReq) done(reply interface{}, err error) {
-	if dr.resp == nil {
-		return
+	for obj := blocks.Next(); obj != nil; obj = blocks.Next() {
+		if len(blocksBatch) == s.flushBatchSize {
+			err = s.backend.PutBlocksBatch(blocksBatch)
+			if err != nil {
+				// todo: probably retry later
+			}
+		}
+		block := obj.(*control_pb.BlockInfo)
+		blocksBatch[block.Id] = block
 	}
-	dr.resp <- &StoreResp{reply: reply, err: err}
-}
-
-func (dr *StoreReq) result() *StoreResp {
-	if dr.resp == nil {
-		// No waiting, as caller didn't care about response.
-		return &StoreResp{}
+	err = s.backend.PutBlocksBatch(blocksBatch)
+	if err != nil {
+		// todo: probably retry later
 	}
-	return <-dr.resp
+
+	return nil
 }
-
-type dataOp int
-
-const (
-	dataOpStoreFiles dataOp = iota
-	dataOpGetFilesBatch
-	dataOpGetAllFiles
-	dataOpDeleteFiles
-
-	dataOpStoreBatchBlocks
-	dataOpGetBlocks
-	dataOpGetAllBlocks
-	dataOpDeleteBlocks
-)

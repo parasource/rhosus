@@ -20,7 +20,7 @@ import (
 func (r *Registry) HandleMakeDir(req *api_pb.MakeDirRequest) (*api_pb.CommonResponse, error) {
 	path := strings.Trim(req.Path, "/")
 
-	dir, err := r.MemoryStorage.GetFileByPath(path)
+	dir, err := r.Storage.GetFileByPath(path)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +45,7 @@ func (r *Registry) HandleMakeDir(req *api_pb.MakeDirRequest) (*api_pb.CommonResp
 	}
 	sPath := strings.Split(path, "/")
 	if len(sPath) > 1 {
-		parent, err := r.MemoryStorage.GetFileByPath(strings.Join(sPath[:len(sPath)-1], "/"))
+		parent, err := r.Storage.GetFileByPath(strings.Join(sPath[:len(sPath)-1], "/"))
 		if parent == nil {
 			return &api_pb.CommonResponse{
 				Success: false,
@@ -58,7 +58,7 @@ func (r *Registry) HandleMakeDir(req *api_pb.MakeDirRequest) (*api_pb.CommonResp
 		file.ParentID = parent.Id
 	}
 
-	err = r.MemoryStorage.StoreFile(file)
+	err = r.Storage.StoreFile(file)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func (r *Registry) HandleMakeDir(req *api_pb.MakeDirRequest) (*api_pb.CommonResp
 func (r *Registry) HandleRemoveFileOrPath(req *api_pb.RemoveRequest) (*api_pb.CommonResponse, error) {
 	path := strings.Trim(req.Path, "/")
 
-	rootFile, err := r.MemoryStorage.GetFileByPath(path)
+	rootFile, err := r.Storage.GetFileByPath(path)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func (r *Registry) HandleRemoveFileOrPath(req *api_pb.RemoveRequest) (*api_pb.Co
 		}, nil
 	}
 
-	blocks, err := r.MemoryStorage.GetBlocks(rootFile.Id)
+	blocks, err := r.Storage.GetBlocks(rootFile.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +123,7 @@ func (r *Registry) HandleRemoveFileOrPath(req *api_pb.RemoveRequest) (*api_pb.Co
 }
 
 func (r *Registry) killChildren(file *control_pb.FileInfo) error {
-	childFiles, err := r.MemoryStorage.GetFilesByParentId(file.Id)
+	childFiles, err := r.Storage.GetFilesByParentId(file.Id)
 	if err != nil {
 		return err
 	}
@@ -158,7 +158,7 @@ func (r *Registry) HandleList(req *api_pb.ListRequest) (*api_pb.ListResponse, er
 	if req.Path == "/" {
 		parentID = "root"
 	} else {
-		dir, err := r.MemoryStorage.GetFileByPath(strings.Trim(req.Path, "/"))
+		dir, err := r.Storage.GetFileByPath(strings.Trim(req.Path, "/"))
 		if err != nil {
 			return nil, err
 		}
@@ -170,7 +170,7 @@ func (r *Registry) HandleList(req *api_pb.ListRequest) (*api_pb.ListResponse, er
 
 	var list []*api_pb.FileInfo
 
-	files, err := r.MemoryStorage.GetFilesByParentId(parentID)
+	files, err := r.Storage.GetFilesByParentId(parentID)
 	if err != nil {
 		return nil, err
 	}

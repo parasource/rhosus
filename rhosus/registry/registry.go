@@ -47,8 +47,7 @@ type Registry struct {
 	Config Config
 
 	NodesManager   *NodesMap
-	Backend        *storage.Storage
-	MemoryStorage  *MemoryStorage
+	Storage        *storage.Storage
 	StatsCollector *StatsCollector
 
 	// Cluster is used to control over other registries
@@ -91,13 +90,7 @@ func NewRegistry(config Config) (*Registry, error) {
 	if err != nil {
 		log.Fatal().Err(err).Msg("error creating storage")
 	}
-	r.Backend = s
-
-	memStorage, err := NewMemoryStorage(r)
-	if err != nil {
-		log.Fatal().Err(err).Msg("error creating memory storage")
-	}
-	r.MemoryStorage = memStorage
+	r.Storage = s
 
 	// Here we load all the existing nodes and registries from etcd
 	// Error occurs only in non-usual conditions, so we shut down
@@ -207,7 +200,6 @@ func (r *Registry) handleEntriesFromLeader(entries []*control_pb.Entry) {
 // RegistriesMap instances management methods
 
 func (r *Registry) Start() {
-
 	go r.NodesManager.WatchNodes()
 	go r.RunServiceDiscovery()
 
@@ -241,7 +233,7 @@ func (r *Registry) Shutdown() {
 		log.Error().Err(err).Msg("error unregistering from etcd")
 	}
 
-	r.Backend.Shutdown()
+	// todo add storage shutdown
 	r.Cluster.Shutdown()
 
 	if pidFile != "" {
