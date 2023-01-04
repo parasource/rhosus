@@ -1,6 +1,11 @@
 package fileutil
 
-import "github.com/rs/zerolog/log"
+import (
+	"github.com/rs/zerolog/log"
+	"golang.org/x/sys/unix"
+	"os"
+	"sync/atomic"
+)
 
 var (
 	fallocFlags = [...]uint32{
