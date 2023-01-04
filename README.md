@@ -2,7 +2,7 @@
 
 #### This project is currently under active development, please don't use it yet
 
-![rhosus](https://github.com/parasource/rhosus/blob/master/assets/logo_new.svg)
+![rhosus](https://raw.githubusercontent.com/parasource/rhosus/master/assets/logo_new.svg)
 
 **Rhosus** is a fast multi-purpose distributed file system written in Go. It uses BoltDB for memory-based storage backup
 and
