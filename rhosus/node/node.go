@@ -14,7 +14,7 @@ import (
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/parasource/rhosus/rhosus/profiler"
 	"github.com/parasource/rhosus/rhosus/util"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 	"os"
 	"os/signal"
@@ -60,7 +60,7 @@ func NewNode(config Config) (*Node, error) {
 	dataPath := path.Join(config.RhosusPath, "data")
 	dataManager, err := data.NewManager(dataPath)
 	if err != nil {
-		logrus.Fatalf("error creating data manager: %v", err)
+		log.Fatal().Err(err).Msg("error creating data manager")
 	}
 	node.data = dataManager
 
@@ -69,7 +69,7 @@ func NewNode(config Config) (*Node, error) {
 
 	nodeProfiler, err := profiler.NewProfiler()
 	if err != nil {
-		logrus.Fatalf("error creating profiler: %v", err)
+		log.Fatal().Err(err).Msg("error creating profiler")
 	}
 	node.profiler = nodeProfiler
 
@@ -78,7 +78,7 @@ func NewNode(config Config) (*Node, error) {
 		Timeout: 5,
 	})
 	if err != nil {
-		logrus.Fatalf("error connecting to etcd: %v", err)
+		log.Fatal().Err(err).Msg("error connecting to etcd")
 	}
 	node.etcd = etcdClient
 
@@ -86,7 +86,7 @@ func NewNode(config Config) (*Node, error) {
 		Address: config.Address,
 	}, node)
 	if err != nil {
-		logrus.Errorf("error creating node grpc server: %v", err)
+		log.Fatal().Err(err).Msg("error creating node grpc server")
 	}
 	node.server = grpcServer
 
@@ -94,10 +94,9 @@ func NewNode(config Config) (*Node, error) {
 }
 
 func (n *Node) CollectMetrics() (*transport_pb.NodeMetrics, error) {
-
 	v, err := n.profiler.GetMem()
 	if err != nil {
-		logrus.Errorf("error getting memory stats: %v", err)
+		log.Error().Err(err).Msg("error getting memory stats")
 	}
 
 	usage := n.profiler.GetPathDiskUsage("/")
@@ -128,16 +127,15 @@ func (n *Node) HandleAssignBlocks(blocks []*fs_pb.Block) ([]*transport_pb.BlockP
 }
 
 func (n *Node) Start() {
-
 	go n.server.Run()
 	go n.handleSignals()
 
 	err := n.registerItself()
 	if err != nil {
-		logrus.Fatalf("can't register node in etcd: %v", err)
+		log.Fatal().Err(err).Msg("could not register node in etcd")
 	}
 
-	logrus.Infof("Node %v : %v is ready", n.Name, n.ID)
+	log.Info().Str("name", n.Name).Str("id", n.ID).Msg("datanode is ready")
 
 	select {
 	case <-n.NotifyShutdown():
@@ -156,13 +154,13 @@ func (n *Node) registerItself() error {
 }
 
 func (n *Node) Shutdown() error {
-	logrus.Infof("shutting down node")
+	log.Info().Msg("shutting down node")
 
 	n.data.Shutdown()
 
 	err := n.unregisterItself()
 	if err != nil {
-		logrus.Errorf("error unregistering node: %v", err)
+		log.Error().Err(err).Msg("error unregistering node")
 		return err
 	}
 
@@ -184,7 +182,7 @@ func (n *Node) handleSignals() {
 	signal.Notify(sigc, syscall.SIGHUP, syscall.SIGINT, os.Interrupt, syscall.SIGTERM)
 	for {
 		sig := <-sigc
-		logrus.Infof("signal received: %v", sig)
+		log.Info().Str("signal", sig.String()).Msg("signal received")
 		switch sig {
 		case syscall.SIGHUP:
 
@@ -200,13 +198,14 @@ func (n *Node) handleSignals() {
 
 			err := n.Shutdown()
 			if err != nil {
-
+				log.Error().Err(err).Msg("error shutting down node")
+				return
 			}
 
 			if pidFile != "" {
 				err := os.Remove(pidFile)
 				if err != nil {
-					logrus.Errorf("error removing pid file: %v", err)
+					log.Error().Err(err).Msg("error removing pid file")
 				}
 			}
 			os.Exit(0)

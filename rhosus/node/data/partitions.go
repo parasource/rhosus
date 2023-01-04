@@ -13,7 +13,7 @@ import (
 	"github.com/parasource/rhosus/rhosus/util/fileutil"
 	"github.com/parasource/rhosus/rhosus/util/tickers"
 	"github.com/parasource/rhosus/rhosus/util/uuid"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -100,7 +100,6 @@ func (p *PartitionsMap) watchCreatePartitions() {
 			partsAvailable := 0
 			for _, partition := range p.parts {
 				// todo: define threshold for creating new partitions
-				logrus.Infof("---- BLOCKS AVAILABLE: %v", partitionBlocksCount-len(partition.blocksMap))
 				if !partition.full && (partitionBlocksCount-len(partition.blocksMap)) >= 150 {
 					partsAvailable++
 				}
@@ -109,7 +108,7 @@ func (p *PartitionsMap) watchCreatePartitions() {
 			if partsAvailable < 1 {
 				_, err := p.createPartition()
 				if err != nil {
-					logrus.Errorf("error creating partition: %v", err)
+					log.Error().Err(err).Msg("error creating partition")
 				}
 			}
 		}
@@ -225,22 +224,21 @@ func (p *PartitionsMap) loadPartitions() error {
 
 		part, err := newPartition(p.dir, name, file)
 		if err != nil {
-			logrus.Errorf("error loading partition: %v", err)
+			log.Error().Err(err).Msg("error loading partition")
 			file.Close()
 			continue
 		}
 		err = part.loadHeader()
 		if err != nil {
-			logrus.Errorf("error loading headers: %v", err)
+			log.Error().Err(err).Msg("error loading headers")
 			file.Close()
 			continue
 		}
 		p.parts[name] = part
-		logrus.Infof("loaded partition: %v", part.blocksMap)
+		log.Info().Str("part_id", part.ID).Msg("loaded partition")
 	}
 	if len(p.parts) == 0 {
-		logrus.Infof("creating partitions")
-		start := time.Now()
+		log.Info().Int("parts_count", p.minPartitionsCount).Msg("creating partitions")
 		for len(p.parts) < p.minPartitionsCount {
 			v4uuid, _ := uuid.NewV4()
 			name := v4uuid.String()
@@ -248,29 +246,28 @@ func (p *PartitionsMap) loadPartitions() error {
 			path := filepath.Join(p.dir, name)
 			file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0666)
 			if err != nil {
-				logrus.Errorf("error creating partition file: %v. Trying again", err)
+				log.Error().Err(err).Msg("error creating partition file")
 				continue
 			}
 
 			err = fileutil.Preallocate(file, p.partitionSize, true)
 			if err != nil {
-				logrus.Errorf("error preallocating file: %v", err)
+				log.Error().Err(err).Msg("error preallocating file")
 			}
 
 			err = file.Sync()
 			if err != nil {
-				logrus.Errorf("error sync: %v", err)
+				log.Error().Err(err).Msg("error syncing partition")
 			}
 
 			part, err := newPartition(p.dir, name, file)
 			if err != nil {
-				logrus.Errorf("error loading partition: %v", err)
+				log.Error().Err(err).Msg("error loading partition")
 				file.Close()
 				continue
 			}
 			p.parts[part.ID] = part
 		}
-		logrus.Infof("partitions created in %v", time.Since(start).String())
 	}
 
 	return err
@@ -292,7 +289,7 @@ func (p *PartitionsMap) Shutdown() error {
 	for _, partition := range p.parts {
 		err := partition.Close()
 		if err != nil {
-			logrus.Errorf("error while closing partition file: %v", err)
+			log.Error().Err(err).Msg("error while closing partition file")
 		}
 	}
 

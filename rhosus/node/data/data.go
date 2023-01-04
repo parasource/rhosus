@@ -10,7 +10,7 @@ package data
 import (
 	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"sync"
 )
 
@@ -94,7 +94,7 @@ func (m *Manager) WriteBlocks(blocks []*fs_pb.Block) ([]*transport_pb.BlockPlace
 
 		err := part.sink.put(block)
 		if err != nil {
-			logrus.Errorf("error putting block in sink: %v", err)
+			log.Error().Err(err).Msg("error putting block in sink")
 			continue
 		}
 
@@ -163,6 +163,6 @@ func (m *Manager) Shutdown() {
 
 	err := m.parts.Shutdown()
 	if err != nil {
-		logrus.Errorf("error closing partitions map: %v", err)
+		log.Error().Err(err).Msg("error closing partitions map")
 	}
 }

@@ -12,7 +12,7 @@ import (
 	rhosusnode "github.com/parasource/rhosus/rhosus/node"
 	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/parasource/rhosus/rhosus/util/uuid"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"io"
@@ -60,7 +60,7 @@ var rootCmd = &cobra.Command{
 		for _, env := range bindEnvs {
 			err := viper.BindEnv(env)
 			if err != nil {
-				logrus.Fatalf("error binding env variable: %v", err)
+				log.Fatal().Err(err).Msg("error binding env variable")
 			}
 		}
 
@@ -108,11 +108,11 @@ func getId(rhosusPath string, persistent bool) string {
 		defer file.Close()
 
 		if err != nil {
-			logrus.Errorf("error opening node uuid file: %v", err)
+			log.Fatal().Err(err).Msg("error opening node uuid file")
 		}
 		data, err := io.ReadAll(file)
 		if err != nil {
-			logrus.Fatalf("error reading uuid file")
+			log.Fatal().Err(err).Msg("error reading uuid file")
 		}
 
 		id = string(data)
@@ -121,11 +121,11 @@ func getId(rhosusPath string, persistent bool) string {
 		id = v4uid.String()
 
 		file, err := os.OpenFile(uuidFilePath, os.O_CREATE|os.O_RDWR, 0755)
+		if err != nil {
+			log.Fatal().Err(err).Msg("error reading uuid file")
+		}
 		defer file.Close()
 
-		if err != nil {
-
-		}
 		file.Write([]byte(id))
 	}
 

@@ -6,7 +6,7 @@ import (
 	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/parasource/rhosus/rhosus/util/tickers"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"os"
 	"sync"
 	"time"
@@ -73,7 +73,8 @@ func (s *sink) run() {
 			if s.part.isAvailable(len(blocks)) {
 				err, _ := s.part.WriteBlocks(blocks)
 				if err != nil {
-					logrus.Errorf("error flushing partition sink: %v", err)
+					log.Error().Err(err).Msg("error flushing partition sink")
+					continue
 				}
 
 				s.part.Sync()
@@ -95,12 +96,12 @@ func (s *sink) run() {
 				}
 				err, _ := s.part.WriteBlocks(smallerBlocks)
 				if err != nil {
-					logrus.Errorf("error writing blocks to remaining space in partition: %v", err)
+					log.Error().Err(err).Msg("error writing blocks to remaining space in partition")
 					continue
 				}
 				s.part.Sync()
 
-				logrus.Infof("abandoning %v blocks", len(blocks))
+				log.Warn().Int("blocks_count", len(blocks)).Msg("abandoning blocks")
 				for range blocks {
 					// TODO: write them to another partition and make an alias
 				}
@@ -312,7 +313,7 @@ func (p *Partition) writeBlockContents(block int, data []byte) (int, error) {
 
 	n, err := p.file.WriteAt(data, offset)
 	if err != nil {
-		logrus.Errorf("error writing block to file: %v", err)
+		log.Error().Err(err).Msg("error writing block to file")
 		return 0, err
 	}
 
@@ -359,7 +360,7 @@ func (p *Partition) readBlockContents(blockN int, size uint64) (int, []byte, err
 	data := make([]byte, size)
 	n, err := p.file.ReadAt(data, offset)
 	if err != nil {
-		logrus.Errorf("error reading blockN from file: %v", err)
+		log.Error().Err(err).Msg("error reading blockN from file")
 		return 0, nil, err
 	}
 

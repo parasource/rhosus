@@ -11,7 +11,7 @@ import (
 	"context"
 	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
 	"io"
 	"net"
@@ -103,11 +103,13 @@ func (s *GrpcServer) AssignBlocks(srv transport_pb.TransportService_AssignBlocks
 			break
 		}
 		if err != nil {
-			logrus.Errorf("error receiving: %v", err)
+			log.Error().Err(err).Msg("error receiving")
 			continue
 		}
 
 		blocks = append(blocks, req.Block)
+
+		// todo
 		//if len(blocks) == 20 {
 		//	go func(blocks []*fs_pb.Block) {
 		//		res, err := s.node.HandleAssignBlocks(blocks)
@@ -128,14 +130,9 @@ func (s *GrpcServer) AssignBlocks(srv transport_pb.TransportService_AssignBlocks
 
 	results = append(results, res...)
 
-	err = srv.SendAndClose(&transport_pb.AssignBlocksResponse{
+	return srv.SendAndClose(&transport_pb.AssignBlocksResponse{
 		Placement: results,
 	})
-	if err != nil {
-		logrus.Errorf("error sending and closing stream: %v", err)
-	}
-
-	return nil
 }
 
 func (s *GrpcServer) RemoveBlocks(c context.Context, r *transport_pb.RemoveBlocksRequest) (*transport_pb.RemoveBlocksResponse, error) {
@@ -159,7 +156,7 @@ func (s *GrpcServer) PlacePages(c context.Context, r *transport_pb.PlacePartitio
 func (s *GrpcServer) FetchMetrics(c context.Context, r *transport_pb.FetchMetricsRequest) (*transport_pb.FetchMetricsResponse, error) {
 	metrics, err := s.node.CollectMetrics()
 	if err != nil {
-		logrus.Errorf("error fetching metrics: %v", err)
+		log.Error().Err(err).Msg("error fetching metrics")
 		return nil, err
 	}
 
@@ -172,7 +169,7 @@ func (s *GrpcServer) FetchMetrics(c context.Context, r *transport_pb.FetchMetric
 func (s *GrpcServer) Run() {
 	lis, err := net.Listen("tcp", s.Config.Address)
 	if err != nil {
-		logrus.Fatalf("error listening tcp: %v", err)
+		log.Fatal().Err(err).Str("address", s.Config.Address).Msg("error listening tcp")
 	}
 
 	grpcServer := grpc.NewServer(grpc.MaxRecvMsgSize(32<<20), grpc.MaxSendMsgSize(32<<20))
@@ -180,17 +177,17 @@ func (s *GrpcServer) Run() {
 
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {
-			logrus.Fatalf("error starting grpc node server: %v", err)
+			log.Fatal().Err(err).Msg("error starting grpc node server")
 		}
 	}()
 
 	s.readyC <- struct{}{}
-	logrus.Infof("node service server successfully started on %v", s.Config.Address)
+	log.Info().Str("address", s.Config.Address).Msg("node service server successfully started")
 
 	if <-s.NotifyShutdown(); true {
 		err := lis.Close()
 		if err != nil {
-			logrus.Errorf("error closing tcp connection: %v", err)
+			log.Error().Err(err).Msg("error closing tcp connection")
 		}
 	}
 }
