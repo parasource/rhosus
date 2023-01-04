@@ -2,10 +2,10 @@ package rhosus_etcd
 
 import (
 	"context"
+	"fmt"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/parasource/rhosus/rhosus/util"
-	"github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
 	"strings"
 	"time"
@@ -114,7 +114,7 @@ func (c *EtcdClient) RegisterRegistry(uid string, info *control_pb.RegistryInfo)
 
 	bytes, err := info.Marshal()
 	if err != nil {
-		logrus.Errorf("error marshaling registry info: %v", err)
+		return fmt.Errorf("error marshaling registry info: %v", err)
 	}
 
 	_, err = c.cli.Put(ctx, path, util.Base64Encode(bytes))
@@ -133,7 +133,7 @@ func (c *EtcdClient) RegisterNode(id string, info *transport_pb.NodeInfo) error 
 
 	bytes, err := info.Marshal()
 	if err != nil {
-		logrus.Errorf("error marshaling registry info: %v", err)
+		return fmt.Errorf("error marshaling datanode info: %v", err)
 	}
 
 	_, err = c.cli.Put(ctx, path, util.Base64Encode(bytes))

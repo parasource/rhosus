@@ -14,7 +14,7 @@ import (
 	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/parasource/rhosus/rhosus/util/uuid"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"io"
 	"net/http"
 	"strings"
@@ -39,7 +39,7 @@ func (r *Registry) HandleGetFile(rw http.ResponseWriter, req *http.Request) erro
 		reader := io.NopCloser(bytes.NewReader(block.Data))
 		n, err := io.CopyN(rw, reader, int64(block.Len))
 		if err != nil || n != int64(len(block.Data)) {
-			logrus.Errorf("something went wrong: %v, %v - %v", err, n, len(block.Data))
+			log.Error().Err(err).Msg("error while copying request file data")
 		}
 		//reader.Close()
 	})
@@ -49,7 +49,7 @@ func (r *Registry) HandleGetFile(rw http.ResponseWriter, req *http.Request) erro
 			rw.WriteHeader(404)
 			return ErrNoSuchFileOrDirectory
 		default:
-			logrus.Errorf("error getting blocks: %v", err)
+			log.Error().Err(err).Msg("error getting blocks")
 		}
 	}
 
@@ -58,8 +58,6 @@ func (r *Registry) HandleGetFile(rw http.ResponseWriter, req *http.Request) erro
 
 func (r *Registry) HandlePutFile(rw http.ResponseWriter, req *http.Request) error {
 	var err error
-
-	logrus.Infof(req.URL.String())
 
 	multipartReader, err := req.MultipartReader()
 	if err != nil {
@@ -115,7 +113,7 @@ func (r *Registry) HandlePutFile(rw http.ResponseWriter, req *http.Request) erro
 			rw.WriteHeader(http.StatusBadRequest)
 			return nil
 		default:
-			logrus.Errorf("error registring file: %v", err)
+			log.Error().Err(err).Msg("error registering file")
 			rw.WriteHeader(500)
 			rw.Write([]byte("server error. see logs"))
 			return nil
@@ -126,7 +124,6 @@ func (r *Registry) HandlePutFile(rw http.ResponseWriter, req *http.Request) erro
 	for {
 		bytesBufferLimitCond.L.Lock()
 		for atomic.LoadInt64(&bytesBufferCounter) >= 4 {
-			logrus.Infof("waiting for byte buffer %d", bytesBufferCounter)
 			bytesBufferLimitCond.Wait()
 		}
 		atomic.AddInt64(&bytesBufferCounter, 1)
@@ -213,7 +210,7 @@ func (r *Registry) HandlePutFile(rw http.ResponseWriter, req *http.Request) erro
 
 	err = r.TransportAndRegisterBlocks(file.Id, dataToTransfer, int(file.Replication))
 	if err != nil {
-		logrus.Errorf("error transporting blocks to node: %v", err)
+		log.Error().Err(err).Msg("error transporting blocks to node")
 	}
 
 	rw.Write([]byte("OK"))

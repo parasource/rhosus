@@ -7,7 +7,7 @@ import (
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"strings"
 	"sync"
 	"time"
@@ -112,8 +112,6 @@ func (r *Registry) TransportAndRegisterBlocks(fileID string, blocks []*fs_pb.Blo
 		// optimal node for every block
 	}
 
-	logrus.Infof("nodes: %v ; factor: %v", len(nodes), replicationFactor)
-
 	var resMu sync.Mutex
 	assignResult := make(map[string][]*control_pb.BlockInfo_Placement, len(blocks))
 
@@ -126,9 +124,10 @@ func (r *Registry) TransportAndRegisterBlocks(fileID string, blocks []*fs_pb.Blo
 			start := time.Now()
 			res, err := r.NodesManager.AssignBlocks(node.info.Id, blocks)
 			if err != nil {
-				logrus.Errorf("error assigning blocks to node: %v", err)
+				log.Error().Err(err).Msg("error assigning blocks to node")
 			}
-			logrus.Infof("transported blocks to node %v in %v", node.info.Id, time.Since(start).String())
+			log.Debug().Str("node_id", node.info.Id).
+				Str("time", time.Since(start).String()).Msg("transported blocks to node")
 
 			resMu.Lock()
 			for _, pInfo := range res {
@@ -159,7 +158,8 @@ func (r *Registry) TransportAndRegisterBlocks(fileID string, blocks []*fs_pb.Blo
 
 	err := r.registerBlocks(bInfos)
 	if err != nil {
-		logrus.Errorf("error putting blocks: %v", err)
+		// todo revert changes
+		log.Error().Err(err).Msg("error putting blocks")
 	}
 
 	err = r.Cluster.WriteAssignBlocksEntry(bInfos)
@@ -205,11 +205,11 @@ func (r *Registry) RemoveFileBlocks(file *control_pb.FileInfo) (error, map[strin
 				Blocks: blocks,
 			})
 			if err != nil {
-				logrus.Errorf("error removing blocks: %v", err)
+				log.Error().Err(err).Msg("error removing blocks")
 				return
 			}
 			if !res.Success {
-				logrus.Errorf("error removing blocks: %v", res.Error)
+				log.Error().Str("error", res.Error).Msg("error removing blocks")
 			}
 		}(nodeId, blocks)
 	}
@@ -219,8 +219,6 @@ func (r *Registry) RemoveFileBlocks(file *control_pb.FileInfo) (error, map[strin
 	if err != nil {
 		return err, nil
 	}
-
-	logrus.Infof("file deleted")
 
 	return nil, nil
 }

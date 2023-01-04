@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
 	"time"
 )
@@ -44,7 +44,7 @@ func NewControlService(cluster *Cluster, addresses map[string]string) (*ControlS
 	for uid, address := range addresses {
 		conn, err := grpc.Dial(address, grpc.WithInsecure())
 		if err != nil {
-			logrus.Errorf("couldn't connect to a registry peer: %v", err)
+			log.Error().Err(err).Msg("couldn't connect to a registry peer")
 			continue
 		}
 		// ping new node
@@ -52,7 +52,7 @@ func NewControlService(cluster *Cluster, addresses map[string]string) (*ControlS
 		_, err = c.Alive(context.Background(), &control_pb.Void{})
 		if err != nil {
 			// TODO: write something more informative
-			logrus.Errorf("error connecting to registry: %v", err)
+			log.Error().Err(err).Msg("error connecting to registry")
 			errs = append(errs, err)
 			conn.Close()
 			continue
@@ -61,7 +61,7 @@ func NewControlService(cluster *Cluster, addresses map[string]string) (*ControlS
 		peers[uid] = &c
 		sanePeers = append(sanePeers, uid)
 
-		logrus.Infof("connected to peer %v", address)
+		log.Debug().Str("address", address).Msg("connected to peer")
 	}
 
 	// No other registries are alive
@@ -104,13 +104,11 @@ func (s *ControlService) AddPeer(uid string, address string) error {
 	// ping new node
 	c := control_pb.NewControlClient(conn)
 
-	start := time.Now()
 	_, err = c.Alive(context.Background(), &control_pb.Void{})
 	if err != nil {
 		conn.Close()
 		return err
 	}
-	logrus.Infof("time passed: %v", time.Since(start).String())
 
 	s.conns[uid] = &PeerConn{
 		conn: &c,

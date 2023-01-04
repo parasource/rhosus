@@ -6,7 +6,7 @@ import (
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	"github.com/parasource/rhosus/rhosus/registry/wal"
 	"github.com/parasource/rhosus/rhosus/util/timers"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"math"
 	"os"
 	"sync"
@@ -93,7 +93,7 @@ func NewCluster(config Config, peers map[string]*control_pb.RegistryInfo) (*Clus
 	err := os.Mkdir(walPath, 0755)
 	if os.IsExist(err) {
 		// triggers if dir already exists
-		logrus.Debugf("backend path already exists, skipping")
+		log.Debug().Msg("backend path already exists, skipping")
 	} else if err != nil {
 		return nil, fmt.Errorf("error creating backend folder in %v: %v", walPath, err)
 	}
@@ -109,9 +109,9 @@ func NewCluster(config Config, peers map[string]*control_pb.RegistryInfo) (*Clus
 	clusterAddr := config.ClusterAddr
 	server, err := NewControlServer(c, clusterAddr)
 	if err != nil {
-		logrus.Fatalf("error creating control server: %v", err)
+		return nil, fmt.Errorf("error creating control server: %v", err)
 	}
-	logrus.Infof("listening control on %v", clusterAddr)
+	log.Info().Str("address", clusterAddr).Msg("listening control")
 
 	// Creating a service that holds connections to other conns
 	addresses := make(map[string]string, len(peers))
@@ -124,7 +124,7 @@ func NewCluster(config Config, peers map[string]*control_pb.RegistryInfo) (*Clus
 	}
 	service, sanePeers, err := NewControlService(c, addresses)
 	if err != nil {
-		logrus.Fatalf("error creating control service: %v", err)
+		return nil, fmt.Errorf("error creating control service: %v", err)
 	}
 
 	c.wal = w
@@ -174,7 +174,7 @@ func (c *Cluster) setInitialTermAndIndex() {
 
 	lastIndex, err := c.wal.LastIndex()
 	if err != nil {
-		logrus.Fatalf("error reading last entry in journal: %v", err)
+		log.Fatal().Err(err).Msg("error reading last entry in journal")
 	}
 
 	if lastIndex == 0 {
@@ -186,7 +186,7 @@ func (c *Cluster) setInitialTermAndIndex() {
 
 	data, err := c.wal.Read(lastIndex)
 	if err != nil {
-		logrus.Fatalf("error reading last entry in journal: %v", err)
+		log.Fatal().Err(err).Msg("error reading last entry in journal")
 	}
 	var entry control_pb.Entry
 	entry.Unmarshal(data)
@@ -261,7 +261,7 @@ func (c *Cluster) DiscoverOrUpdate(uid string, info *control_pb.RegistryInfo) (e
 			recovering:         false,
 		}
 
-		logrus.Infof("added cluster peer %v with name %v", uid, info.Name)
+		log.Info().Str("name", info.Name).Str("id", uid).Msg("added registry cluster peer")
 	}
 
 	return err
@@ -281,19 +281,6 @@ func (c *Cluster) RemovePeer(uid string) (err error) {
 
 	return err
 }
-
-//func (c *Cluster) IsWalEmpty() bool {
-//	return c.wal.isEmpty()
-//}
-
-//func (c *Cluster) isPromotable() bool {
-//	lastIndex, err := c.wal.LastIndex()
-//	if err != nil {
-//		return false
-//	}
-//
-//	return lastIndex > 0
-//}
 
 func (c *Cluster) MemberCount() int {
 	c.mu.RLock()
@@ -360,13 +347,9 @@ func (c *Cluster) LoopReadEntries() {
 		select {
 		// Leader is alright, so we discard timeout
 		case <-c.entriesAppendedC:
-
-			logrus.Info("HEARD FROM LEADER")
-
 			timers.ReleaseTimer(electionTimout)
 
 		case <-electionTimout.C:
-
 			timers.ReleaseTimer(electionTimout)
 
 			c.mu.RLock()
@@ -378,7 +361,7 @@ func (c *Cluster) LoopReadEntries() {
 
 			err := c.StartElection()
 			if err != nil {
-				logrus.Errorf("error starting election proccess: %v", err)
+				log.Error().Err(err).Msg("error starting election process")
 			}
 		}
 	}
@@ -424,7 +407,7 @@ func (c *Cluster) dispatchEntries() {
 			if !res.Success {
 				err := c.startLogRecovering(uid, res.LastCommittedIndex)
 				if err != nil {
-					logrus.Errorf("error starting recovering proccess: %v", err)
+					log.Error().Err(err).Msg("error starting recovering process")
 				}
 			}
 
@@ -452,7 +435,7 @@ func (c *Cluster) startLogRecovering(uid string, from uint64) error {
 			var entry control_pb.Entry
 			err = entry.Unmarshal(bytes)
 			if err != nil {
-				logrus.Errorf("error unmarshaling entry: %v", err)
+				log.Error().Err(err).Msg("error unmarshaling entry")
 			}
 
 			res, err := c.service.AppendEntries(uid, &control_pb.AppendEntriesRequest{
@@ -481,8 +464,6 @@ func (c *Cluster) startLogRecovering(uid string, from uint64) error {
 }
 
 func (c *Cluster) StartElection() error {
-	logrus.Info("STARTING ELECTION")
-
 	c.becomeCandidate()
 
 	// Incrementing term as the election started
@@ -496,7 +477,8 @@ func (c *Cluster) StartElection() error {
 	}
 	c.mu.RUnlock()
 
-	logrus.Infof("ELECTION started for %v peers at term %v", len(c.peers), c.GetCurrentTerm())
+	log.Info().Int("peers", len(c.peers)).
+		Uint32("term", c.GetCurrentTerm()).Msg("leader election started")
 
 	var voted, responded int32
 	var wg sync.WaitGroup
@@ -523,7 +505,7 @@ func (c *Cluster) StartElection() error {
 
 	if responded < 1 || float64(voted) >= math.Floor(float64(responded/2)) {
 		c.becomeLeader()
-		logrus.Debug("changed node state to a leader")
+		log.Debug().Msg("changed node state to a leader")
 	}
 
 	return nil

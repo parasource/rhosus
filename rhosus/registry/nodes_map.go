@@ -6,7 +6,7 @@ import (
 	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
 	"github.com/parasource/rhosus/rhosus/util/tickers"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
 	"io"
 	"sort"
@@ -55,7 +55,7 @@ func NewNodesMap(registry *Registry, nodes map[string]*transport_pb.NodeInfo) (*
 	for id, info := range nodes {
 		conn, err := grpc.Dial(info.Address, grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.MaxCallSendMsgSize(32<<20), grpc.MaxCallRecvMsgSize(32<<20)))
 		if err != nil {
-			logrus.Errorf("error connnecting to node %v: %v", info.Id, err)
+			log.Error().Err(err).Str("node_id", info.Id).Msg("error connnecting to node")
 			continue
 		}
 
@@ -63,7 +63,7 @@ func NewNodesMap(registry *Registry, nodes map[string]*transport_pb.NodeInfo) (*
 		client := transport_pb.NewTransportServiceClient(conn)
 		_, err = client.Heartbeat(context.Background(), &transport_pb.HeartbeatRequest{})
 		if err != nil {
-			logrus.Errorf("error pinging node %v: %v", info.Id, err)
+			log.Error().Err(err).Str("node_id", info.Id).Msg("error pinging node")
 			continue
 		}
 
@@ -74,7 +74,7 @@ func NewNodesMap(registry *Registry, nodes map[string]*transport_pb.NodeInfo) (*
 			recovering:   false,
 		}
 
-		logrus.Infof("added existing node %v on %v", info.Id, info.Address)
+		log.Info().Str("node_id", info.Id).Msg("added existing node from map")
 	}
 
 	conns := make(map[string]*transport_pb.TransportServiceClient)
@@ -112,7 +112,7 @@ func (m *NodesMap) AddNode(name string, info *transport_pb.NodeInfo) error {
 	}
 	m.mu.Unlock()
 
-	logrus.Infof("added new node to nodes map: %v %v", info.Id, info.Address)
+	log.Info().Str("node_id", info.Id).Msg("added new node to nodes map")
 
 	return nil
 }
@@ -244,7 +244,7 @@ func (m *NodesMap) GetBlocks(nodeID string, blocks []*transport_pb.BlockPlacemen
 			break
 		}
 		if err != nil {
-			logrus.Errorf("error receiving: %v", err)
+			log.Error().Err(err).Msg("error receiving")
 			continue
 		}
 
@@ -271,13 +271,13 @@ func (m *NodesMap) AssignBlocks(nodeID string, blocks []*fs_pb.Block) ([]*transp
 			Block: block,
 		})
 		if err != nil {
-			logrus.Errorf("error sending block: %v", err)
+			log.Error().Err(err).Str("node_id", nodeID).Msg("error sending block")
 		}
 	}
 
 	res, err := stream.CloseAndRecv()
 	if err != nil {
-		logrus.Errorf("error closing stream: %v", err)
+		log.Error().Err(err).Str("node_id", nodeID).Msg("error closing stream")
 		return nil, err
 	}
 

@@ -13,7 +13,7 @@ import (
 	api_pb "github.com/parasource/rhosus/rhosus/pb/api"
 	"github.com/parasource/rhosus/rhosus/registry"
 	"github.com/parasource/rhosus/rhosus/util"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"net/http"
 	"strings"
 	"sync"
@@ -76,17 +76,17 @@ func (a *Api) Run() {
 	go func() {
 		err := a.http.ListenAndServe()
 		if err != nil && err != http.ErrServerClosed {
-			logrus.Errorf("error listening: %v", err)
+			log.Fatal().Err(err).Msg("error listening api")
 		}
 	}()
 
-	logrus.Infof("API server is up and running on %v", a.Config.Address)
+	log.Info().Str("address", a.Config.Address).Msg("API server is up and running")
 
 	if <-a.NotifyShutdown(); true {
-		logrus.Infof("shutting down API server")
+		log.Info().Msg("shutting down API server")
 		err := a.http.Shutdown(context.Background())
 		if err != nil {
-			logrus.Errorf("error occured while shutting down API server: %v", err)
+			log.Error().Err(err).Msg("error occurred while shutting down API server")
 		}
 	}
 }
@@ -114,7 +114,7 @@ func (a *Api) Handle(rw http.ResponseWriter, r *http.Request) {
 		case http.MethodPost, http.MethodPut:
 			err := a.handlePostPut(rw, r)
 			if err != nil {
-				logrus.Errorf("error uploading file: %v", err)
+				log.Error().Err(err).Msg("error handling Post/Put operation")
 			}
 		case http.MethodDelete:
 			a.handleDelete(rw, r)
@@ -131,14 +131,14 @@ func (a *Api) HandleSys(rw http.ResponseWriter, r *http.Request) error {
 	case "sys/mkdir":
 		_, err := r.Body.Read(body)
 		if err != nil {
-			logrus.Errorf("error reading request body: %v", err)
+			log.Error().Err(err).Msg("error reading request body")
 			return err
 		}
 
 		var msg api_pb.MakeDirRequest
 		err = a.decoder.Unmarshal(r.Body, &msg)
 		if err != nil {
-			logrus.Errorf("error unmarshaling sys request: %v", err)
+			log.Error().Err(err).Msg("error unmarshaling sys request")
 			return err
 		}
 
@@ -154,14 +154,14 @@ func (a *Api) HandleSys(rw http.ResponseWriter, r *http.Request) error {
 	case "sys/rm":
 		_, err := r.Body.Read(body)
 		if err != nil {
-			logrus.Errorf("error reading request body: %v", err)
+			log.Error().Err(err).Msg("error reading request body")
 			return err
 		}
 
 		var msg api_pb.RemoveRequest
 		err = a.decoder.Unmarshal(r.Body, &msg)
 		if err != nil {
-			logrus.Errorf("error unmarshaling sys request: %v", err)
+			log.Error().Err(err).Msg("error unmarshaling sys request")
 			return err
 		}
 
@@ -177,14 +177,14 @@ func (a *Api) HandleSys(rw http.ResponseWriter, r *http.Request) error {
 	case "sys/list":
 		_, err := r.Body.Read(body)
 		if err != nil {
-			logrus.Errorf("error reading request body: %v", err)
+			log.Error().Err(err).Msg("error reading request body")
 			return err
 		}
 
 		var msg api_pb.ListRequest
 		err = a.decoder.Unmarshal(r.Body, &msg)
 		if err != nil {
-			logrus.Errorf("error unmarshaling sys request: %v", err)
+			log.Error().Err(err).Msg("error unmarshaling sys request")
 			return err
 		}
 

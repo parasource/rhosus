@@ -13,7 +13,7 @@ import (
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/parasource/rhosus/rhosus/util/timers"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	bolt "go.etcd.io/bbolt"
 	"os"
 	"path"
@@ -66,7 +66,7 @@ func NewStorage(config Config) (*Storage, error) {
 	err := os.Mkdir(backendPath, 0755)
 	if os.IsExist(err) {
 		// triggers if dir already exists
-		logrus.Debugf("backend path already exists, skipping")
+		log.Debug().Msg("backend path already exists, skipping")
 	} else if err != nil {
 		return nil, fmt.Errorf("error creating backend folder in %v: %v", config.Path, err)
 	}
@@ -79,7 +79,7 @@ func NewStorage(config Config) (*Storage, error) {
 
 	err = s.setup()
 	if err != nil {
-		logrus.Fatalf("error setting up backend: %v", err)
+		return nil, fmt.Errorf("error setting up backend: %v", err)
 	}
 
 	go s.start()
@@ -88,7 +88,7 @@ func NewStorage(config Config) (*Storage, error) {
 		if <-s.NotifyShutdown(); true {
 			err := db.Close()
 			if err != nil {
-				logrus.Errorf("error closing bbolt: %v", err)
+				log.Error().Err(err).Msg("error closing file database")
 			}
 			return
 		}
@@ -234,7 +234,7 @@ func (s *Storage) GetFilesBatch(paths []string) ([]*control_pb.FileInfo, error) 
 		var file control_pb.FileInfo
 		err = file.Unmarshal(bytes)
 		if err != nil {
-			logrus.Errorf("error unmarshaling file info: %v", err)
+			log.Error().Err(err).Msg("error unmarshaling file info")
 		}
 
 		files = append(files, &file)
@@ -280,7 +280,8 @@ func (s *Storage) GetAllFiles() ([]*control_pb.FileInfo, error) {
 		var file control_pb.FileInfo
 		err = file.Unmarshal(bytes)
 		if err != nil {
-			logrus.Errorf("error unmarshaling file info: %v", err)
+			log.Error().Err(err).Msg("error unmarshaling file info")
+			continue
 		}
 
 		files = append(files, &file)
@@ -326,7 +327,8 @@ func (s *Storage) GetAllBlocks() ([]*control_pb.BlockInfo, error) {
 		var block control_pb.BlockInfo
 		err = block.Unmarshal(bytes)
 		if err != nil {
-			logrus.Errorf("error unmarshaling file info: %v", err)
+			log.Error().Err(err).Msg("error unmarshaling block info")
+			continue
 		}
 
 		blocks = append(blocks, &block)
@@ -368,7 +370,6 @@ func (s *Storage) RemoveFilesBatch(fileIDs []string) error {
 
 // PutBlocksBatch is used by node to map block ids to partitions
 func (s *Storage) PutBlocksBatch(blocks map[string]*control_pb.BlockInfo) error {
-
 	s.mu.RLock()
 	if s.shutdown {
 		s.mu.RUnlock()
@@ -380,7 +381,7 @@ func (s *Storage) PutBlocksBatch(blocks map[string]*control_pb.BlockInfo) error 
 	for id, info := range blocks {
 		bytes, err := info.Marshal()
 		if err != nil {
-			logrus.Errorf("error marshaling block info: %v", err)
+			log.Error().Err(err).Msg("error marshaling block info")
 			continue
 		}
 		data[id] = util.Base64Encode(bytes)

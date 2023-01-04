@@ -16,7 +16,7 @@ import (
 	"github.com/parasource/rhosus/rhosus/storage"
 	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/parasource/rhosus/rhosus/util/tickers"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"os"
@@ -83,19 +83,19 @@ func NewRegistry(config Config) (*Registry, error) {
 		Address: config.EtcdAddr,
 	})
 	if err != nil {
-		logrus.Fatalf("error connecting to etcd: %v", err)
+		log.Fatal().Err(err).Msg("error connecting to etcd")
 	}
 	r.etcdClient = etcdClient
 
 	s, err := storage.NewStorage(config.Backend)
 	if err != nil {
-		logrus.Fatalf("error creating storage: %v", err)
+		log.Fatal().Err(err).Msg("error creating storage")
 	}
 	r.Backend = s
 
 	memStorage, err := NewMemoryStorage(r)
 	if err != nil {
-		logrus.Fatalf("error creating memory storage: %v", err)
+		log.Fatal().Err(err).Msg("error creating memory storage")
 	}
 	r.MemoryStorage = memStorage
 
@@ -103,12 +103,12 @@ func NewRegistry(config Config) (*Registry, error) {
 	// Error occurs only in non-usual conditions, so we shut down
 	regs, err := r.getExistingRegistries()
 	if err != nil {
-		logrus.Fatalf("error getting existing registries from etcd: %v", err)
+		log.Fatal().Err(err).Msg("error getting existing registries from etcd")
 	}
 
 	nodes, err := r.getExistingNodes()
 	if err != nil {
-		logrus.Fatalf("error getting existing nodes from etcd: %v", err)
+		log.Fatal().Err(err).Msg("error getting existing datanodes from etcd")
 	}
 
 	info := &control_pb.RegistryInfo{
@@ -136,7 +136,7 @@ func NewRegistry(config Config) (*Registry, error) {
 	// Registering itself in etcd cluster
 	err = r.registerItself(info)
 	if err != nil {
-		logrus.Fatalf("%v", err)
+		log.Fatal().Err(err).Msg("error registering in etcd")
 	}
 
 	return r, nil
@@ -150,45 +150,54 @@ func (r *Registry) handleEntriesFromLeader(entries []*control_pb.Entry) {
 			var entryAssign control_pb.EntryAssignFile
 			err = entryAssign.Unmarshal(entry.Data)
 			if err != nil {
-				logrus.Errorf("error unmarshalling assign file entry: %v", err)
+				log.Error().Err(err).Str("type", "assign_file").
+					Msg("error unmarshalling entry")
 				continue
 			}
 			err = r.registerFile(entryAssign.File)
 			if err != nil {
-				logrus.Errorf("error registering file: %v", err)
+				log.Error().Err(err).Str("file_id", entryAssign.File.Id).
+					Msg("error registering file in storage")
 			}
 		case control_pb.Entry_DELETE_FILE:
 			var entryDelete control_pb.EntryDeleteFile
 			err = entryDelete.Unmarshal(entry.Data)
 			if err != nil {
-				logrus.Errorf("error unmarshalling delete file entry: %v", err)
+				log.Error().Err(err).Str("type", "delete_file").
+					Msg("error unmarshalling entry")
 				continue
 			}
 			err = r.unregisterFile(entryDelete.File)
 			if err != nil {
-				logrus.Errorf("error unregistering file: %v", err)
+				log.Error().Err(err).Str("file_id", entryDelete.File.Id).
+					Msg("error deleting file from storage")
 			}
 		case control_pb.Entry_ASSIGN_BLOCKS:
 			var entryAssign control_pb.EntryAssignBlocks
 			err = entryAssign.Unmarshal(entry.Data)
 			if err != nil {
-				logrus.Errorf("error unmarshalling assign blocks entry: %v", err)
+				log.Error().Err(err).Str("type", "assign_blocks").
+					Msg("error unmarshalling entry")
 				continue
 			}
 			err = r.registerBlocks(entryAssign.Blocks)
 			if err != nil {
-				logrus.Errorf("error registering blocks: %v", err)
+				// todo more informative log
+				log.Error().Err(err).
+					Msg("error registering blocks in storage")
 			}
 		case control_pb.Entry_DELETE_BLOCKS:
 			var entryDelete control_pb.EntryDeleteBlocks
 			err = entryDelete.Unmarshal(entry.Data)
 			if err != nil {
-				logrus.Errorf("error unmarshalling delete blocks entry: %v", err)
+				log.Error().Err(err).Str("type", "delete_blocks").Msg("error unmarshalling entry")
 				continue
 			}
 			err = r.unregisterBlocks(entryDelete.Blocks)
 			if err != nil {
-				logrus.Errorf("error unregistering blocks: %v", err)
+				// todo more informative log
+				log.Error().Err(err).
+					Msg("error deleting blocks from storage")
 			}
 		}
 	}
@@ -206,7 +215,7 @@ func (r *Registry) Start() {
 
 	r.readyC <- struct{}{}
 
-	logrus.Infof("Registry %v:%v is ready", r.Name, r.Id)
+	log.Info().Str("name", r.Name).Str("uuid", r.Id).Msg("registry is ready")
 
 	select {
 	case <-r.NotifyShutdown():
@@ -225,11 +234,11 @@ func (r *Registry) Shutdown() {
 
 	close(r.shutdownC)
 
-	logrus.Infof("shutting down registry")
+	log.Info().Msg("shutting down registry")
 	pidFile := viper.GetString("pid_file")
 	err := r.unregisterItself()
 	if err != nil {
-		logrus.Errorf("error unregistering: %v", err)
+		log.Error().Err(err).Msg("error unregistering from etcd")
 	}
 
 	r.Backend.Shutdown()
@@ -238,7 +247,7 @@ func (r *Registry) Shutdown() {
 	if pidFile != "" {
 		err := os.Remove(pidFile)
 		if err != nil {
-			logrus.Errorf("error removing pid file: %v", err)
+			log.Error().Err(err).Msg("error removing pid file")
 		}
 	}
 
@@ -285,7 +294,7 @@ func (r *Registry) getExistingRegistries() (map[string]*control_pb.RegistryInfo,
 
 	registries, err := r.etcdClient.GetExistingRegistries()
 	if err != nil {
-		logrus.Fatalf("error getting existing registries: %v", err)
+		log.Fatal().Err(err).Msg("error getting existing registries")
 	}
 
 	result := make(map[string]*control_pb.RegistryInfo)
@@ -295,13 +304,13 @@ func (r *Registry) getExistingRegistries() (map[string]*control_pb.RegistryInfo,
 		var info control_pb.RegistryInfo
 		err := info.Unmarshal(bytes)
 		if err != nil {
-			logrus.Errorf("error unmarshaling node info: %v", err)
+			log.Error().Err(err).Msg("error unmarshalling node info")
 			continue
 		}
 
 		result[info.Id] = &info
 
-		logrus.Infof("registry %v added from existing map", info.Name)
+		log.Info().Str("name", info.Name).Str("id", info.Id).Msg("registry added from existing map")
 	}
 
 	return result, nil
@@ -317,7 +326,7 @@ func (r *Registry) getExistingNodes() (map[string]*transport_pb.NodeInfo, error)
 
 	nodes, err := r.etcdClient.GetExistingNodes()
 	if err != nil {
-		logrus.Fatalf("error getting existing registries: %v", err)
+		log.Fatal().Err(err).Msg("error getting existing registries")
 	}
 
 	result := make(map[string]*transport_pb.NodeInfo)
@@ -327,7 +336,7 @@ func (r *Registry) getExistingNodes() (map[string]*transport_pb.NodeInfo, error)
 		var info transport_pb.NodeInfo
 		err := info.Unmarshal(bytes)
 		if err != nil {
-			logrus.Errorf("error unmarshaling node info: %v", err)
+			log.Error().Err(err).Msg("error unmarshalling node info")
 			continue
 		}
 
@@ -361,7 +370,7 @@ func (r *Registry) RunServiceDiscovery() {
 
 			err := r.etcdClient.Ping()
 			if err != nil {
-				logrus.Errorf("error pinging etcd: %v", err)
+				log.Error().Err(err).Msg("error pinging etcd")
 			}
 
 		case res := <-r.etcdClient.WatchForNodesUpdates():
@@ -373,20 +382,17 @@ func (r *Registry) RunServiceDiscovery() {
 
 				// Node added or updated
 				case clientv3.EventTypePut:
-
-					logrus.Info("RECEIVED EVENT PUT")
-
 					data := string(event.Kv.Value)
 
 					bytes, err := util.Base64Decode(data)
 					if err != nil {
-						logrus.Errorf("error decoding")
+						log.Error().Err(err).Msg("error decoding base64 message from etcd")
 					}
 
 					var info transport_pb.NodeInfo
 					err = info.Unmarshal(bytes)
 					if err != nil {
-						logrus.Errorf("error unmarshaling node info: %v", err)
+						log.Error().Err(err).Msg("error unmarshalling datanode info")
 					}
 
 					if r.NodesManager.NodeExists(info.Id) {
@@ -396,24 +402,23 @@ func (r *Registry) RunServiceDiscovery() {
 					} else {
 						err := r.NodesManager.AddNode(info.Id, &info)
 						if err != nil {
-							logrus.Errorf("error adding node: %v", err)
+							log.Error().Err(err).Msg("error adding datanode")
 							continue
 						}
 
-						logrus.Infof("node %v added", info.Name)
+						log.Info().Str("name", info.Name).Str("id", info.Id).Msg("datanode added")
 					}
 
 				// Node shut down or errored
 				case clientv3.EventTypeDelete:
-
 					name := rhosus_etcd.ParseNodeName(string(event.Kv.Key))
 
 					if r.NodesManager.NodeExists(name) {
 						r.NodesManager.RemoveNode(name)
 
-						logrus.Infof("node %v shut down", name)
+						log.Info().Str("name", name).Msg("datanode shut down")
 					} else {
-						logrus.Warnf("undefined node deletion signal")
+						log.Error().Str("name", name).Msg("undefined node deletion signal")
 					}
 
 				}
@@ -427,7 +432,6 @@ func (r *Registry) RunServiceDiscovery() {
 				switch event.Type {
 
 				case clientv3.EventTypePut:
-
 					name := string(event.Kv.Key)
 					data := string(event.Kv.Value)
 
@@ -437,27 +441,19 @@ func (r *Registry) RunServiceDiscovery() {
 
 					bytes, err := util.Base64Decode(data)
 					if err != nil {
-						logrus.Errorf("error decoding")
+						log.Error().Err(err).Msg("error decoding base64 message from etcd")
 					}
 
 					var info control_pb.RegistryInfo
 					err = info.Unmarshal(bytes)
 					if err != nil {
-						logrus.Errorf("error unmarshaling registry info: %v", err)
+						log.Error().Err(err).Msg("error unmarshalling registry info")
 					}
 
 					err = r.Cluster.DiscoverOrUpdate(info.Id, &info)
 					if err != nil {
-						logrus.Errorf("error discovering registry: %v", err)
+						log.Error().Err(err).Msg("error discovering registry")
 					}
-					//if r.RegistriesMap.RegistryExists(name) {
-					//
-					//} else {
-					//	err := r.RegistriesMap.Add(name, &info)
-					//	if err != nil {
-					//		logrus.Errorf("error adding new registry: %v", err)
-					//	}
-					//}
 
 				case clientv3.EventTypeDelete:
 
@@ -467,14 +463,7 @@ func (r *Registry) RunServiceDiscovery() {
 						continue
 					}
 
-					//if r.RegistriesMap.RegistryExists(name) {
-					//	err := r.RegistriesMap.Remove(name)
-					//	if err != nil {
-					//		logrus.Errorf("error removing registry: %v", err)
-					//	}
-					//} else {
-					//	logrus.Warn("undefined registry deletion signal")
-					//}
+					// todo handle registry shutdown
 
 				}
 			}

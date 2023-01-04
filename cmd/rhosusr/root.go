@@ -15,7 +15,7 @@ import (
 	"github.com/parasource/rhosus/rhosus/storage"
 	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/parasource/rhosus/rhosus/util/uuid"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -104,7 +104,7 @@ var rootCmd = &cobra.Command{
 		for _, env := range bindEnvs {
 			err := viper.BindEnv(env)
 			if err != nil {
-				logrus.Fatalf("error binding env variable: %v", err)
+				log.Fatal().Err(err).Msg("error binding env variable")
 			}
 		}
 
@@ -124,7 +124,7 @@ var rootCmd = &cobra.Command{
 
 		r, err := registry.NewRegistry(conf)
 		if err != nil {
-			logrus.Fatalf("error creating registry instance: %v", err)
+			log.Fatal().Err(err).Msg("error creating registry instance")
 		}
 
 		go r.Start()
@@ -148,11 +148,11 @@ var rootCmd = &cobra.Command{
 }
 
 func registryConfig(v *viper.Viper) (registry.Config, error) {
-	if checker.checkIfUsingDefault("api_addr") {
-		logrus.Warn("api address is not set explicitly")
+	if os.Getenv("API_ADDR") == "" {
+		log.Warn().Msg("API_ADDR is not set explicitly, falling back to default")
 	}
-	if checker.checkIfUsingDefault("cluster_addr") {
-		logrus.Warn("cluster address is not set explicitly")
+	if os.Getenv("CLUSTER_ADDR") == "" {
+		log.Warn().Msg("CLUSTER_ADDR is not set explicitly, falling back to default")
 	}
 
 	clusterAddr := v.GetString("cluster_addr")
@@ -197,11 +197,11 @@ func getId(rhosusPath string, persistent bool) string {
 		defer file.Close()
 
 		if err != nil {
-			logrus.Errorf("error opening node uuid file: %v", err)
+			log.Fatal().Err(err).Str("path", uuidFilePath).Msg("error opening node uuid file")
 		}
 		data, err := io.ReadAll(file)
 		if err != nil {
-			logrus.Fatalf("error reading uuid file")
+			log.Fatal().Err(err).Str("path", uuidFilePath).Msg("error reading node uuid file")
 		}
 
 		id = string(data)
@@ -210,11 +210,10 @@ func getId(rhosusPath string, persistent bool) string {
 		id = v4uid.String()
 
 		file, err := os.OpenFile(uuidFilePath, os.O_CREATE|os.O_RDWR, 0755)
-		defer file.Close()
-
 		if err != nil {
-
+			log.Fatal().Err(err).Msg("error opening node uuid file")
 		}
+		defer file.Close()
 		file.Write([]byte(id))
 	}
 
@@ -226,7 +225,7 @@ func handleSignals(shutdownCh chan<- struct{}) {
 	signal.Notify(sigc, syscall.SIGHUP, syscall.SIGINT, os.Interrupt, syscall.SIGTERM)
 	for {
 		sig := <-sigc
-		logrus.Infof("signal received: %v", sig)
+		log.Info().Str("signal", sig.String()).Msg("system signal received")
 		switch sig {
 		case syscall.SIGHUP:
 

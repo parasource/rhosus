@@ -1,10 +1,11 @@
 package registry
 
 import (
+	"fmt"
 	"github.com/hashicorp/go-memdb"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	"github.com/parasource/rhosus/rhosus/util/tickers"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"sort"
 	"time"
 )
@@ -86,8 +87,7 @@ func NewMemoryStorage(registry *Registry) (*MemoryStorage, error) {
 	}
 	err = m.loadFromBackend()
 	if err != nil {
-		logrus.Errorf("error loading memory storage from backend: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("error loading memory storage from backend: %w", err)
 	}
 
 	go func() {
@@ -99,7 +99,7 @@ func NewMemoryStorage(registry *Registry) (*MemoryStorage, error) {
 			case <-ticker.C:
 				err := m.FlushToBackend()
 				if err != nil {
-					logrus.Errorf("error flushing memory to backend: %v", err)
+					log.Error().Err(err).Msg("error saving memory storage to file")
 				}
 			case <-m.registry.NotifyShutdown():
 				return
@@ -120,7 +120,7 @@ func (s *MemoryStorage) loadFromBackend() error {
 	for _, file := range files {
 		err := s.StoreFile(file)
 		if err != nil {
-			logrus.Errorf("error loading file from backend to mem storage: %v", err)
+			log.Error().Err(err).Msg("error loading memory storage from file")
 			continue
 		}
 	}
@@ -310,15 +310,15 @@ func (s *MemoryStorage) FlushToBackend() error {
 
 	err = s.flushFilesToBackend(txn)
 	if err != nil {
-		logrus.Errorf("error flushing files batch to backend: %v", err)
+		return fmt.Errorf("error saving files to file: %w", err)
 	}
 
 	err = s.flushBlocksToBackend(txn)
 	if err != nil {
-		logrus.Errorf("error flusing blocks batch to backend: %v", err)
+		return fmt.Errorf("error flusing blocks batch to backend: %v", err)
 	}
 
-	return err
+	return nil
 }
 
 func (s *MemoryStorage) flushFilesToBackend(txn *memdb.Txn) error {
@@ -332,7 +332,7 @@ func (s *MemoryStorage) flushFilesToBackend(txn *memdb.Txn) error {
 		if len(filesBatch) == s.flushBatchSize {
 			err := s.registry.Backend.StoreFilesBatch(filesBatch)
 			if err != nil {
-				logrus.Errorf("error flushing files batch to backend: %v", err)
+				log.Error().Err(err).Msg("error flushing files batch to backend")
 			}
 			filesBatch = make(map[string]*control_pb.FileInfo, s.flushBatchSize)
 		}

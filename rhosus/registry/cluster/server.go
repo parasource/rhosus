@@ -2,8 +2,9 @@ package cluster
 
 import (
 	"context"
+	"fmt"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
 	"net"
 )
@@ -25,7 +26,6 @@ type ControlServer struct {
 }
 
 func NewControlServer(cluster *Cluster, address string) (*ControlServer, error) {
-
 	var err error
 
 	s := &ControlServer{
@@ -34,7 +34,7 @@ func NewControlServer(cluster *Cluster, address string) (*ControlServer, error) 
 
 	lis, err := net.Listen("tcp", address)
 	if err != nil {
-		logrus.Fatalf("error listening tcp: %v", err)
+		return nil, fmt.Errorf("error listening tcp: %v", err)
 	}
 
 	grpcServer := grpc.NewServer()
@@ -42,7 +42,7 @@ func NewControlServer(cluster *Cluster, address string) (*ControlServer, error) 
 
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {
-			logrus.Fatalf("error starting grpc node server: %v", err)
+			log.Fatal().Err(err).Msg("error starting grpc control server")
 		}
 	}()
 
@@ -51,7 +51,7 @@ func NewControlServer(cluster *Cluster, address string) (*ControlServer, error) 
 		case <-s.cluster.NotifyShutdown():
 			err := lis.Close()
 			if err != nil {
-				logrus.Errorf("error closing control server tcp: %v", err)
+				log.Error().Err(err).Msg("error closing control server tcp")
 			}
 
 			return
@@ -72,7 +72,7 @@ func (s *ControlServer) RequestVote(c context.Context, req *control_pb.RequestVo
 	}
 
 	if req.Term < currentTerm {
-		logrus.Debugf("declined request vote from a node %v with less term", req.CandidateId)
+		log.Debug().Str("candidate_id", req.CandidateId).Msg("declined request vote from a node with less term")
 		return &control_pb.RequestVoteResponse{
 			From:        s.cluster.ID,
 			Term:        s.cluster.currentTerm,
@@ -82,7 +82,7 @@ func (s *ControlServer) RequestVote(c context.Context, req *control_pb.RequestVo
 
 	// If we already voted in this term - we decline
 	if s.lastVotedTerm == req.Term {
-		logrus.Info("declined request vote: already voted")
+		log.Debug().Msg("declined request vote: already voted")
 		return &control_pb.RequestVoteResponse{
 			From:        s.cluster.ID,
 			Term:        s.cluster.currentTerm,
@@ -91,7 +91,7 @@ func (s *ControlServer) RequestVote(c context.Context, req *control_pb.RequestVo
 	}
 
 	if req.LastLogIndex < s.cluster.lastLogIndex {
-		logrus.Infof("rejected candidate %v with outdated logs idx", req.CandidateId)
+		log.Debug().Str("candidate_id", req.CandidateId).Msg("rejected candidate with outdated logs")
 		return &control_pb.RequestVoteResponse{
 			From:        s.cluster.ID,
 			Term:        s.cluster.currentTerm,
@@ -100,7 +100,7 @@ func (s *ControlServer) RequestVote(c context.Context, req *control_pb.RequestVo
 	}
 
 	if req.LastLogTerm < s.cluster.lastLogTerm {
-		logrus.Infof("rejected candidate %v with outdated logs term --- %v:%v", req.CandidateId, req.LastLogTerm, s.cluster.lastLogTerm)
+		log.Debug().Str("candidate_id", req.CandidateId).Uint32("last_log_term", req.LastLogTerm)
 		return &control_pb.RequestVoteResponse{
 			From:        s.cluster.ID,
 			Term:        s.cluster.currentTerm,
@@ -109,7 +109,7 @@ func (s *ControlServer) RequestVote(c context.Context, req *control_pb.RequestVo
 	}
 
 	if req.LastLogTerm == s.cluster.lastLogTerm && req.LastLogIndex < s.cluster.lastLogIndex {
-		logrus.Infof("rejected candidate %v with short logs", req.CandidateId)
+		log.Debug().Str("candidate_id", req.CandidateId).Msg("rejected candidate with short logs")
 		return &control_pb.RequestVoteResponse{
 			From:        s.cluster.ID,
 			Term:        s.cluster.currentTerm,
@@ -138,7 +138,7 @@ func (s *ControlServer) AppendEntries(c context.Context, req *control_pb.AppendE
 	}
 
 	if req.Term < currentTerm {
-		logrus.Debugf("declined append entries from node %v with less term", req.LeaderId)
+		log.Debug().Str("leader_id", req.LeaderId).Msg("declined append entries from leader with less term")
 		return &control_pb.AppendEntriesResponse{
 			From:               s.cluster.ID,
 			Term:               s.cluster.currentTerm,
@@ -165,7 +165,13 @@ func (s *ControlServer) AppendEntries(c context.Context, req *control_pb.AppendE
 
 	err := s.cluster.WriteEntriesFromLeader(req.Entries)
 	if err != nil {
-		logrus.Errorf("error writing to wal: %v", err)
+		log.Error().Err(err).Msg("error writing leader entries to wal")
+		return &control_pb.AppendEntriesResponse{
+			From:               s.cluster.ID,
+			Term:               s.cluster.GetCurrentTerm(),
+			Success:            false,
+			LastCommittedIndex: s.cluster.GetLastLogIndex(),
+		}, nil
 	}
 
 	return &control_pb.AppendEntriesResponse{

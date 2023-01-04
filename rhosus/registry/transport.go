@@ -10,7 +10,7 @@ package registry
 import (
 	"context"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"sync"
 )
 
@@ -40,7 +40,7 @@ func NewTransport(config TransportConfig, conns map[string]*transport_pb.Transpo
 	for id, connR := range conns {
 		conn := *connR
 		if _, err := conn.Heartbeat(context.Background(), &transport_pb.HeartbeatRequest{}); err != nil {
-			logrus.Errorf("error adding conn to transport: %v", err)
+			log.Error().Err(err).Msg("error adding conn to transport")
 			continue
 		}
 		t.conns[id] = &conn

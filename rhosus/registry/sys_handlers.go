@@ -12,7 +12,7 @@ import (
 	api_pb "github.com/parasource/rhosus/rhosus/pb/api"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	"github.com/parasource/rhosus/rhosus/util/uuid"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"sort"
 	"strings"
 )
@@ -97,7 +97,6 @@ func (r *Registry) HandleRemoveFileOrPath(req *api_pb.RemoveRequest) (*api_pb.Co
 		return nil, err
 	}
 	if rootFile.Type == control_pb.FileInfo_FILE {
-		logrus.Infof("removing file blocks: %v", rootFile)
 		err, errs := r.RemoveFileBlocks(rootFile)
 		if err != nil {
 			return nil, err
@@ -139,7 +138,7 @@ func (r *Registry) killChildren(file *control_pb.FileInfo) error {
 		}
 		if errs != nil && len(errs) > 0 {
 			for nodeID, nodeErr := range errs {
-				logrus.Errorf("error deleting blocks from node %v: %v", nodeID, nodeErr)
+				log.Error().Err(nodeErr).Str("node_id", nodeID).Msg("error deleting blocks from node")
 			}
 		}
 	}

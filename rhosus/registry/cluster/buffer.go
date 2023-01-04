@@ -3,7 +3,7 @@ package cluster
 import (
 	"errors"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"sync"
 )
 
@@ -25,7 +25,7 @@ func (b *entriesBuffer) Write(entry *control_pb.Entry) error {
 	}
 
 	if b.entries[len(b.entries)-1].Term > entry.Term {
-		logrus.Errorf("skipping entry with less currentTerm")
+		log.Error().Msg("skipping entry with less currentTerm")
 		return nil
 	}
 
@@ -46,7 +46,7 @@ func (b *entriesBuffer) WriteBatch(entries []*control_pb.Entry) error {
 			}
 
 			if b.entries[len(b.entries)-1].Term > entry.Term {
-				logrus.Errorf("skipping entry with less currentTerm")
+				log.Error().Msg("skipping entry with less currentTerm")
 				continue
 			}
 		}
