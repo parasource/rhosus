@@ -9,8 +9,22 @@ package auth
 
 // So here will be authentication centre, role management etc.
 
+type AuthenticationRequest struct {
+	Username string
+	Data     map[string]interface{}
+}
+
+type AuthenticationResponse struct {
+	Token string `json:"token"`
+}
+
+type AuthorisationRequest struct {
+}
+
+type AuthorisationResponse struct {
+}
+
 type Authenticator interface {
-	CreateRole()
-	UpdateRole()
-	DeleteRole()
+	Authenticate(req AuthenticationRequest) (AuthenticationResponse, error)
+	Authorise(req AuthorisationRequest) (AuthorisationResponse, error)
 }

@@ -161,3 +161,19 @@ message DirectoryListing {
   repeated FileInfo listing = 1;
   uint32 remainingPages = 2;
 }
+
+
+// User types
+
+message Role {
+  string ID = 1;
+  string name = 2;
+  repeated string permissions = 3;
+  string password = 4;
+}
+
+message Token {
+  string roleID = 1;
+  string token = 2;
+  int64 valid_until = 3;
+}
