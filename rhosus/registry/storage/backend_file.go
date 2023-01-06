@@ -11,10 +11,6 @@ import (
 
 const (
 	defaultDbFileName = "data.db"
-
-	filesStorageBucketName  = "__files"
-	blocksStorageBucketName = "__blocks"
-	metaStorageBucketName   = "__meta"
 )
 
 var _ Backend = &FileStorageBackend{}
@@ -48,38 +44,7 @@ func NewFileStorageBackend(config Config) (*FileStorageBackend, error) {
 	}
 	s.db = db
 
-	err = s.setup()
-	if err != nil {
-		return nil, fmt.Errorf("error setting up backend: %v", err)
-	}
-
 	return s, nil
-}
-
-// setup creates necessary bboltdb buckets
-func (s *FileStorageBackend) setup() (err error) {
-	err = s.db.Update(func(tx *bolt.Tx) error {
-		var err error
-
-		_, err = tx.CreateBucketIfNotExists([]byte(EntryTypeFile))
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.CreateBucketIfNotExists([]byte(EntryTypeBlock))
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.CreateBucketIfNotExists([]byte(metaStorageBucketName))
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
-
-	return err
 }
 
 func (s *FileStorageBackend) Close() error {
@@ -93,7 +58,7 @@ func (s *FileStorageBackend) Close() error {
 	return s.db.Close()
 }
 
-func (s *FileStorageBackend) Put(entry *Entry) error {
+func (s *FileStorageBackend) Put(t EntryType, entries []*Entry) error {
 	s.mu.RLock()
 	if s.closed {
 		s.mu.RUnlock()
@@ -101,9 +66,20 @@ func (s *FileStorageBackend) Put(entry *Entry) error {
 	}
 	s.mu.RUnlock()
 
-	err := s.db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(entry.Type))
-		return b.Put([]byte(entry.Key), entry.value)
+	err := s.db.Batch(func(tx *bolt.Tx) error {
+		b, err := tx.CreateBucketIfNotExists([]byte(t))
+		if err != nil {
+			return err
+		}
+
+		for _, entry := range entries {
+			err := b.Put([]byte(entry.Key), entry.value)
+			if err != nil {
+				// todo correct error handling
+				log.Error().Err(err).Msg("error putting entry in backend")
+			}
+		}
+		return nil
 	})
 	if err != nil {
 		return fmt.Errorf("error putting entries in storage: %w", err)
@@ -112,7 +88,7 @@ func (s *FileStorageBackend) Put(entry *Entry) error {
 	return nil
 }
 
-func (s *FileStorageBackend) Get(t EntryType, key string) (*Entry, error) {
+func (s *FileStorageBackend) Get(t EntryType, keys []string) ([]*Entry, error) {
 	s.mu.RLock()
 	if s.closed {
 		s.mu.RUnlock()
@@ -120,25 +96,41 @@ func (s *FileStorageBackend) Get(t EntryType, key string) (*Entry, error) {
 	}
 	s.mu.RUnlock()
 
-	var entry Entry
+	var entries []*Entry
 	s.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(t))
-		entry.value = b.Get([]byte(key))
+		for _, key := range keys {
+			val := b.Get([]byte(key))
+			entries = append(entries, &Entry{
+				Key:   key,
+				value: val,
+			})
+		}
 		return nil
 	})
-	entry.Key = key
-	entry.Type = t
 
-	return &entry, nil
+	return entries, nil
 }
 
-func (s *FileStorageBackend) Delete(t EntryType, key string) error {
+func (s *FileStorageBackend) Delete(t EntryType, keys []string) error {
 	s.mu.RLock()
 	if s.closed {
 		s.mu.RUnlock()
 		return ErrShutdown
 	}
 	s.mu.RUnlock()
+
+	s.db.Batch(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(t))
+		for _, key := range keys {
+			err := b.Delete([]byte(key))
+			if err != nil {
+				// todo correct error handling
+				log.Error().Err(err).Msg("error deleting entry from backend")
+			}
+		}
+		return nil
+	})
 
 	return nil
 }
@@ -152,14 +144,16 @@ func (s *FileStorageBackend) List(entryType EntryType) ([]*Entry, error) {
 	s.mu.RUnlock()
 
 	var entries []*Entry
-	s.db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(entryType))
+	err := s.db.Batch(func(tx *bolt.Tx) error {
+		b, err := tx.CreateBucketIfNotExists([]byte(entryType))
+		if err != nil {
+			return err
+		}
 		b.ForEach(func(k, v []byte) error {
 			entry := &Entry{
-				Type: entryType,
+				Key:   string(k),
+				value: v,
 			}
-			entry.Key = string(k)
-			entry.value = v
 
 			entries = append(entries, entry)
 			return nil
@@ -167,5 +161,5 @@ func (s *FileStorageBackend) List(entryType EntryType) ([]*Entry, error) {
 		return nil
 	})
 
-	return entries, nil
+	return entries, err
 }

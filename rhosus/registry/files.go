@@ -81,7 +81,6 @@ func (r *Registry) unregisterBlocks(blocks []*control_pb.BlockInfo) error {
 }
 
 func (r *Registry) TransportAndRegisterBlocks(fileID string, blocks []*fs_pb.Block, replicationFactor int) error {
-
 	nodes := r.NodesManager.GetNodesWithLeastBlocks(replicationFactor)
 
 	blockSeq := make(map[string]uint64, len(blocks))

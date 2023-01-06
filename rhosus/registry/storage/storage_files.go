@@ -30,13 +30,12 @@ func (s *Storage) StoreFile(file *control_pb.FileInfo) error {
 	strBytes := util.Base64Encode(bytes)
 
 	entry := &Entry{
-		Type:  EntryTypeFile,
 		Key:   file.Path,
 		value: []byte(strBytes),
 	}
 
 	// todo correct error handling
-	err = s.backend.Put(entry)
+	err = s.backend.Put(EntryTypeFile, []*Entry{entry})
 	if err != nil {
 		return err
 	}
@@ -117,6 +116,7 @@ func (s *Storage) PutBlocks(blocks []*control_pb.BlockInfo) error {
 	}
 	txn.Commit()
 
+	var entries []*Entry
 	for _, block := range blocks {
 		blockBytes, err := block.Marshal()
 		if err != nil {
@@ -124,17 +124,13 @@ func (s *Storage) PutBlocks(blocks []*control_pb.BlockInfo) error {
 			continue
 		}
 		entry := &Entry{
-			Type:  EntryTypeBlock,
 			Key:   block.Id,
 			value: []byte(util.Base64Encode(blockBytes)),
 		}
-		err = s.backend.Put(entry)
-		if err != nil {
-			log.Error().Err(err).Msg("error putting entry to backend")
-		}
+		entries = append(entries, entry)
 	}
 
-	return nil
+	return s.backend.Put(EntryTypeBlock, entries)
 }
 
 func (s *Storage) storeBlockInMemory(block *control_pb.BlockInfo) error {
@@ -212,20 +208,17 @@ func (s *Storage) DeleteFileWithBlocks(file *control_pb.FileInfo) error {
 	txn.Commit()
 
 	// todo correct error handling
-	err = s.backend.Delete(EntryTypeFile, file.Path)
+	err = s.backend.Delete(EntryTypeFile, []string{file.Path})
 	if err != nil {
 		return err
 	}
 
-	// todo correct error handling
+	var blockIdsToDelete []string
 	for _, block := range blocks {
-		err = s.backend.Delete(EntryTypeBlock, block.Id)
-		if err != nil {
-			log.Error().Err(err).Msg("error deleting block from storage backend")
-		}
+		blockIdsToDelete = append(blockIdsToDelete, block.Id)
 	}
 
-	return nil
+	return s.backend.Delete(EntryTypeBlock, blockIdsToDelete)
 }
 
 func (s *Storage) DeleteFile(file *control_pb.FileInfo) error {
@@ -238,7 +231,7 @@ func (s *Storage) DeleteFile(file *control_pb.FileInfo) error {
 	txn.Commit()
 
 	// todo correct error handling
-	err = s.backend.Delete(EntryTypeFile, file.Path)
+	err = s.backend.Delete(EntryTypeFile, []string{file.Path})
 	if err != nil {
 		return err
 	}
@@ -257,13 +250,10 @@ func (s *Storage) DeleteBlocks(blocks []*control_pb.BlockInfo) error {
 	}
 	txn.Commit()
 
-	var err error
+	var blockIdsToDelete []string
 	for _, block := range blocks {
-		err = s.backend.Delete(EntryTypeBlock, block.Id)
-		if err != nil {
-			log.Error().Err(err).Msg("error deleting block from storage backend")
-		}
+		blockIdsToDelete = append(blockIdsToDelete, block.Id)
 	}
 
-	return nil
+	return s.backend.Delete(EntryTypeBlock, blockIdsToDelete)
 }
