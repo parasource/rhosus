@@ -31,7 +31,7 @@ func (s *Storage) StoreFile(file *control_pb.FileInfo) error {
 
 	entry := &Entry{
 		Key:   file.Path,
-		value: []byte(strBytes),
+		Value: []byte(strBytes),
 	}
 
 	// todo correct error handling
@@ -125,7 +125,7 @@ func (s *Storage) PutBlocks(blocks []*control_pb.BlockInfo) error {
 		}
 		entry := &Entry{
 			Key:   block.Id,
-			value: []byte(util.Base64Encode(blockBytes)),
+			Value: []byte(util.Base64Encode(blockBytes)),
 		}
 		entries = append(entries, entry)
 	}

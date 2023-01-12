@@ -36,7 +36,7 @@ type Config struct {
 	StoragePath string `json:"storage_path"`
 	RhosusPath  string `json:"rhosus_path"`
 
-	Backend storage.Config `json:"backend"`
+	Storage *storage.Storage
 	Cluster cluster.Config `json:"cluster"`
 }
 
@@ -86,11 +86,7 @@ func NewRegistry(config Config) (*Registry, error) {
 	}
 	r.etcdClient = etcdClient
 
-	s, err := storage.NewStorage(config.Backend)
-	if err != nil {
-		log.Fatal().Err(err).Msg("error creating storage")
-	}
-	r.Storage = s
+	r.Storage = config.Storage
 
 	// Here we load all the existing nodes and registries from etcd
 	// Error occurs only in non-usual conditions, so we shut down

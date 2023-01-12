@@ -68,3 +68,14 @@ message DownloadRequest {
 message DownloadResponse {
 
 }
+
+// Auth
+
+message LoginRequest {
+  string method = 1;
+  map<string, string> data = 2;
+}
+
+message LoginResponse {
+  string token = 1;
+}

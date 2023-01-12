@@ -10,6 +10,7 @@ package main
 import (
 	"fmt"
 	"github.com/parasource/rhosus/rhosus/api"
+	"github.com/parasource/rhosus/rhosus/auth"
 	"github.com/parasource/rhosus/rhosus/registry"
 	"github.com/parasource/rhosus/rhosus/registry/cluster"
 	"github.com/parasource/rhosus/rhosus/registry/storage"
@@ -120,7 +121,29 @@ var rootCmd = &cobra.Command{
 
 		shutdownCh := make(chan struct{}, 1)
 
-		conf, err := registryConfig(v)
+		rhosusPath := v.GetString("rhosus_path")
+		s, err := storage.NewStorage(storage.Config{
+			Path:          path.Join(rhosusPath, "registry"),
+			WriteTimeoutS: 10,
+			NumWorkers:    5,
+		})
+		if err != nil {
+			log.Fatal().Err(err).Msg("error creating storage")
+		}
+		roleManager, err := auth.NewRoleManager(s)
+		if err != nil {
+			log.Fatal().Err(err).Msg("error creating role manager")
+		}
+		tokenManager, err := auth.NewTokenManager(s)
+		if err != nil {
+			log.Fatal().Err(err).Msg("error creating token manager")
+		}
+
+		authMethods := map[string]auth.Authenticator{
+			"credentials": auth.NewCredentialsAuth(roleManager, tokenManager),
+		}
+
+		conf, err := registryConfig(v, s)
 
 		r, err := registry.NewRegistry(conf)
 		if err != nil {
@@ -131,7 +154,8 @@ var rootCmd = &cobra.Command{
 
 		apiAddr := v.GetString("api_addr")
 		httpApi, err := api.NewApi(r, api.Config{
-			Address: apiAddr,
+			Address:     apiAddr,
+			AuthMethods: authMethods,
 		})
 		go httpApi.Run()
 
@@ -147,7 +171,7 @@ var rootCmd = &cobra.Command{
 	},
 }
 
-func registryConfig(v *viper.Viper) (registry.Config, error) {
+func registryConfig(v *viper.Viper, s *storage.Storage) (registry.Config, error) {
 	if os.Getenv("API_ADDR") == "" {
 		log.Warn().Msg("API_ADDR is not set explicitly, falling back to default")
 	}
@@ -166,11 +190,7 @@ func registryConfig(v *viper.Viper) (registry.Config, error) {
 		ID:         registryId,
 		RhosusPath: rhosusPath,
 		EtcdAddr:   etcdAddr,
-		Backend: storage.Config{
-			Path:          path.Join(rhosusPath, "registry"),
-			WriteTimeoutS: 10,
-			NumWorkers:    5,
-		},
+		Storage:    s,
 		Cluster: cluster.Config{
 			WalPath:     path.Join(rhosusPath, "wal"),
 			ClusterAddr: clusterAddr,

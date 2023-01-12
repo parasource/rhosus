@@ -73,7 +73,7 @@ func (s *FileStorageBackend) Put(t EntryType, entries []*Entry) error {
 		}
 
 		for _, entry := range entries {
-			err := b.Put([]byte(entry.Key), entry.value)
+			err := b.Put([]byte(entry.Key), entry.Value)
 			if err != nil {
 				// todo correct error handling
 				log.Error().Err(err).Msg("error putting entry in backend")
@@ -103,7 +103,7 @@ func (s *FileStorageBackend) Get(t EntryType, keys []string) ([]*Entry, error) {
 			val := b.Get([]byte(key))
 			entries = append(entries, &Entry{
 				Key:   key,
-				value: val,
+				Value: val,
 			})
 		}
 		return nil
@@ -152,7 +152,7 @@ func (s *FileStorageBackend) List(entryType EntryType) ([]*Entry, error) {
 		b.ForEach(func(k, v []byte) error {
 			entry := &Entry{
 				Key:   string(k),
-				value: v,
+				Value: v,
 			}
 
 			entries = append(entries, entry)

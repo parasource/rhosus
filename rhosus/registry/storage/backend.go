@@ -4,7 +4,7 @@ type EntryType string
 
 type Entry struct {
 	Key   string
-	value []byte
+	Value []byte
 }
 
 type Backend interface {

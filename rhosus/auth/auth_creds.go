@@ -21,11 +21,11 @@ type CredentialsAuth struct {
 	tokenManager *TokenManager
 }
 
-func NewCredentialsAuth(roleManager *RoleManager, tokenManager *TokenManager) (Authenticator, error) {
+func NewCredentialsAuth(roleManager *RoleManager, tokenManager *TokenManager) Authenticator {
 	return &CredentialsAuth{
 		roleManager:  roleManager,
 		tokenManager: tokenManager,
-	}, nil
+	}
 }
 
 func (a *CredentialsAuth) Authenticate(req AuthenticationRequest) (AuthenticationResponse, error) {

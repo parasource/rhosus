@@ -20,10 +20,19 @@ func (s *Storage) StoreRole(role *control_pb.Role) error {
 		txn.Abort()
 		return err
 	}
-
 	txn.Commit()
 
-	return nil
+	roleBytes, err := role.Marshal()
+	if err != nil {
+		return err
+	}
+
+	return s.backend.Put(EntryTypeRole, []*Entry{
+		{
+			Key:   role.ID,
+			Value: roleBytes,
+		},
+	})
 }
 
 func (s *Storage) GetRole(name string) (*control_pb.Role, error) {
@@ -68,7 +77,7 @@ func (s *Storage) DeleteRole(role *control_pb.Role) error {
 	}
 	txn.Commit()
 
-	return nil
+	return s.backend.Delete(EntryTypeRole, []string{role.ID})
 }
 
 ////////////////////////
@@ -82,16 +91,24 @@ func (s *Storage) StoreToken(token *control_pb.Token) error {
 		txn.Abort()
 		return err
 	}
-
 	txn.Commit()
 
-	return nil
+	tokenBytes, err := token.Marshal()
+	if err != nil {
+		return err
+	}
+	return s.backend.Put(EntryTypeToken, []*Entry{
+		{
+			Key:   token.Token,
+			Value: tokenBytes,
+		},
+	})
 }
 
 func (s *Storage) GetToken(token string) (*control_pb.Token, error) {
 	txn := s.db.Txn(false)
 
-	raw, err := txn.First(defaultTokensTableName, "token", token)
+	raw, err := txn.First(defaultTokensTableName, "id", token)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +141,7 @@ func (s *Storage) GetAllTokens() ([]*control_pb.Token, error) {
 	txn := s.db.Txn(false)
 
 	var tokens []*control_pb.Token
-	res, err := txn.Get(defaultTokensTableName, "token")
+	res, err := txn.Get(defaultTokensTableName, "id")
 	if err != nil {
 		return nil, err
 	}
@@ -146,5 +163,5 @@ func (s *Storage) RevokeToken(token *control_pb.Token) error {
 	}
 	txn.Commit()
 
-	return nil
+	return s.backend.Delete(EntryTypeToken, []string{token.Token})
 }

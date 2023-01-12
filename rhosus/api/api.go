@@ -10,6 +10,7 @@ package api
 import (
 	"context"
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/parasource/rhosus/rhosus/auth"
 	api_pb "github.com/parasource/rhosus/rhosus/pb/api"
 	"github.com/parasource/rhosus/rhosus/registry"
 	"github.com/parasource/rhosus/rhosus/util"
@@ -24,6 +25,8 @@ type Config struct {
 	MaxSizeMb int32
 	BlockSize int64
 	PageSize  int64
+
+	AuthMethods map[string]auth.Authenticator
 }
 
 type Api struct {
@@ -125,6 +128,7 @@ func (a *Api) Handle(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (a *Api) HandleSys(rw http.ResponseWriter, r *http.Request) error {
+	rw.Header().Set("Content-Type", "application/json")
 	var body []byte
 
 	switch strings.Trim(r.URL.Path, "/") {
@@ -199,6 +203,29 @@ func (a *Api) HandleSys(rw http.ResponseWriter, r *http.Request) error {
 		return nil
 	case "sys/hierarchy":
 
+	// Auth methods
+	case "sys/login":
+		_, err := r.Body.Read(body)
+		if err != nil {
+			log.Error().Err(err).Msg("error reading request body")
+			return err
+		}
+
+		var msg api_pb.LoginRequest
+		err = a.decoder.Unmarshal(r.Body, &msg)
+		if err != nil {
+			log.Error().Err(err).Msg("error unmarshaling login request")
+			return err
+		}
+
+		res := api_pb.LoginResponse{
+			Token: "abacaba",
+		}
+		if err := a.encoder.Marshal(rw, &res); err != nil {
+			log.Error().Err(err).Msg("error writing login response")
+		}
+
+		log.Info().Interface("request", msg).Msg("received login request")
 	}
 
 	return nil

@@ -174,7 +174,7 @@ func (s *Storage) loadFromBackend() error {
 	for _, entry := range fileEntries {
 		var file control_pb.FileInfo
 
-		fileBytes, _ := util.Base64Decode(string(entry.value))
+		fileBytes, _ := util.Base64Decode(string(entry.Value))
 		err := file.Unmarshal(fileBytes)
 		if err != nil {
 			log.Error().Err(err).Msg("error unmarshalling file info")
@@ -195,7 +195,7 @@ func (s *Storage) loadFromBackend() error {
 	for _, entry := range blockEntries {
 		var block control_pb.BlockInfo
 
-		blockBytes, _ := util.Base64Decode(string(entry.value))
+		blockBytes, _ := util.Base64Decode(string(entry.Value))
 		err := block.Unmarshal(blockBytes)
 		if err != nil {
 			log.Error().Err(err).Msg("error unmarshalling block info")
