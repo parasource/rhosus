@@ -209,5 +209,26 @@ func (s *Storage) loadFromBackend() error {
 		}
 	}
 
+	roleEntries, err := s.backend.List(EntryTypeRole)
+	if err != nil {
+		return err
+	}
+	for _, entry := range roleEntries {
+		var role control_pb.Role
+
+		roleBytes, _ := util.Base64Decode(string(entry.Value))
+		err := role.Unmarshal(roleBytes)
+		if err != nil {
+			log.Error().Err(err).Msg("error unmarshalling role info")
+			continue
+		}
+
+		err = s.storeRoleInMemory(&role)
+		if err != nil {
+			log.Error().Err(err).Msg("error loading role from backend")
+			continue
+		}
+	}
+
 	return err
 }

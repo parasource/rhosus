@@ -1,7 +1,9 @@
 package storage
 
 import (
+	"fmt"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
+	"github.com/parasource/rhosus/rhosus/util"
 )
 
 const (
@@ -13,6 +15,26 @@ const (
 )
 
 func (s *Storage) StoreRole(role *control_pb.Role) error {
+	err := s.storeRoleInMemory(role)
+	if err != nil {
+		return fmt.Errorf("error storing block in memory: %w", err)
+	}
+
+	roleBytes, err := role.Marshal()
+	if err != nil {
+		return fmt.Errorf("error marshalling role: %w", err)
+	}
+	strBytes := util.Base64Encode(roleBytes)
+
+	return s.backend.Put(EntryTypeRole, []*Entry{
+		{
+			Key:   role.ID,
+			Value: []byte(strBytes),
+		},
+	})
+}
+
+func (s *Storage) storeRoleInMemory(role *control_pb.Role) error {
 	txn := s.db.Txn(true)
 
 	err := txn.Insert(defaultRolesTableName, role)
@@ -22,23 +44,13 @@ func (s *Storage) StoreRole(role *control_pb.Role) error {
 	}
 	txn.Commit()
 
-	roleBytes, err := role.Marshal()
-	if err != nil {
-		return err
-	}
-
-	return s.backend.Put(EntryTypeRole, []*Entry{
-		{
-			Key:   role.ID,
-			Value: roleBytes,
-		},
-	})
+	return nil
 }
 
 func (s *Storage) GetRole(name string) (*control_pb.Role, error) {
 	txn := s.db.Txn(false)
 
-	raw, err := txn.First(defaultFilesTableName, "name", name)
+	raw, err := txn.First(defaultRolesTableName, "name", name)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +66,7 @@ func (s *Storage) GetRole(name string) (*control_pb.Role, error) {
 func (s *Storage) GetRoleByID(roleID string) (*control_pb.Role, error) {
 	txn := s.db.Txn(false)
 
-	raw, err := txn.First(defaultFilesTableName, "id", roleID)
+	raw, err := txn.First(defaultRolesTableName, "id", roleID)
 	if err != nil {
 		return nil, err
 	}

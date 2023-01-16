@@ -78,4 +78,6 @@ message LoginRequest {
 
 message LoginResponse {
   string token = 1;
+  bool Success = 2;
+  string Message = 3;
 }

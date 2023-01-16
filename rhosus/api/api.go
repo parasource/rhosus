@@ -12,9 +12,12 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/parasource/rhosus/rhosus/auth"
 	api_pb "github.com/parasource/rhosus/rhosus/pb/api"
+	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	"github.com/parasource/rhosus/rhosus/registry"
 	"github.com/parasource/rhosus/rhosus/util"
+	"github.com/parasource/rhosus/rhosus/util/uuid"
 	"github.com/rs/zerolog/log"
+	"golang.org/x/crypto/bcrypt"
 	"net/http"
 	"strings"
 	"sync"
@@ -211,24 +214,85 @@ func (a *Api) HandleSys(rw http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 
-		var msg api_pb.LoginRequest
-		err = a.decoder.Unmarshal(r.Body, &msg)
+		var req api_pb.LoginRequest
+		err = a.decoder.Unmarshal(r.Body, &req)
 		if err != nil {
 			log.Error().Err(err).Msg("error unmarshaling login request")
 			return err
 		}
 
-		res := api_pb.LoginResponse{
-			Token: "abacaba",
-		}
-		if err := a.encoder.Marshal(rw, &res); err != nil {
-			log.Error().Err(err).Msg("error writing login response")
+		var res api_pb.LoginResponse
+
+		if authMethod, ok := a.Config.AuthMethods[req.Method]; ok {
+			authRes, err := authMethod.Login(prepareLoginRequest(req))
+			if err != nil {
+				log.Error().Err(err).Msg("error conducting login operation")
+				return err
+			}
+			res = api_pb.LoginResponse{
+				Token:   authRes.Token,
+				Success: authRes.Success,
+				Message: authRes.Message,
+			}
+
+			switch res.Success {
+			case true:
+				rw.WriteHeader(http.StatusOK)
+			case false:
+				rw.WriteHeader(http.StatusBadRequest)
+			}
+
+		} else {
+			res = api_pb.LoginResponse{
+				Success: false,
+				Message: "unknown login method",
+			}
+
+			rw.WriteHeader(400)
 		}
 
-		log.Info().Interface("request", msg).Msg("received login request")
+		a.encoder.Marshal(rw, &res)
+
+		log.Info().Interface("request", req).Msg("received login request")
+
+	// For testing purposes
+	case "sys/create-test-user":
+		roleID, _ := uuid.NewV4()
+		passw, _ := bcrypt.GenerateFromPassword([]byte("Mypassword"), bcrypt.DefaultCost)
+		role := &control_pb.Role{
+			ID:          roleID.String(),
+			Name:        "egor",
+			Permissions: []string{},
+			Password:    string(passw),
+		}
+		err := a.registry.Storage.StoreRole(role)
+		if err != nil {
+			rw.WriteHeader(500)
+			log.Error().Err(err).Msg("error storing role")
+			return nil
+		}
+
+		rw.WriteHeader(200)
+
+		return nil
+	case "sys/delete-test-user:":
+
 	}
 
 	return nil
+}
+
+func prepareLoginRequest(req api_pb.LoginRequest) auth.LoginRequest {
+	name := req.Data["name"]
+	delete(req.Data, "name")
+	data := make(map[string]interface{}, len(req.Data))
+	for k, v := range req.Data {
+		data[k] = v
+	}
+	return auth.LoginRequest{
+		Username: name,
+		Data:     data,
+	}
 }
 
 func (a *Api) handleGet(rw http.ResponseWriter, r *http.Request) error {

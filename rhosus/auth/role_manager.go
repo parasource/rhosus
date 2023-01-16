@@ -44,6 +44,10 @@ func (m *RoleManager) GetRole(name string) (*control_pb.Role, error) {
 	return m.storage.GetRole(name)
 }
 
+func (m *RoleManager) GetRoleById(roleID string) (*control_pb.Role, error) {
+	return m.storage.GetRoleByID(roleID)
+}
+
 func (m *RoleManager) UpdateRole() {
 
 }
