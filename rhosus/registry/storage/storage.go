@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"github.com/hashicorp/go-memdb"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
-	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/rs/zerolog/log"
 	"sync"
 )
@@ -174,8 +173,7 @@ func (s *Storage) loadFromBackend() error {
 	for _, entry := range fileEntries {
 		var file control_pb.FileInfo
 
-		fileBytes, _ := util.Base64Decode(string(entry.Value))
-		err := file.Unmarshal(fileBytes)
+		err := file.Unmarshal(entry.Value)
 		if err != nil {
 			log.Error().Err(err).Msg("error unmarshalling file info")
 			continue
@@ -195,8 +193,7 @@ func (s *Storage) loadFromBackend() error {
 	for _, entry := range blockEntries {
 		var block control_pb.BlockInfo
 
-		blockBytes, _ := util.Base64Decode(string(entry.Value))
-		err := block.Unmarshal(blockBytes)
+		err := block.Unmarshal(entry.Value)
 		if err != nil {
 			log.Error().Err(err).Msg("error unmarshalling block info")
 			continue
@@ -216,8 +213,7 @@ func (s *Storage) loadFromBackend() error {
 	for _, entry := range roleEntries {
 		var role control_pb.Role
 
-		roleBytes, _ := util.Base64Decode(string(entry.Value))
-		err := role.Unmarshal(roleBytes)
+		err := role.Unmarshal(entry.Value)
 		if err != nil {
 			log.Error().Err(err).Msg("error unmarshalling role info")
 			continue
@@ -226,6 +222,26 @@ func (s *Storage) loadFromBackend() error {
 		err = s.storeRoleInMemory(&role)
 		if err != nil {
 			log.Error().Err(err).Msg("error loading role from backend")
+			continue
+		}
+	}
+
+	tokenEntries, err := s.backend.List(EntryTypeToken)
+	if err != nil {
+		return err
+	}
+	for _, entry := range tokenEntries {
+		var token control_pb.Token
+
+		err := token.Unmarshal(entry.Value)
+		if err != nil {
+			log.Error().Err(err).Msg("error unmarshalling token info")
+			continue
+		}
+
+		err = s.storeTokenInMemory(&token)
+		if err != nil {
+			log.Error().Err(err).Msg("error loading token from backend")
 			continue
 		}
 	}

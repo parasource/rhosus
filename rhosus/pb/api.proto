@@ -12,6 +12,13 @@ service Api {
   rpc Download (DownloadRequest) returns (stream DownloadResponse);
 }
 
+enum Method {
+  POST = 0;
+  PUT = 2;
+  GET = 3;
+  DELETE = 4;
+}
+
 message Void {}
 
 message CommonResponse {

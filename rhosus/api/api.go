@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 )
 
 type Config struct {
@@ -39,6 +40,8 @@ type Api struct {
 	registry *registry.Registry
 	http     *http.Server
 
+	tokenManager *auth.TokenManager
+
 	shutdownCh chan struct{}
 	shutdown   bool
 
@@ -46,7 +49,7 @@ type Api struct {
 	decoder jsonpb.Unmarshaler
 }
 
-func NewApi(r *registry.Registry, conf Config) (*Api, error) {
+func NewApi(r *registry.Registry, tokenManager *auth.TokenManager, conf Config) (*Api, error) {
 	a := &Api{
 		registry:   r,
 		Config:     conf,
@@ -55,6 +58,8 @@ func NewApi(r *registry.Registry, conf Config) (*Api, error) {
 
 		encoder: jsonpb.Marshaler{},
 		decoder: jsonpb.Unmarshaler{},
+
+		tokenManager: tokenManager,
 	}
 
 	httpServer := &http.Server{
@@ -104,6 +109,22 @@ func (a *Api) Handle(rw http.ResponseWriter, r *http.Request) {
 	//	rw.Header().Set("Access-Control-Allow-Credentials", "true")
 	//}
 
+	// require authentication for non-login paths
+	if strings.Trim(r.URL.Path, "/") != "sys/login" &&
+		strings.Trim(r.URL.Path, "/") != "sys/create-test-user" {
+		err := a.auth(rw, r)
+		if err != nil {
+			switch err {
+			case ErrorInternal:
+				rw.WriteHeader(http.StatusInternalServerError)
+			default:
+				rw.WriteHeader(http.StatusForbidden)
+			}
+			rw.Write([]byte(err.Error()))
+			return
+		}
+	}
+
 	var err error
 
 	// We handle sys requests separately
@@ -128,6 +149,36 @@ func (a *Api) Handle(rw http.ResponseWriter, r *http.Request) {
 			a.handleOptions(rw, r)
 		}
 	}
+}
+
+// auth checks for token in headers and verifies it.
+// if token is invalid or does not persist at all, we return
+// bad request error
+func (a *Api) auth(rw http.ResponseWriter, r *http.Request) error {
+	clientToken := r.Header.Get("X-Rhosus-Token")
+	if clientToken == "" {
+		return ErrorMissingClientToken
+	}
+
+	token, err := a.tokenManager.GetToken(clientToken)
+	if err != nil {
+		return ErrorInternal
+	}
+	if token == nil {
+		return ErrorInvalidClientToken
+	}
+
+	// Basically expired tokens are expected to
+	// be removed by TokenManager special goroutine,
+	// but will check additionally
+	if token.ValidUntil < time.Now().Unix() {
+		rw.WriteHeader(http.StatusBadRequest)
+		return ErrorInvalidClientToken
+	}
+
+	// todo: implement permissions, so here we'll check them
+	// todo: depending on method and path
+	return nil
 }
 
 func (a *Api) HandleSys(rw http.ResponseWriter, r *http.Request) error {
@@ -158,6 +209,7 @@ func (a *Api) HandleSys(rw http.ResponseWriter, r *http.Request) error {
 		a.encoder.Marshal(rw, res)
 
 		return nil
+
 	case "sys/rm":
 		_, err := r.Body.Read(body)
 		if err != nil {

@@ -2,7 +2,6 @@ package storage
 
 import (
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
-	"github.com/parasource/rhosus/rhosus/util"
 	"github.com/rs/zerolog/log"
 	"sort"
 )
@@ -23,15 +22,14 @@ func (s *Storage) StoreFile(file *control_pb.FileInfo) error {
 		return err
 	}
 
-	bytes, err := file.Marshal()
+	fileBytes, err := file.Marshal()
 	if err != nil {
 		return err
 	}
-	strBytes := util.Base64Encode(bytes)
 
 	entry := &Entry{
 		Key:   file.Path,
-		Value: []byte(strBytes),
+		Value: fileBytes,
 	}
 
 	// todo correct error handling
@@ -125,7 +123,7 @@ func (s *Storage) PutBlocks(blocks []*control_pb.BlockInfo) error {
 		}
 		entry := &Entry{
 			Key:   block.Id,
-			Value: []byte(util.Base64Encode(blockBytes)),
+			Value: blockBytes,
 		}
 		entries = append(entries, entry)
 	}

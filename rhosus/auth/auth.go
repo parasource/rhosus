@@ -7,10 +7,6 @@
 
 package auth
 
-import (
-	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
-)
-
 // So here will be authentication centre, role management etc.
 
 type LoginRequest struct {
@@ -24,23 +20,9 @@ type LoginResponse struct {
 	Message string `json:"message"`
 }
 
-type Method string
-
-type AuthorizationRequest struct {
-	Path   string `json:"path"`
-	Method Method `json:"method"`
-	Token  string `json:"token"`
-}
-
-type AuthorizationResponse struct {
-	Role    control_pb.Role `json:"role"`
-	Success bool            `json:"success"`
-}
-
 // Authenticator is interface for user authentication
 // It is expected that other methods will be available
 // now it is just Login - so user is either authenticated, or it's not
 type Authenticator interface {
 	Login(req LoginRequest) (LoginResponse, error)
-	Authorize(req AuthorizationRequest) (AuthorizationResponse, error)
 }

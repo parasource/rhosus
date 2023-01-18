@@ -153,7 +153,7 @@ var rootCmd = &cobra.Command{
 		go r.Start()
 
 		apiAddr := v.GetString("api_addr")
-		httpApi, err := api.NewApi(r, api.Config{
+		httpApi, err := api.NewApi(r, tokenManager, api.Config{
 			Address:     apiAddr,
 			AuthMethods: authMethods,
 		})

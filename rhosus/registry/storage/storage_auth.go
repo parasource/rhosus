@@ -3,7 +3,6 @@ package storage
 import (
 	"fmt"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
-	"github.com/parasource/rhosus/rhosus/util"
 )
 
 const (
@@ -24,12 +23,11 @@ func (s *Storage) StoreRole(role *control_pb.Role) error {
 	if err != nil {
 		return fmt.Errorf("error marshalling role: %w", err)
 	}
-	strBytes := util.Base64Encode(roleBytes)
 
 	return s.backend.Put(EntryTypeRole, []*Entry{
 		{
 			Key:   role.ID,
-			Value: []byte(strBytes),
+			Value: roleBytes,
 		},
 	})
 }
@@ -96,6 +94,25 @@ func (s *Storage) DeleteRole(role *control_pb.Role) error {
 // Tokens methods
 
 func (s *Storage) StoreToken(token *control_pb.Token) error {
+	err := s.storeTokenInMemory(token)
+	if err != nil {
+		return err
+	}
+
+	tokenBytes, err := token.Marshal()
+	if err != nil {
+		return err
+	}
+
+	return s.backend.Put(EntryTypeToken, []*Entry{
+		{
+			Key:   token.Token,
+			Value: tokenBytes,
+		},
+	})
+}
+
+func (s *Storage) storeTokenInMemory(token *control_pb.Token) error {
 	txn := s.db.Txn(true)
 
 	err := txn.Insert(defaultTokensTableName, token)
@@ -105,16 +122,7 @@ func (s *Storage) StoreToken(token *control_pb.Token) error {
 	}
 	txn.Commit()
 
-	tokenBytes, err := token.Marshal()
-	if err != nil {
-		return err
-	}
-	return s.backend.Put(EntryTypeToken, []*Entry{
-		{
-			Key:   token.Token,
-			Value: tokenBytes,
-		},
-	})
+	return nil
 }
 
 func (s *Storage) GetToken(token string) (*control_pb.Token, error) {

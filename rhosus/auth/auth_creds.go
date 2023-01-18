@@ -74,38 +74,3 @@ func (a *CredentialsAuth) Login(req LoginRequest) (LoginResponse, error) {
 		Message: "invalid password",
 	}, nil
 }
-
-// Authorize method is used to check if token is
-// not expired and if user has permissions to access
-// this path. Currently, it does not check neither path nor method
-// as the permissions are not implemented.
-func (a *CredentialsAuth) Authorize(req AuthorizationRequest) (AuthorizationResponse, error) {
-	if req.Token == "" {
-		return AuthorizationResponse{}, errors.New("'token' is a required parameter")
-	}
-
-	token, err := a.tokenManager.GetToken(req.Token)
-	if err != nil {
-		return AuthorizationResponse{}, fmt.Errorf("error getting token: %w", err)
-	}
-	if token == nil {
-		return AuthorizationResponse{}, errors.New("token is nil")
-	}
-
-	// if token is expired
-	if token.ValidUntil < time.Now().Unix() {
-		return AuthorizationResponse{
-			Success: false,
-		}, nil
-	}
-
-	role, err := a.roleManager.GetRoleById(token.RoleID)
-	if err != nil {
-		return AuthorizationResponse{}, fmt.Errorf("error getting role")
-	}
-
-	return AuthorizationResponse{
-		Role:    *role,
-		Success: true,
-	}, nil
-}
