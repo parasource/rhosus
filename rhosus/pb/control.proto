@@ -118,11 +118,8 @@ message FileInfo {
   FileType type = 3;
   string name = 4;
   string path = 5;
-  uint64 size = 6;
-  message FsPermission {
-    uint32 perm = 1;
-  }
-  FsPermission permission = 7;
+  uint64 file_size = 6;
+  uint32 permission = 7;
   string owner = 8;
   string group = 9;
   string symlink = 10; // Optional. Used only for symlinks

@@ -41,7 +41,7 @@ func (r *Registry) HandleMakeDir(req *api_pb.MakeDirRequest) (*api_pb.CommonResp
 		ParentID: "root",
 		Type:     control_pb.FileInfo_DIR,
 		Path:     path,
-		Size_:    0,
+		FileSize: 0,
 	}
 	sPath := strings.Split(path, "/")
 	if len(sPath) > 1 {
@@ -177,8 +177,8 @@ func (r *Registry) HandleList(req *api_pb.ListRequest) (*api_pb.ListResponse, er
 
 	for _, file := range files {
 		info := &api_pb.FileInfo{
-			Name:  file.Name,
-			Size_: file.Size_,
+			Name:     file.Name,
+			FileSize: file.FileSize,
 		}
 		switch file.Type {
 		case control_pb.FileInfo_DIR:
@@ -189,6 +189,7 @@ func (r *Registry) HandleList(req *api_pb.ListRequest) (*api_pb.ListResponse, er
 		list = append(list, info)
 
 	}
+
 	sort.Slice(list, func(i, j int) bool {
 		return list[i].Name[0] < list[j].Name[1]
 	})

@@ -60,6 +60,18 @@ func (r *Registry) RegisterFile(file *control_pb.FileInfo) error {
 	return nil
 }
 
+func (r *Registry) FileExists(path string) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	test, err := r.Storage.GetFileByPath(path)
+	if err != nil || test == nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
 // registerFile writes file to registry storage
 func (r *Registry) registerFile(file *control_pb.FileInfo) error {
 	return r.Storage.StoreFile(file)

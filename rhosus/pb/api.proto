@@ -48,7 +48,7 @@ message FileInfo {
     SYM = 2;
   }
   Type type = 2;
-  uint64 size = 3;
+  uint64 file_size = 3;
 }
 
 message ListResponse {

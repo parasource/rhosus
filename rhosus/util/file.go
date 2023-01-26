@@ -2,7 +2,7 @@ package util
 
 import (
 	"errors"
-	"github.com/golang/glog"
+	"github.com/rs/zerolog/log"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -18,7 +18,7 @@ func GetFileSize(file *os.File) (size int64, err error) {
 	return
 }
 
-func TestFolderWritable(folder string) (err error) {
+func TestDirWritable(folder string) (err error) {
 	fileInfo, err := os.Stat(folder)
 	if err != nil {
 		return err
@@ -27,7 +27,6 @@ func TestFolderWritable(folder string) (err error) {
 		return errors.New("Not a valid folder!")
 	}
 	perm := fileInfo.Mode().Perm()
-	glog.V(0).Infoln("Folder", folder, "Permission:", perm)
 	if 0200&perm != 0 {
 		return nil
 	}
@@ -35,13 +34,11 @@ func TestFolderWritable(folder string) (err error) {
 }
 
 func FileExists(filename string) bool {
-
 	_, err := os.Stat(filename)
 	if os.IsNotExist(err) {
 		return false
 	}
 	return true
-
 }
 
 func CheckFile(filename string) (exists, canRead, canWrite bool, modTime time.Time, fileSize int64) {
@@ -52,7 +49,7 @@ func CheckFile(filename string) (exists, canRead, canWrite bool, modTime time.Ti
 		return
 	}
 	if err != nil {
-		glog.Errorf("check %s: %v", filename, err)
+		log.Error().Err(err).Str("file", filename).Msg("check error")
 		return
 	}
 	if fi.Mode()&0400 != 0 {

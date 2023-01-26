@@ -96,28 +96,11 @@ func (r *Registry) HandlePutFile(rw http.ResponseWriter, req *http.Request) erro
 		Name:        fileName,
 		Type:        control_pb.FileInfo_FILE,
 		Path:        filePath,
-		Size_:       0,
-		Permission:  nil,
+		Permission:  0755,
 		Owner:       "",
 		Group:       "",
 		Symlink:     "",
 		Replication: 2,
-	}
-	err = r.RegisterFile(file)
-	if err != nil {
-		switch err {
-		case ErrFileExists:
-			rw.WriteHeader(http.StatusConflict)
-			return nil
-		case ErrNoSuchFileOrDirectory:
-			rw.WriteHeader(http.StatusBadRequest)
-			return nil
-		default:
-			log.Error().Err(err).Msg("error registering file")
-			rw.WriteHeader(500)
-			rw.Write([]byte("server error. see logs"))
-			return nil
-		}
 	}
 
 	var dataToTransfer []*fs_pb.Block
@@ -211,6 +194,27 @@ func (r *Registry) HandlePutFile(rw http.ResponseWriter, req *http.Request) erro
 	err = r.TransportAndRegisterBlocks(file.Id, dataToTransfer, int(file.Replication))
 	if err != nil {
 		log.Error().Err(err).Msg("error transporting blocks to node")
+	}
+
+	// Blocks successfully has been transferred to datanodes,
+	// so now we register file
+
+	file.FileSize = uint64(int64(len(dataToTransfer)) * blockSize)
+	err = r.RegisterFile(file)
+	if err != nil {
+		switch err {
+		case ErrFileExists:
+			rw.WriteHeader(http.StatusConflict)
+			return nil
+		case ErrNoSuchFileOrDirectory:
+			rw.WriteHeader(http.StatusBadRequest)
+			return nil
+		default:
+			log.Error().Err(err).Msg("error registering file")
+			rw.WriteHeader(http.StatusInternalServerError)
+			rw.Write([]byte("internal error"))
+			return nil
+		}
 	}
 
 	rw.Write([]byte("OK"))

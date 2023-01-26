@@ -205,7 +205,7 @@ func (a *Api) HandleSys(rw http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 
-		rw.WriteHeader(200)
+		rw.WriteHeader(http.StatusOK)
 		a.encoder.Marshal(rw, res)
 
 		return nil
@@ -229,7 +229,7 @@ func (a *Api) HandleSys(rw http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 
-		rw.WriteHeader(200)
+		rw.WriteHeader(http.StatusOK)
 		a.encoder.Marshal(rw, res)
 
 		return nil
@@ -252,7 +252,7 @@ func (a *Api) HandleSys(rw http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 
-		rw.WriteHeader(200)
+		rw.WriteHeader(http.StatusOK)
 		a.encoder.Marshal(rw, res)
 
 		return nil
@@ -300,7 +300,7 @@ func (a *Api) HandleSys(rw http.ResponseWriter, r *http.Request) error {
 				Message: "unknown login method",
 			}
 
-			rw.WriteHeader(400)
+			rw.WriteHeader(http.StatusBadRequest)
 		}
 
 		a.encoder.Marshal(rw, &res)

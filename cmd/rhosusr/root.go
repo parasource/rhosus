@@ -122,6 +122,19 @@ var rootCmd = &cobra.Command{
 		shutdownCh := make(chan struct{}, 1)
 
 		rhosusPath := v.GetString("rhosus_path")
+
+		// If rhosus home directory does not exist already,
+		// we create a new one
+		if ok := util.FileExists(rhosusPath); !ok {
+			err := os.Mkdir(rhosusPath, 0755)
+			if err != nil {
+				log.Fatal().Err(err).Msg("error creating rhosus home directory")
+			}
+		}
+		if err := util.TestDirWritable(rhosusPath); err != nil {
+			log.Fatal().Err(err).Msg("rhosus home directory is not writable")
+		}
+
 		s, err := storage.NewStorage(storage.Config{
 			Path:          path.Join(rhosusPath, "registry"),
 			WriteTimeoutS: 10,
