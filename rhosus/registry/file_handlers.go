@@ -69,6 +69,10 @@ func (r *Registry) HandlePutFile(rw http.ResponseWriter, req *http.Request) erro
 		return err
 	}
 
+	// Size of file in bytes
+	contentLength := req.Header.Get("Content-Length")
+	log.Info().Str("value", contentLength).Msg("checking content length")
+
 	contentType := part1.Header.Get("Content-Type")
 	if contentType == "application/octet-stream" {
 		contentType = ""
@@ -103,8 +107,12 @@ func (r *Registry) HandlePutFile(rw http.ResponseWriter, req *http.Request) erro
 		Replication: 2,
 	}
 
+	totalFileSize := uint64(0)
+
 	var dataToTransfer []*fs_pb.Block
 	for {
+		// First we make sure that now we use only 4 bytes buffers
+		// If there is already 4 buffers used, we wait
 		bytesBufferLimitCond.L.Lock()
 		for atomic.LoadInt64(&bytesBufferCounter) >= 4 {
 			bytesBufferLimitCond.Wait()
@@ -112,13 +120,15 @@ func (r *Registry) HandlePutFile(rw http.ResponseWriter, req *http.Request) erro
 		atomic.AddInt64(&bytesBufferCounter, 1)
 		bytesBufferLimitCond.L.Unlock()
 
+		// Then we read only specific number of bytes into
+		// our buffer. The size of data being read equals block size
 		bytesBuffer := bufPool.Get().(*bytes.Buffer)
 
 		limitedReader := io.LimitReader(partReader, blockSize)
-		bytesBuffer.Reset()
+		bytesBuffer.Reset() // reset buffer before reading
 
 		dataSize, err := bytesBuffer.ReadFrom(limitedReader)
-		if err != nil || dataSize == 0 {
+		if err != nil || dataSize == 0 { // if there is an error or data size is 0 we skip
 			bufPool.Put(bytesBuffer)
 			atomic.AddInt64(&bytesBufferCounter, -1)
 			bytesBufferLimitCond.Signal()
@@ -137,19 +147,17 @@ func (r *Registry) HandlePutFile(rw http.ResponseWriter, req *http.Request) erro
 				smallContent := make([]byte, dataSize)
 				bytesBuffer.Read(smallContent)
 
-				dataReader := util.NewBytesReader(smallContent)
-
 				// actual block payload
-				data := dataReader.Bytes
 				uid, _ = uuid.NewV4()
 				block := &fs_pb.Block{
 					Id:     uid.String(),
 					Index:  uint64(counter),
 					FileId: file.Id,
-					Len:    uint64(len(data)),
+					Len:    uint64(dataSize),
 					Data:   smallContent,
 				}
 				dataToTransfer = append(dataToTransfer, block)
+				totalFileSize += uint64(dataSize)
 			}()
 			chunkOffset += dataSize
 
@@ -178,6 +186,7 @@ func (r *Registry) HandlePutFile(rw http.ResponseWriter, req *http.Request) erro
 				Data:   data,
 			}
 			dataToTransfer = append(dataToTransfer, block)
+			totalFileSize += uint64(dataSize)
 
 			counter++
 
@@ -196,10 +205,7 @@ func (r *Registry) HandlePutFile(rw http.ResponseWriter, req *http.Request) erro
 		log.Error().Err(err).Msg("error transporting blocks to node")
 	}
 
-	// Blocks successfully has been transferred to datanodes,
-	// so now we register file
-
-	file.FileSize = uint64(int64(len(dataToTransfer)) * blockSize)
+	file.FileSize = totalFileSize
 	err = r.RegisterFile(file)
 	if err != nil {
 		switch err {
