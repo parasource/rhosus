@@ -24,10 +24,4 @@ FROM alpine:latest
 WORKDIR /root/
 COPY --from=builder /go/src/github.com/parasource/rhosus .
 
-EXPOSE 8000
-
-ENV HTTP_HOST 127.0.0.0
-ENV HTTP_PORT 8000
-ENV WAL_PATH "./wal"
-
 CMD ["./bin/rhosusr"]

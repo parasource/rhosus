@@ -175,3 +175,24 @@ message Token {
   string token = 3;
   int64 valid_until = 4;
 }
+
+message Policy {
+  string id = 1;
+  string name = 2;
+  enum Capability {
+    Deny = 0;
+    Create = 1;
+    Read = 2;
+    Update = 3;
+    Delete = 4;
+    List = 5;
+    Sudo = 6;
+  }
+  message PathRules {
+    string path = 1;
+    string policy = 2;
+    uint32 capabilitiesBitmap = 3;
+    repeated string capabilities = 4;
+  }
+  repeated PathRules paths = 3;
+}

@@ -147,7 +147,7 @@ var rootCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal().Err(err).Msg("error creating role manager")
 		}
-		tokenManager, err := auth.NewTokenManager(s)
+		tokenManager, err := auth.NewTokenStore(s)
 		if err != nil {
 			log.Fatal().Err(err).Msg("error creating token manager")
 		}

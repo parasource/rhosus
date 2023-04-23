@@ -783,6 +783,398 @@ func (m *LoginResponse) GetMessage() string {
 	return ""
 }
 
+type Policy struct {
+	Id                   string             `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name                 string             `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Paths                []*PolicyPathRules `protobuf:"bytes,3,rep,name=paths,proto3" json:"paths,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
+	XXX_unrecognized     []byte             `json:"-"`
+	XXX_sizecache        int32              `json:"-"`
+}
+
+func (m *Policy) Reset()         { *m = Policy{} }
+func (m *Policy) String() string { return proto.CompactTextString(m) }
+func (*Policy) ProtoMessage()    {}
+func (*Policy) Descriptor() ([]byte, []int) {
+	return fileDescriptor_00212fb1f9d3bf1c, []int{13}
+}
+func (m *Policy) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *Policy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_Policy.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *Policy) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Policy.Merge(m, src)
+}
+func (m *Policy) XXX_Size() int {
+	return m.Size()
+}
+func (m *Policy) XXX_DiscardUnknown() {
+	xxx_messageInfo_Policy.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Policy proto.InternalMessageInfo
+
+func (m *Policy) GetId() string {
+	if m != nil {
+		return m.Id
+	}
+	return ""
+}
+
+func (m *Policy) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+func (m *Policy) GetPaths() []*PolicyPathRules {
+	if m != nil {
+		return m.Paths
+	}
+	return nil
+}
+
+type PolicyPathRules struct {
+	Path                 string   `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Capabilities         []string `protobuf:"bytes,2,rep,name=capabilities,proto3" json:"capabilities,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *PolicyPathRules) Reset()         { *m = PolicyPathRules{} }
+func (m *PolicyPathRules) String() string { return proto.CompactTextString(m) }
+func (*PolicyPathRules) ProtoMessage()    {}
+func (*PolicyPathRules) Descriptor() ([]byte, []int) {
+	return fileDescriptor_00212fb1f9d3bf1c, []int{14}
+}
+func (m *PolicyPathRules) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *PolicyPathRules) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_PolicyPathRules.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *PolicyPathRules) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PolicyPathRules.Merge(m, src)
+}
+func (m *PolicyPathRules) XXX_Size() int {
+	return m.Size()
+}
+func (m *PolicyPathRules) XXX_DiscardUnknown() {
+	xxx_messageInfo_PolicyPathRules.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_PolicyPathRules proto.InternalMessageInfo
+
+func (m *PolicyPathRules) GetPath() string {
+	if m != nil {
+		return m.Path
+	}
+	return ""
+}
+
+func (m *PolicyPathRules) GetCapabilities() []string {
+	if m != nil {
+		return m.Capabilities
+	}
+	return nil
+}
+
+type CreatePolicyRequest struct {
+	Name                 string             `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Paths                []*PolicyPathRules `protobuf:"bytes,2,rep,name=paths,proto3" json:"paths,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
+	XXX_unrecognized     []byte             `json:"-"`
+	XXX_sizecache        int32              `json:"-"`
+}
+
+func (m *CreatePolicyRequest) Reset()         { *m = CreatePolicyRequest{} }
+func (m *CreatePolicyRequest) String() string { return proto.CompactTextString(m) }
+func (*CreatePolicyRequest) ProtoMessage()    {}
+func (*CreatePolicyRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_00212fb1f9d3bf1c, []int{15}
+}
+func (m *CreatePolicyRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *CreatePolicyRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_CreatePolicyRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *CreatePolicyRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CreatePolicyRequest.Merge(m, src)
+}
+func (m *CreatePolicyRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *CreatePolicyRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_CreatePolicyRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CreatePolicyRequest proto.InternalMessageInfo
+
+func (m *CreatePolicyRequest) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+func (m *CreatePolicyRequest) GetPaths() []*PolicyPathRules {
+	if m != nil {
+		return m.Paths
+	}
+	return nil
+}
+
+type CreatePolicyResponse struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *CreatePolicyResponse) Reset()         { *m = CreatePolicyResponse{} }
+func (m *CreatePolicyResponse) String() string { return proto.CompactTextString(m) }
+func (*CreatePolicyResponse) ProtoMessage()    {}
+func (*CreatePolicyResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_00212fb1f9d3bf1c, []int{16}
+}
+func (m *CreatePolicyResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *CreatePolicyResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_CreatePolicyResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *CreatePolicyResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CreatePolicyResponse.Merge(m, src)
+}
+func (m *CreatePolicyResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *CreatePolicyResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_CreatePolicyResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CreatePolicyResponse proto.InternalMessageInfo
+
+type GetPolicyRequest struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *GetPolicyRequest) Reset()         { *m = GetPolicyRequest{} }
+func (m *GetPolicyRequest) String() string { return proto.CompactTextString(m) }
+func (*GetPolicyRequest) ProtoMessage()    {}
+func (*GetPolicyRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_00212fb1f9d3bf1c, []int{17}
+}
+func (m *GetPolicyRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *GetPolicyRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_GetPolicyRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *GetPolicyRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetPolicyRequest.Merge(m, src)
+}
+func (m *GetPolicyRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *GetPolicyRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetPolicyRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetPolicyRequest proto.InternalMessageInfo
+
+type GetPolicyResponse struct {
+	Name                 string             `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Paths                []*PolicyPathRules `protobuf:"bytes,2,rep,name=paths,proto3" json:"paths,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
+	XXX_unrecognized     []byte             `json:"-"`
+	XXX_sizecache        int32              `json:"-"`
+}
+
+func (m *GetPolicyResponse) Reset()         { *m = GetPolicyResponse{} }
+func (m *GetPolicyResponse) String() string { return proto.CompactTextString(m) }
+func (*GetPolicyResponse) ProtoMessage()    {}
+func (*GetPolicyResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_00212fb1f9d3bf1c, []int{18}
+}
+func (m *GetPolicyResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *GetPolicyResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_GetPolicyResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *GetPolicyResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetPolicyResponse.Merge(m, src)
+}
+func (m *GetPolicyResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *GetPolicyResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetPolicyResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetPolicyResponse proto.InternalMessageInfo
+
+func (m *GetPolicyResponse) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+func (m *GetPolicyResponse) GetPaths() []*PolicyPathRules {
+	if m != nil {
+		return m.Paths
+	}
+	return nil
+}
+
+type ListPoliciesRequest struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ListPoliciesRequest) Reset()         { *m = ListPoliciesRequest{} }
+func (m *ListPoliciesRequest) String() string { return proto.CompactTextString(m) }
+func (*ListPoliciesRequest) ProtoMessage()    {}
+func (*ListPoliciesRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_00212fb1f9d3bf1c, []int{19}
+}
+func (m *ListPoliciesRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ListPoliciesRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ListPoliciesRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ListPoliciesRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListPoliciesRequest.Merge(m, src)
+}
+func (m *ListPoliciesRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *ListPoliciesRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListPoliciesRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ListPoliciesRequest proto.InternalMessageInfo
+
+type ListPoliciesResponse struct {
+	Policies             []*Policy `protobuf:"bytes,1,rep,name=policies,proto3" json:"policies,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
+	XXX_unrecognized     []byte    `json:"-"`
+	XXX_sizecache        int32     `json:"-"`
+}
+
+func (m *ListPoliciesResponse) Reset()         { *m = ListPoliciesResponse{} }
+func (m *ListPoliciesResponse) String() string { return proto.CompactTextString(m) }
+func (*ListPoliciesResponse) ProtoMessage()    {}
+func (*ListPoliciesResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_00212fb1f9d3bf1c, []int{20}
+}
+func (m *ListPoliciesResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ListPoliciesResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ListPoliciesResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ListPoliciesResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListPoliciesResponse.Merge(m, src)
+}
+func (m *ListPoliciesResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *ListPoliciesResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListPoliciesResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ListPoliciesResponse proto.InternalMessageInfo
+
+func (m *ListPoliciesResponse) GetPolicies() []*Policy {
+	if m != nil {
+		return m.Policies
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterEnum("api_pb.Method", Method_name, Method_value)
 	proto.RegisterEnum("api_pb.FileInfo_Type", FileInfo_Type_name, FileInfo_Type_value)
@@ -802,58 +1194,75 @@ func init() {
 	proto.RegisterType((*LoginRequest)(nil), "api_pb.LoginRequest")
 	proto.RegisterMapType((map[string]string)(nil), "api_pb.LoginRequest.DataEntry")
 	proto.RegisterType((*LoginResponse)(nil), "api_pb.LoginResponse")
+	proto.RegisterType((*Policy)(nil), "api_pb.Policy")
+	proto.RegisterType((*PolicyPathRules)(nil), "api_pb.PolicyPathRules")
+	proto.RegisterType((*CreatePolicyRequest)(nil), "api_pb.CreatePolicyRequest")
+	proto.RegisterType((*CreatePolicyResponse)(nil), "api_pb.CreatePolicyResponse")
+	proto.RegisterType((*GetPolicyRequest)(nil), "api_pb.GetPolicyRequest")
+	proto.RegisterType((*GetPolicyResponse)(nil), "api_pb.GetPolicyResponse")
+	proto.RegisterType((*ListPoliciesRequest)(nil), "api_pb.ListPoliciesRequest")
+	proto.RegisterType((*ListPoliciesResponse)(nil), "api_pb.ListPoliciesResponse")
 }
 
 func init() { proto.RegisterFile("api.proto", fileDescriptor_00212fb1f9d3bf1c) }
 
 var fileDescriptor_00212fb1f9d3bf1c = []byte{
-	// 723 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x54, 0x51, 0x4f, 0xdb, 0x48,
-	0x10, 0xc6, 0x89, 0x31, 0xf6, 0x10, 0x72, 0xbe, 0x3d, 0x8e, 0x8b, 0x72, 0x28, 0xca, 0x59, 0x3c,
-	0xe4, 0x4e, 0x3a, 0xc3, 0xe5, 0x90, 0x28, 0x7d, 0x41, 0xb4, 0x09, 0x2d, 0x55, 0xa2, 0x22, 0x27,
-	0x54, 0xa2, 0x2f, 0x68, 0x93, 0x2c, 0xc9, 0x8a, 0xc4, 0xeb, 0xee, 0x3a, 0x54, 0xe1, 0x27, 0xf4,
-	0xb5, 0x2f, 0xfd, 0x0f, 0xfd, 0x23, 0x7d, 0xe8, 0x43, 0x7f, 0x42, 0x45, 0xff, 0x48, 0xb5, 0x5e,
-	0x6f, 0x82, 0x69, 0x8b, 0xd4, 0x27, 0xcf, 0xcc, 0x7e, 0xf3, 0xcd, 0xee, 0xcc, 0x37, 0x06, 0x07,
-	0x47, 0xd4, 0x8f, 0x38, 0x8b, 0x19, 0xb2, 0x70, 0x44, 0xcf, 0xa3, 0x9e, 0x67, 0x81, 0xf9, 0x82,
-	0xd1, 0x81, 0xf7, 0xde, 0x80, 0xe2, 0x63, 0x36, 0x99, 0xb0, 0x30, 0x20, 0x22, 0x62, 0xa1, 0x20,
-	0xa8, 0x04, 0x2b, 0x62, 0xda, 0xef, 0x13, 0x21, 0x4a, 0x46, 0xd5, 0xa8, 0xd9, 0x81, 0x76, 0x91,
-	0x0b, 0x79, 0xc2, 0x79, 0x29, 0x57, 0x35, 0x6a, 0x4e, 0x20, 0x4d, 0xb4, 0x0b, 0x26, 0xe6, 0x43,
-	0x51, 0xca, 0x57, 0xf3, 0xb5, 0xd5, 0x7a, 0xd5, 0x57, 0xec, 0x7e, 0x96, 0xd1, 0x3f, 0xe4, 0x43,
-	0xd1, 0x0c, 0x63, 0x3e, 0x0b, 0x12, 0x74, 0x79, 0x0f, 0x9c, 0x79, 0x48, 0x92, 0x5e, 0x92, 0x59,
-	0x52, 0xca, 0x09, 0xa4, 0x89, 0xd6, 0x61, 0xf9, 0x0a, 0x8f, 0xa7, 0x24, 0x2d, 0xa4, 0x9c, 0x87,
-	0xb9, 0x07, 0x86, 0xb7, 0x05, 0xc5, 0x36, 0xbe, 0x24, 0x0d, 0xca, 0x03, 0xf2, 0x6a, 0x4a, 0x44,
-	0x8c, 0x10, 0x98, 0x11, 0x8e, 0x47, 0x69, 0x7a, 0x62, 0x7b, 0x87, 0xb0, 0x16, 0x90, 0x09, 0xbb,
-	0x22, 0xf7, 0x80, 0xd0, 0x26, 0x38, 0x9c, 0xf4, 0xa7, 0x5c, 0xd0, 0x2b, 0x55, 0xc8, 0x0e, 0x16,
-	0x01, 0xef, 0x2f, 0x58, 0x6d, 0x51, 0x11, 0xdf, 0x57, 0xe5, 0x8d, 0x01, 0xf6, 0x11, 0x1d, 0x93,
-	0xe3, 0xf0, 0x82, 0x49, 0x40, 0x88, 0x27, 0x44, 0x03, 0xa4, 0x8d, 0xfe, 0x06, 0x33, 0x9e, 0x45,
-	0x8a, 0xbc, 0x58, 0xff, 0x5d, 0xf7, 0x46, 0xe7, 0xf8, 0xdd, 0x59, 0x44, 0x82, 0x04, 0x82, 0xfe,
-	0x04, 0xe7, 0x82, 0x8e, 0xc9, 0xb9, 0xa0, 0xd7, 0xa4, 0x94, 0xaf, 0x1a, 0x35, 0x33, 0xb0, 0x65,
-	0xa0, 0x43, 0xaf, 0x89, 0xe7, 0x81, 0x29, 0xa1, 0xc8, 0x06, 0xf3, 0xe8, 0xb8, 0xd5, 0x74, 0x97,
-	0xd0, 0x0a, 0xe4, 0x1b, 0xc7, 0x81, 0x6b, 0x48, 0xa3, 0x73, 0xd6, 0x76, 0x73, 0xde, 0x33, 0x28,
-	0xa8, 0xfb, 0xa6, 0x33, 0xdc, 0x02, 0x73, 0x4c, 0x45, 0x5c, 0x32, 0x92, 0xb9, 0xb8, 0x77, 0x6b,
-	0x07, 0xc9, 0xa9, 0x6c, 0x34, 0xe1, 0x9c, 0xe9, 0x89, 0x2a, 0xc7, 0xeb, 0xc3, 0xda, 0x69, 0x34,
-	0x66, 0x78, 0xa0, 0x5f, 0xbf, 0x0b, 0xd6, 0x88, 0xe0, 0x01, 0xe1, 0xc9, 0xf3, 0x56, 0xeb, 0x9b,
-	0x9a, 0x2e, 0x03, 0xf3, 0x9f, 0x26, 0x98, 0x20, 0xc5, 0xca, 0x96, 0x0c, 0x70, 0x8c, 0x13, 0xee,
-	0x42, 0x90, 0xd8, 0x65, 0x1b, 0x2c, 0x85, 0xf2, 0x5c, 0x28, 0xea, 0x6c, 0x75, 0x65, 0xef, 0x57,
-	0xf8, 0xa5, 0xc1, 0x5e, 0x87, 0xb7, 0x18, 0x3d, 0x04, 0xee, 0x22, 0x94, 0xc2, 0xde, 0x1a, 0x50,
-	0x68, 0xb1, 0x21, 0x0d, 0xf5, 0xed, 0x36, 0xc0, 0x9a, 0x90, 0x78, 0xc4, 0x06, 0x69, 0xf3, 0x53,
-	0x0f, 0xd5, 0xe7, 0xf5, 0x65, 0x0b, 0x2a, 0xfa, 0xce, 0xb7, 0x73, 0xfd, 0x06, 0x8e, 0x71, 0x2a,
-	0xcc, 0xe4, 0x7e, 0x7b, 0xe0, 0xcc, 0x43, 0x3f, 0x25, 0xcc, 0x33, 0x58, 0x4b, 0x89, 0xd3, 0x01,
-	0xac, 0xc3, 0x72, 0xcc, 0x2e, 0x49, 0x98, 0xa6, 0x2b, 0x47, 0xae, 0x56, 0x27, 0x5d, 0x2d, 0x25,
-	0x39, 0xed, 0xca, 0x93, 0x36, 0x11, 0x02, 0x0f, 0xd5, 0xfc, 0x9d, 0x40, 0xbb, 0xff, 0xec, 0x80,
-	0xd5, 0x56, 0x2f, 0xb2, 0xc1, 0x3c, 0x79, 0xde, 0xe9, 0x2a, 0x01, 0x9c, 0x9c, 0x76, 0xdd, 0x9c,
-	0x34, 0x9e, 0x34, 0xbb, 0x6e, 0x1e, 0x01, 0x58, 0x8d, 0x66, 0xab, 0xd9, 0x6d, 0xba, 0x66, 0xfd,
-	0x63, 0x0e, 0xf2, 0x87, 0x11, 0x45, 0x1e, 0x98, 0x27, 0x34, 0x1c, 0xa2, 0x82, 0x7e, 0xbb, 0xdc,
-	0xf8, 0x72, 0xc6, 0x43, 0xfb, 0xb0, 0x92, 0x6e, 0x14, 0xda, 0xd0, 0x07, 0xd9, 0x15, 0x2b, 0x6f,
-	0x7c, 0x7f, 0xab, 0xd1, 0x1e, 0x58, 0x6a, 0xcd, 0xd0, 0x5c, 0xdb, 0x99, 0xb5, 0xfb, 0x61, 0xe2,
-	0x7f, 0x60, 0x4a, 0xb1, 0xa2, 0xdf, 0xe6, 0x33, 0x59, 0xac, 0x5a, 0x79, 0x3d, 0x1b, 0x4c, 0x53,
-	0xf6, 0xc1, 0x52, 0x72, 0x59, 0xd4, 0xca, 0x88, 0x6f, 0x51, 0x2b, 0xab, 0xaa, 0x9a, 0x81, 0x0e,
-	0xc0, 0xd6, 0x22, 0x42, 0x7f, 0x68, 0xd4, 0x1d, 0xa5, 0x95, 0x4b, 0xdf, 0x1e, 0x28, 0x82, 0x1d,
-	0xe3, 0xd1, 0xc1, 0x87, 0x9b, 0x8a, 0xf1, 0xe9, 0xa6, 0x62, 0x7c, 0xbe, 0xa9, 0x18, 0xef, 0xbe,
-	0x54, 0x96, 0x5e, 0xfe, 0x3b, 0xa4, 0xf1, 0x68, 0xda, 0xf3, 0xfb, 0x6c, 0xb2, 0x1d, 0x61, 0x8e,
-	0x05, 0x9b, 0xf2, 0x3e, 0xd9, 0xe6, 0x23, 0x26, 0xa6, 0x42, 0x7f, 0xa2, 0xde, 0xb6, 0xe2, 0xec,
-	0x59, 0xc9, 0xaf, 0xf7, 0xff, 0xaf, 0x01, 0x00, 0x00, 0xff, 0xff, 0x49, 0x6a, 0x0a, 0x96, 0x87,
-	0x05, 0x00, 0x00,
+	// 865 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x55, 0xdd, 0x6e, 0x1b, 0x45,
+	0x14, 0xee, 0xae, 0x37, 0x9b, 0xdd, 0x93, 0xc4, 0xdd, 0x4e, 0xdc, 0x60, 0x99, 0xca, 0x32, 0xa3,
+	0x5e, 0x98, 0x4a, 0x75, 0x8a, 0xa9, 0x14, 0xca, 0x4d, 0x95, 0xd6, 0x6e, 0x09, 0x4a, 0x84, 0x35,
+	0x71, 0x2b, 0x0a, 0x17, 0xd5, 0xd8, 0x9e, 0xda, 0xa3, 0xd8, 0x3b, 0xcb, 0xce, 0x3a, 0xc8, 0x7d,
+	0x04, 0x6e, 0xb9, 0xe1, 0x1d, 0x78, 0x11, 0x2e, 0xb8, 0xe0, 0x11, 0x50, 0x78, 0x11, 0x34, 0x3b,
+	0x33, 0x6b, 0x6f, 0x5a, 0x2a, 0x90, 0xb8, 0xf2, 0x9c, 0xbf, 0xef, 0x9c, 0x3d, 0x3f, 0x9f, 0x21,
+	0xa4, 0x09, 0xef, 0x24, 0xa9, 0xc8, 0x04, 0xf2, 0x69, 0xc2, 0x5f, 0x27, 0x23, 0xec, 0x83, 0xf7,
+	0x52, 0xf0, 0x09, 0xfe, 0xd5, 0x81, 0xea, 0x53, 0xb1, 0x58, 0x88, 0x98, 0x30, 0x99, 0x88, 0x58,
+	0x32, 0x54, 0x87, 0x6d, 0xb9, 0x1c, 0x8f, 0x99, 0x94, 0x75, 0xa7, 0xe5, 0xb4, 0x03, 0x62, 0x45,
+	0x14, 0x41, 0x85, 0xa5, 0x69, 0xdd, 0x6d, 0x39, 0xed, 0x90, 0xa8, 0x27, 0x7a, 0x08, 0x1e, 0x4d,
+	0xa7, 0xb2, 0x5e, 0x69, 0x55, 0xda, 0x3b, 0xdd, 0x56, 0x47, 0xa3, 0x77, 0xca, 0x88, 0x9d, 0xe3,
+	0x74, 0x2a, 0xfb, 0x71, 0x96, 0xae, 0x48, 0xee, 0xdd, 0x38, 0x82, 0xb0, 0x50, 0x29, 0xd0, 0x0b,
+	0xb6, 0xca, 0x53, 0x85, 0x44, 0x3d, 0x51, 0x0d, 0xb6, 0x2e, 0xe9, 0x7c, 0xc9, 0x4c, 0x22, 0x2d,
+	0x7c, 0xe9, 0x7e, 0xe1, 0xe0, 0xbb, 0x50, 0x3d, 0xa3, 0x17, 0xac, 0xc7, 0x53, 0xc2, 0x7e, 0x58,
+	0x32, 0x99, 0x21, 0x04, 0x5e, 0x42, 0xb3, 0x99, 0x09, 0xcf, 0xdf, 0xf8, 0x18, 0xf6, 0x08, 0x5b,
+	0x88, 0x4b, 0xf6, 0x01, 0x27, 0x74, 0x07, 0xc2, 0x94, 0x8d, 0x97, 0xa9, 0xe4, 0x97, 0x3a, 0x51,
+	0x40, 0xd6, 0x0a, 0xfc, 0x09, 0xec, 0x9c, 0x72, 0x99, 0x7d, 0x28, 0xcb, 0x4f, 0x0e, 0x04, 0xcf,
+	0xf8, 0x9c, 0x9d, 0xc4, 0x6f, 0x84, 0x72, 0x88, 0xe9, 0x82, 0x59, 0x07, 0xf5, 0x46, 0x9f, 0x82,
+	0x97, 0xad, 0x12, 0x0d, 0x5e, 0xed, 0xde, 0xb6, 0xbd, 0xb1, 0x31, 0x9d, 0xe1, 0x2a, 0x61, 0x24,
+	0x77, 0x41, 0x1f, 0x43, 0xf8, 0x86, 0xcf, 0xd9, 0x6b, 0xc9, 0xdf, 0xb2, 0x7a, 0xa5, 0xe5, 0xb4,
+	0x3d, 0x12, 0x28, 0xc5, 0x39, 0x7f, 0xcb, 0x30, 0x06, 0x4f, 0xb9, 0xa2, 0x00, 0xbc, 0x67, 0x27,
+	0xa7, 0xfd, 0xe8, 0x06, 0xda, 0x86, 0x4a, 0xef, 0x84, 0x44, 0x8e, 0x7a, 0x9c, 0xbf, 0x3a, 0x8b,
+	0x5c, 0xfc, 0x35, 0xec, 0xea, 0x7a, 0xcd, 0x0c, 0xef, 0x82, 0x37, 0xe7, 0x32, 0xab, 0x3b, 0xf9,
+	0x5c, 0xa2, 0xeb, 0xb9, 0x49, 0x6e, 0x55, 0x8d, 0x66, 0x69, 0x2a, 0xec, 0x44, 0xb5, 0x80, 0xc7,
+	0xb0, 0xf7, 0x22, 0x99, 0x0b, 0x3a, 0xb1, 0x5f, 0xff, 0x10, 0xfc, 0x19, 0xa3, 0x13, 0x96, 0xe6,
+	0x9f, 0xb7, 0xd3, 0xbd, 0x63, 0xe1, 0x4a, 0x6e, 0x9d, 0xaf, 0x72, 0x1f, 0x62, 0x7c, 0x55, 0x4b,
+	0x26, 0x34, 0xa3, 0x39, 0xf6, 0x2e, 0xc9, 0xdf, 0x8d, 0x00, 0x7c, 0xed, 0x85, 0x23, 0xa8, 0xda,
+	0x68, 0x5d, 0x32, 0xbe, 0x05, 0x37, 0x7b, 0xe2, 0xc7, 0x78, 0x03, 0x11, 0x23, 0x88, 0xd6, 0x2a,
+	0xe3, 0xf6, 0xb3, 0x03, 0xbb, 0xa7, 0x62, 0xca, 0x63, 0x5b, 0xdd, 0x01, 0xf8, 0x0b, 0x96, 0xcd,
+	0xc4, 0xc4, 0x34, 0xdf, 0x48, 0xa8, 0x5b, 0xe4, 0x57, 0x2d, 0x68, 0xda, 0x9a, 0x37, 0x63, 0x3b,
+	0x3d, 0x9a, 0x51, 0xb3, 0x98, 0x79, 0x7d, 0x47, 0x10, 0x16, 0xaa, 0xff, 0xb4, 0x98, 0xaf, 0x60,
+	0xcf, 0x00, 0x9b, 0x01, 0xd4, 0x60, 0x2b, 0x13, 0x17, 0x2c, 0x36, 0xe1, 0x5a, 0x50, 0xa7, 0x75,
+	0x6e, 0x4e, 0x4b, 0xaf, 0x9c, 0x15, 0x95, 0xe5, 0x8c, 0x49, 0x49, 0xa7, 0x7a, 0xfe, 0x21, 0xb1,
+	0x22, 0xfe, 0x1e, 0xfc, 0x81, 0x98, 0xf3, 0xf1, 0x0a, 0x55, 0xc1, 0xe5, 0xf6, 0x2b, 0x5d, 0x3e,
+	0x29, 0x96, 0xce, 0xdd, 0x58, 0xba, 0xfb, 0xb0, 0xa5, 0xb6, 0xd3, 0x5e, 0xe4, 0x47, 0xf6, 0xb3,
+	0x35, 0xc4, 0x80, 0x66, 0x33, 0xb2, 0x9c, 0x33, 0x49, 0xb4, 0x17, 0x3e, 0x81, 0x9b, 0xd7, 0x2c,
+	0xef, 0x3d, 0x16, 0x0c, 0xbb, 0x63, 0x9a, 0xd0, 0x11, 0x9f, 0xf3, 0x8c, 0x33, 0x99, 0xf7, 0x34,
+	0x24, 0x25, 0x1d, 0xfe, 0x16, 0xf6, 0x9f, 0xa6, 0x8c, 0x66, 0x4c, 0x03, 0x6e, 0x9c, 0xce, 0x3b,
+	0x97, 0x51, 0x14, 0xe9, 0xfe, 0xab, 0x22, 0x0f, 0xa0, 0x56, 0x46, 0x36, 0xab, 0x80, 0x20, 0x7a,
+	0xce, 0xb2, 0x52, 0x3a, 0xfc, 0x12, 0x6e, 0x6d, 0xe8, 0xcc, 0x30, 0xfe, 0x87, 0x1a, 0x6e, 0xc3,
+	0xbe, 0x3a, 0xb0, 0xdc, 0xca, 0x99, 0xb4, 0xe9, 0x9e, 0x40, 0xad, 0xac, 0x36, 0x19, 0xef, 0x41,
+	0x90, 0x18, 0x9d, 0xb9, 0xc1, 0x6a, 0x39, 0x01, 0x29, 0xec, 0xf7, 0x1e, 0x80, 0x7f, 0xa6, 0x57,
+	0x36, 0x00, 0x6f, 0xf0, 0xcd, 0xf9, 0x50, 0x5f, 0xf8, 0xe0, 0xc5, 0x30, 0x72, 0xd5, 0xe3, 0x79,
+	0x7f, 0x18, 0x55, 0x10, 0x80, 0xdf, 0xeb, 0x9f, 0xf6, 0x87, 0xfd, 0xc8, 0xeb, 0xfe, 0xee, 0x42,
+	0xe5, 0x38, 0xe1, 0x08, 0x83, 0x37, 0xe0, 0xf1, 0x14, 0xed, 0x5a, 0x6c, 0x45, 0xe9, 0x8d, 0x92,
+	0x84, 0x1e, 0xc1, 0xb6, 0xa1, 0x4c, 0x74, 0x60, 0x0d, 0x65, 0x0e, 0x6d, 0x1c, 0xbc, 0x9f, 0xb6,
+	0xd1, 0x11, 0xf8, 0x9a, 0x47, 0x51, 0x41, 0x5e, 0x25, 0x5e, 0xfd, 0xc7, 0xc0, 0xcf, 0xc0, 0x53,
+	0x5d, 0x41, 0xfb, 0xc5, 0xd1, 0xad, 0xb9, 0xb4, 0x51, 0x2b, 0x2b, 0x4d, 0xc8, 0x23, 0xf0, 0x35,
+	0x1f, 0xac, 0x73, 0x95, 0xd8, 0x65, 0x9d, 0xab, 0x4c, 0x1b, 0x6d, 0x07, 0x3d, 0x86, 0xc0, 0xb2,
+	0x04, 0x2a, 0xc6, 0x78, 0x8d, 0x4a, 0x1a, 0xf5, 0x77, 0x0d, 0x1a, 0xe0, 0x81, 0xf3, 0xe4, 0xf1,
+	0x6f, 0x57, 0x4d, 0xe7, 0x8f, 0xab, 0xa6, 0xf3, 0xe7, 0x55, 0xd3, 0xf9, 0xe5, 0xaf, 0xe6, 0x8d,
+	0xef, 0xee, 0x4f, 0x79, 0x36, 0x5b, 0x8e, 0x3a, 0x63, 0xb1, 0x38, 0x4c, 0x68, 0x4a, 0xa5, 0x58,
+	0xa6, 0x63, 0x76, 0x98, 0xce, 0x84, 0x5c, 0x4a, 0xfb, 0x93, 0x8c, 0x0e, 0x35, 0xe6, 0xc8, 0xcf,
+	0xff, 0x5b, 0x3f, 0xff, 0x3b, 0x00, 0x00, 0xff, 0xff, 0xec, 0x80, 0x68, 0x5d, 0x68, 0x07, 0x00,
+	0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -1730,6 +2139,322 @@ func (m *LoginResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *Policy) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Policy) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Policy) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Paths) > 0 {
+		for iNdEx := len(m.Paths) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Paths[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintApi(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x1a
+		}
+	}
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintApi(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Id) > 0 {
+		i -= len(m.Id)
+		copy(dAtA[i:], m.Id)
+		i = encodeVarintApi(dAtA, i, uint64(len(m.Id)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *PolicyPathRules) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *PolicyPathRules) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *PolicyPathRules) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Capabilities) > 0 {
+		for iNdEx := len(m.Capabilities) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Capabilities[iNdEx])
+			copy(dAtA[i:], m.Capabilities[iNdEx])
+			i = encodeVarintApi(dAtA, i, uint64(len(m.Capabilities[iNdEx])))
+			i--
+			dAtA[i] = 0x12
+		}
+	}
+	if len(m.Path) > 0 {
+		i -= len(m.Path)
+		copy(dAtA[i:], m.Path)
+		i = encodeVarintApi(dAtA, i, uint64(len(m.Path)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *CreatePolicyRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *CreatePolicyRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CreatePolicyRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Paths) > 0 {
+		for iNdEx := len(m.Paths) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Paths[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintApi(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x12
+		}
+	}
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintApi(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *CreatePolicyResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *CreatePolicyResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CreatePolicyResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *GetPolicyRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GetPolicyRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GetPolicyRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *GetPolicyResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GetPolicyResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GetPolicyResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Paths) > 0 {
+		for iNdEx := len(m.Paths) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Paths[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintApi(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x12
+		}
+	}
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintApi(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *ListPoliciesRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ListPoliciesRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ListPoliciesRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *ListPoliciesResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ListPoliciesResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ListPoliciesResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Policies) > 0 {
+		for iNdEx := len(m.Policies) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Policies[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintApi(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintApi(dAtA []byte, offset int, v uint64) int {
 	offset -= sovApi(v)
 	base := offset
@@ -1983,6 +2708,152 @@ func (m *LoginResponse) Size() (n int) {
 	l = len(m.Message)
 	if l > 0 {
 		n += 1 + l + sovApi(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *Policy) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Id)
+	if l > 0 {
+		n += 1 + l + sovApi(uint64(l))
+	}
+	l = len(m.Name)
+	if l > 0 {
+		n += 1 + l + sovApi(uint64(l))
+	}
+	if len(m.Paths) > 0 {
+		for _, e := range m.Paths {
+			l = e.Size()
+			n += 1 + l + sovApi(uint64(l))
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *PolicyPathRules) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Path)
+	if l > 0 {
+		n += 1 + l + sovApi(uint64(l))
+	}
+	if len(m.Capabilities) > 0 {
+		for _, s := range m.Capabilities {
+			l = len(s)
+			n += 1 + l + sovApi(uint64(l))
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *CreatePolicyRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Name)
+	if l > 0 {
+		n += 1 + l + sovApi(uint64(l))
+	}
+	if len(m.Paths) > 0 {
+		for _, e := range m.Paths {
+			l = e.Size()
+			n += 1 + l + sovApi(uint64(l))
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *CreatePolicyResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *GetPolicyRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *GetPolicyResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Name)
+	if l > 0 {
+		n += 1 + l + sovApi(uint64(l))
+	}
+	if len(m.Paths) > 0 {
+		for _, e := range m.Paths {
+			l = e.Size()
+			n += 1 + l + sovApi(uint64(l))
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *ListPoliciesRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *ListPoliciesResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if len(m.Policies) > 0 {
+		for _, e := range m.Policies {
+			l = e.Size()
+			n += 1 + l + sovApi(uint64(l))
+		}
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -3431,6 +4302,742 @@ func (m *LoginResponse) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			m.Message = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipApi(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthApi
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Policy) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowApi
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Policy: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Policy: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Id", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApi
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthApi
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthApi
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Id = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApi
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthApi
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthApi
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Name = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Paths", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApi
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApi
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthApi
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Paths = append(m.Paths, &PolicyPathRules{})
+			if err := m.Paths[len(m.Paths)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipApi(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthApi
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *PolicyPathRules) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowApi
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: PolicyPathRules: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: PolicyPathRules: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Path", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApi
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthApi
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthApi
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Path = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Capabilities", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApi
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthApi
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthApi
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Capabilities = append(m.Capabilities, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipApi(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthApi
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *CreatePolicyRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowApi
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: CreatePolicyRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: CreatePolicyRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApi
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthApi
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthApi
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Name = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Paths", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApi
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApi
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthApi
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Paths = append(m.Paths, &PolicyPathRules{})
+			if err := m.Paths[len(m.Paths)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipApi(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthApi
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *CreatePolicyResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowApi
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: CreatePolicyResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: CreatePolicyResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipApi(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthApi
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GetPolicyRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowApi
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GetPolicyRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GetPolicyRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipApi(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthApi
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GetPolicyResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowApi
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GetPolicyResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GetPolicyResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApi
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthApi
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthApi
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Name = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Paths", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApi
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApi
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthApi
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Paths = append(m.Paths, &PolicyPathRules{})
+			if err := m.Paths[len(m.Paths)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipApi(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthApi
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ListPoliciesRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowApi
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ListPoliciesRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ListPoliciesRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipApi(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthApi
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ListPoliciesResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowApi
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ListPoliciesResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ListPoliciesResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Policies", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApi
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApi
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthApi
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Policies = append(m.Policies, &Policy{})
+			if err := m.Policies[len(m.Policies)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex

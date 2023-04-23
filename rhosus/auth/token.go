@@ -10,12 +10,12 @@ import (
 	"time"
 )
 
-type TokenManager struct {
+type TokenStore struct {
 	storage *storage.Storage
 }
 
-func NewTokenManager(s *storage.Storage) (*TokenManager, error) {
-	m := &TokenManager{
+func NewTokenStore(s *storage.Storage) (*TokenStore, error) {
+	m := &TokenStore{
 		storage: s,
 	}
 	go m.watchForTokensExpiration()
@@ -23,7 +23,7 @@ func NewTokenManager(s *storage.Storage) (*TokenManager, error) {
 	return m, nil
 }
 
-func (m *TokenManager) watchForTokensExpiration() {
+func (m *TokenStore) watchForTokensExpiration() {
 	ticker := tickers.SetTicker(time.Second * 5)
 	defer tickers.ReleaseTicker(ticker)
 	for {
@@ -49,7 +49,7 @@ func (m *TokenManager) watchForTokensExpiration() {
 	}
 }
 
-func (m *TokenManager) CreateToken(roleID string, ttl time.Duration) (*control_pb.Token, error) {
+func (m *TokenStore) CreateToken(roleID string, ttl time.Duration) (*control_pb.Token, error) {
 	tokenStr := util.GenerateSecureToken(32)
 
 	token := &control_pb.Token{
@@ -65,11 +65,11 @@ func (m *TokenManager) CreateToken(roleID string, ttl time.Duration) (*control_p
 	return token, nil
 }
 
-func (m *TokenManager) GetToken(token string) (*control_pb.Token, error) {
+func (m *TokenStore) GetToken(token string) (*control_pb.Token, error) {
 	return m.storage.GetToken(token)
 }
 
-func (m *TokenManager) RevokeToken(token string) error {
+func (m *TokenStore) RevokeToken(token string) error {
 	t, err := m.storage.GetToken(token)
 	if err != nil {
 		return fmt.Errorf("error getting token from storage: %w", err)

@@ -40,7 +40,7 @@ type Api struct {
 	registry *registry.Registry
 	http     *http.Server
 
-	tokenManager *auth.TokenManager
+	tokenManager *auth.TokenStore
 
 	shutdownCh chan struct{}
 	shutdown   bool
@@ -49,7 +49,7 @@ type Api struct {
 	decoder jsonpb.Unmarshaler
 }
 
-func NewApi(r *registry.Registry, tokenManager *auth.TokenManager, conf Config) (*Api, error) {
+func NewApi(r *registry.Registry, tokenManager *auth.TokenStore, conf Config) (*Api, error) {
 	a := &Api{
 		registry:   r,
 		Config:     conf,
@@ -169,7 +169,7 @@ func (a *Api) auth(rw http.ResponseWriter, r *http.Request) error {
 	}
 
 	// Basically expired tokens are expected to
-	// be removed by TokenManager special goroutine,
+	// be removed by TokenStore special goroutine,
 	// but will check additionally
 	if token.ValidUntil < time.Now().Unix() {
 		rw.WriteHeader(http.StatusBadRequest)
@@ -260,6 +260,10 @@ func (a *Api) HandleSys(rw http.ResponseWriter, r *http.Request) error {
 
 	// Auth methods
 	case "sys/login":
+		if r.Method != http.MethodPost {
+			rw.WriteHeader(http.StatusMethodNotAllowed)
+			return nil
+		}
 		_, err := r.Body.Read(body)
 		if err != nil {
 			log.Error().Err(err).Msg("error reading request body")
@@ -329,6 +333,48 @@ func (a *Api) HandleSys(rw http.ResponseWriter, r *http.Request) error {
 		return nil
 	case "sys/delete-test-user:":
 
+	case "sys/policies/create":
+		if r.Method != http.MethodPost {
+			rw.WriteHeader(http.StatusMethodNotAllowed)
+			return nil
+		}
+
+		_, err := r.Body.Read(body)
+		if err != nil {
+			log.Error().Err(err).Msg("error reading request body")
+			return err
+		}
+
+		var msg api_pb.CreatePolicyRequest
+		err = a.decoder.Unmarshal(r.Body, &msg)
+		if err != nil {
+			log.Error().Err(err).Msg("error unmarshaling create policy request")
+			return err
+		}
+
+		res, err := a.registry.HandleCreatePolicy(&msg)
+		if err != nil {
+			rw.WriteHeader(http.StatusInternalServerError)
+			return err
+		}
+
+		rw.WriteHeader(http.StatusOK)
+		a.encoder.Marshal(rw, res)
+
+	case "sys/policies":
+		if r.Method != http.MethodGet {
+			rw.WriteHeader(http.StatusMethodNotAllowed)
+			return nil
+		}
+
+		res, err := a.registry.HandleListPolicies(&api_pb.ListPoliciesRequest{})
+		if err != nil {
+			rw.WriteHeader(http.StatusInternalServerError)
+			return err
+		}
+
+		rw.WriteHeader(http.StatusOK)
+		a.encoder.Marshal(rw, res)
 	}
 
 	return nil

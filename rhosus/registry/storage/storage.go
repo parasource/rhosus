@@ -158,6 +158,24 @@ func setupMemDB() (*memdb.MemDB, error) {
 					},
 				},
 			},
+
+			defaultPoliciesTableName: {
+				Name: defaultPoliciesTableName,
+				Indexes: map[string]*memdb.IndexSchema{
+					"id": {
+						Name:         "id",
+						AllowMissing: false,
+						Unique:       true,
+						Indexer:      &memdb.StringFieldIndex{Field: "Id"},
+					},
+					"name": {
+						Name:         "name",
+						AllowMissing: false,
+						Unique:       true,
+						Indexer:      &memdb.StringFieldIndex{Field: "Name"},
+					},
+				},
+			},
 		},
 	})
 	return db, err
@@ -242,6 +260,31 @@ func (s *Storage) loadFromBackend() error {
 		err = s.storeTokenInMemory(&token)
 		if err != nil {
 			log.Error().Err(err).Msg("error loading token from backend")
+			continue
+		}
+	}
+
+	policyEntries, err := s.backend.List(EntryTypePolicy)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range policyEntries {
+		var policy control_pb.Policy
+
+		err := policy.Unmarshal(entry.Value)
+		if err != nil {
+			log.Error().Err(err).Msg("error unmarshaling policy")
+			continue
+		}
+
+		err = s.storePolicyInMemory(&policy)
+		if err != nil {
+			// todo: retry after some time
+
+			log.Error().Err(err).
+				Str("policy_name", policy.Name).
+				Msg("error loading policy from backend")
 			continue
 		}
 	}

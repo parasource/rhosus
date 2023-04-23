@@ -14,11 +14,11 @@ const (
 var _ Authenticator = &CredentialsAuth{}
 
 type CredentialsAuth struct {
-	roleManager  *RoleManager
-	tokenManager *TokenManager
+	roleManager  *RoleStore
+	tokenManager *TokenStore
 }
 
-func NewCredentialsAuth(roleManager *RoleManager, tokenManager *TokenManager) Authenticator {
+func NewCredentialsAuth(roleManager *RoleStore, tokenManager *TokenStore) Authenticator {
 	return &CredentialsAuth{
 		roleManager:  roleManager,
 		tokenManager: tokenManager,

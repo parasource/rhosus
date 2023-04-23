@@ -197,3 +197,52 @@ func (r *Registry) HandleList(req *api_pb.ListRequest) (*api_pb.ListResponse, er
 		List: list,
 	}, nil
 }
+
+func (r *Registry) HandleCreatePolicy(req *api_pb.CreatePolicyRequest) (*api_pb.CreatePolicyResponse, error) {
+	paths := make([]*control_pb.Policy_PathRules, 0, len(req.Paths))
+	for _, path := range req.Paths {
+		paths = append(paths, &control_pb.Policy_PathRules{
+			Path:               path.Path,
+			Policy:             req.Name,
+			CapabilitiesBitmap: 0,
+			Capabilities:       path.Capabilities,
+		})
+	}
+	uid, _ := uuid.NewV4()
+	policy := &control_pb.Policy{
+		Id:    uid.String(),
+		Name:  req.Name,
+		Paths: paths,
+	}
+
+	err := r.Storage.StorePolicy(policy)
+	if err != nil {
+		return nil, err
+	}
+
+	return &api_pb.CreatePolicyResponse{}, nil
+}
+
+func (r *Registry) HandleListPolicies(req *api_pb.ListPoliciesRequest) (*api_pb.ListPoliciesResponse, error) {
+	policies, err := r.Storage.ListPolicies()
+	if err != nil {
+		return nil, fmt.Errorf("error listing policies: %w", err)
+	}
+
+	var res api_pb.ListPoliciesResponse
+	for _, policy := range policies {
+		paths := make([]*api_pb.PolicyPathRules, 0, len(policy.Paths))
+		for _, path := range policy.Paths {
+			paths = append(paths, &api_pb.PolicyPathRules{
+				Path:         path.Path,
+				Capabilities: path.Capabilities,
+			})
+		}
+		res.Policies = append(res.Policies, &api_pb.Policy{
+			Name:  policy.Name,
+			Paths: paths,
+		})
+	}
+
+	return &res, nil
+}

@@ -7,17 +7,17 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type RoleManager struct {
+type RoleStore struct {
 	storage *storage.Storage
 }
 
-func NewRoleManager(s *storage.Storage) (*RoleManager, error) {
-	return &RoleManager{
+func NewRoleManager(s *storage.Storage) (*RoleStore, error) {
+	return &RoleStore{
 		storage: s,
 	}, nil
 }
 
-func (m *RoleManager) CreateRole(name string, password string, perms []string) (*control_pb.Role, error) {
+func (m *RoleStore) CreateRole(name string, password string, perms []string) (*control_pb.Role, error) {
 	roleID, err := uuid.NewV4()
 	if err != nil {
 		return nil, err
@@ -40,18 +40,18 @@ func (m *RoleManager) CreateRole(name string, password string, perms []string) (
 	return role, nil
 }
 
-func (m *RoleManager) GetRole(name string) (*control_pb.Role, error) {
+func (m *RoleStore) GetRole(name string) (*control_pb.Role, error) {
 	return m.storage.GetRole(name)
 }
 
-func (m *RoleManager) GetRoleById(roleID string) (*control_pb.Role, error) {
+func (m *RoleStore) GetRoleById(roleID string) (*control_pb.Role, error) {
 	return m.storage.GetRoleByID(roleID)
 }
 
-func (m *RoleManager) UpdateRole() {
+func (m *RoleStore) UpdateRole() {
 
 }
 
-func (m *RoleManager) DeleteRole() {
+func (m *RoleStore) DeleteRole() {
 
 }

@@ -352,7 +352,6 @@ func (r *Registry) RunServiceDiscovery() {
 	defer ticker.Stop()
 
 	for {
-
 		select {
 		case <-ticker.C:
 

@@ -88,3 +88,32 @@ message LoginResponse {
   bool Success = 2;
   string Message = 3;
 }
+
+message Policy {
+  string id = 1;
+  string name = 2;
+  repeated PolicyPathRules paths = 3;
+}
+
+message PolicyPathRules {
+  string path = 1;
+  repeated string capabilities = 2;
+}
+
+message CreatePolicyRequest {
+  string name = 1;
+  repeated PolicyPathRules paths = 2;
+}
+message CreatePolicyResponse {}
+
+
+message GetPolicyRequest {}
+message GetPolicyResponse {
+  string name = 1;
+  repeated PolicyPathRules paths = 2;
+}
+
+message ListPoliciesRequest {}
+message ListPoliciesResponse {
+  repeated Policy policies = 1;
+}
