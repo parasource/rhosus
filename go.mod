@@ -6,6 +6,7 @@ require (
 	github.com/apex/log v1.9.0
 	github.com/dustinkirkland/golang-petname v0.0.0-20191129215211-8e5a1ed0cff0
 	github.com/golang/protobuf v1.5.2
+	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/hashicorp/go-memdb v1.3.2
 	github.com/kr/text v0.2.0 // indirect
 	github.com/rs/zerolog v1.28.0

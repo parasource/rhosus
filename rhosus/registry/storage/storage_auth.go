@@ -106,7 +106,7 @@ func (s *Storage) StoreToken(token *control_pb.Token) error {
 
 	return s.backend.Put(EntryTypeToken, []*Entry{
 		{
-			Key:   token.Token,
+			Key:   token.Id,
 			Value: tokenBytes,
 		},
 	})
@@ -183,5 +183,5 @@ func (s *Storage) RevokeToken(token *control_pb.Token) error {
 	}
 	txn.Commit()
 
-	return s.backend.Delete(EntryTypeToken, []string{token.Token})
+	return s.backend.Delete(EntryTypeToken, []string{token.Id})
 }

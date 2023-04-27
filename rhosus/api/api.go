@@ -63,8 +63,9 @@ func NewApi(r *registry.Registry, tokenManager *auth.TokenStore, conf Config) (*
 	}
 
 	httpServer := &http.Server{
-		Addr:    conf.Address,
-		Handler: http.HandlerFunc(a.Handle),
+		Addr: conf.Address,
+		//Handler: http.HandlerFunc(a.Handle),
+		Handler: a.Router(),
 		//TLSConfig:         nil,
 		//ReadTimeout:       0,
 		//ReadHeaderTimeout: 0,
@@ -145,9 +146,32 @@ func (a *Api) Handle(rw http.ResponseWriter, r *http.Request) {
 			}
 		case http.MethodDelete:
 			a.handleDelete(rw, r)
+		case "LIST":
+			//a.handleList(rw, r)
 		case http.MethodOptions:
 			a.handleOptions(rw, r)
 		}
+	}
+}
+
+func (a *Api) HandleFilesystem(rw http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		a.handleGet(rw, r)
+	case http.MethodPost, http.MethodPut:
+		err := a.handlePostPut(rw, r)
+		if err != nil {
+			log.Error().Err(err).Msg("error handling Post/Put operation")
+		}
+	case http.MethodDelete:
+		a.handleDelete(rw, r)
+	case "LIST":
+		err := a.handleList(rw, r)
+		if err != nil {
+			log.Error().Err(err).Msg("error handling LIST operation")
+		}
+	case http.MethodOptions:
+		a.handleOptions(rw, r)
 	}
 }
 
@@ -171,7 +195,7 @@ func (a *Api) auth(rw http.ResponseWriter, r *http.Request) error {
 	// Basically expired tokens are expected to
 	// be removed by TokenStore special goroutine,
 	// but will check additionally
-	if token.ValidUntil < time.Now().Unix() {
+	if token.Ttl+token.CreationTime < time.Now().Unix() {
 		rw.WriteHeader(http.StatusBadRequest)
 		return ErrorInvalidClientToken
 	}
@@ -234,28 +258,28 @@ func (a *Api) HandleSys(rw http.ResponseWriter, r *http.Request) error {
 
 		return nil
 	case "sys/list":
-		_, err := r.Body.Read(body)
-		if err != nil {
-			log.Error().Err(err).Msg("error reading request body")
-			return err
-		}
-
-		var msg api_pb.ListRequest
-		err = a.decoder.Unmarshal(r.Body, &msg)
-		if err != nil {
-			log.Error().Err(err).Msg("error unmarshaling sys request")
-			return err
-		}
-
-		res, err := a.registry.HandleList(&msg)
-		if err != nil {
-			return err
-		}
-
-		rw.WriteHeader(http.StatusOK)
-		a.encoder.Marshal(rw, res)
-
-		return nil
+		//_, err := r.Body.Read(body)
+		//if err != nil {
+		//	log.Error().Err(err).Msg("error reading request body")
+		//	return err
+		//}
+		//
+		//var msg api_pb.ListRequest
+		//err = a.decoder.Unmarshal(r.Body, &msg)
+		//if err != nil {
+		//	log.Error().Err(err).Msg("error unmarshaling sys request")
+		//	return err
+		//}
+		//
+		//res, err := a.registry.HandleList(&msg)
+		//if err != nil {
+		//	return err
+		//}
+		//
+		//rw.WriteHeader(http.StatusOK)
+		//a.encoder.Marshal(rw, res)
+		//
+		//return nil
 	case "sys/hierarchy":
 
 	// Auth methods
@@ -313,6 +337,7 @@ func (a *Api) HandleSys(rw http.ResponseWriter, r *http.Request) error {
 
 	// For testing purposes
 	case "sys/create-test-user":
+
 		roleID, _ := uuid.NewV4()
 		passw, _ := bcrypt.GenerateFromPassword([]byte("Mypassword"), bcrypt.DefaultCost)
 		role := &control_pb.Role{
@@ -331,7 +356,6 @@ func (a *Api) HandleSys(rw http.ResponseWriter, r *http.Request) error {
 		rw.WriteHeader(200)
 
 		return nil
-	case "sys/delete-test-user:":
 
 	case "sys/policies/create":
 		if r.Method != http.MethodPost {
@@ -405,6 +429,11 @@ func (a *Api) handlePostPut(rw http.ResponseWriter, r *http.Request) error {
 
 func (a *Api) handleDelete(rw http.ResponseWriter, r *http.Request) error {
 	err := a.registry.HandleDeleteFile(rw, r)
+	return err
+}
+
+func (a *Api) handleList(rw http.ResponseWriter, r *http.Request) error {
+	err := a.registry.HandleList(rw, r)
 	return err
 }
 

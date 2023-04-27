@@ -10,6 +10,8 @@ package registry
 import (
 	"bytes"
 	"crypto/md5"
+	"github.com/golang/protobuf/jsonpb"
+	api_pb "github.com/parasource/rhosus/rhosus/pb/api"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	"github.com/parasource/rhosus/rhosus/util"
@@ -17,6 +19,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -228,6 +231,69 @@ func (r *Registry) HandlePutFile(rw http.ResponseWriter, req *http.Request) erro
 	return err
 }
 
+func (r *Registry) HandleList(rw http.ResponseWriter, req *http.Request) error {
+	rw.Header().Set("Content-Type", "application/json")
+
+	var parentID string
+	if req.URL.Path == "/" {
+		parentID = "root"
+	} else {
+		dir, err := r.Storage.GetFileByPath(strings.Trim(req.URL.Path, "/"))
+		if err != nil {
+			return err
+		}
+		if dir == nil {
+			rw.WriteHeader(http.StatusNotFound)
+			return nil
+		}
+		parentID = dir.Id
+	}
+
+	var list []*api_pb.FileInfo
+
+	files, err := r.Storage.GetFilesByParentId(parentID)
+	if err != nil {
+		return err
+	}
+
+	for _, file := range files {
+		info := &api_pb.FileInfo{
+			Name:     file.Name,
+			FileSize: file.FileSize,
+		}
+		switch file.Type {
+		case control_pb.FileInfo_DIR:
+			info.Type = api_pb.FileInfo_DIR
+		case control_pb.FileInfo_FILE:
+			info.Type = api_pb.FileInfo_FILE
+		}
+		list = append(list, info)
+	}
+
+	sort.Slice(list, func(i, j int) bool {
+		return list[i].Name[0] < list[j].Name[1]
+	})
+
+	// todo: исправить нахуй
+	encoder := jsonpb.Marshaler{
+		EnumsAsInts: false,
+	}
+
+	rw.WriteHeader(http.StatusOK)
+	return encoder.Marshal(rw, &api_pb.ListResponse{List: list})
+}
+
 func (r *Registry) HandleDeleteFile(rw http.ResponseWriter, req *http.Request) error {
-	return nil
+	rw.Header().Set("Content-Type", "application/json")
+
+	res, err := r.HandleRemoveFileOrPath(&api_pb.RemoveRequest{Path: req.URL.Path})
+	if err != nil {
+		return err
+	}
+
+	encoder := jsonpb.Marshaler{
+		EnumsAsInts: false,
+	}
+	rw.WriteHeader(http.StatusOK)
+	return encoder.Marshal(rw, res)
 }

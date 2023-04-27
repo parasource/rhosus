@@ -170,10 +170,15 @@ message Role {
 }
 
 message Token {
-  string roleID = 1;
-  string method = 2;
-  string token = 3;
-  int64 valid_until = 4;
+  string id = 1;
+  string auth_engine = 2;
+  string parent = 3;
+  string accessor = 4;
+  int64 ttl = 5;
+  int64 creation_time = 6;
+  repeated string policies = 7;
+  string role = 8;
+  bool root = 9;
 }
 
 message Policy {

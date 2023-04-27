@@ -148,13 +148,13 @@ func setupMemDB() (*memdb.MemDB, error) {
 						Name:         "id",
 						AllowMissing: false,
 						Unique:       true,
-						Indexer:      &memdb.StringFieldIndex{Field: "Token"},
+						Indexer:      &memdb.StringFieldIndex{Field: "Id"},
 					},
-					"role_id": {
-						Name:         "role_id",
+					"accessor": {
+						Name:         "accessor",
 						AllowMissing: false,
-						Unique:       false,
-						Indexer:      &memdb.StringFieldIndex{Field: "RoleID"},
+						Unique:       true,
+						Indexer:      &memdb.StringFieldIndex{Field: "Accessor"},
 					},
 				},
 			},

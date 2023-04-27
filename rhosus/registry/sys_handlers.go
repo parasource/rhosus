@@ -13,7 +13,6 @@ import (
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
 	"github.com/parasource/rhosus/rhosus/util/uuid"
 	"github.com/rs/zerolog/log"
-	"sort"
 	"strings"
 )
 
@@ -151,51 +150,6 @@ func (r *Registry) killChildren(file *control_pb.FileInfo) error {
 	}
 
 	return nil
-}
-
-func (r *Registry) HandleList(req *api_pb.ListRequest) (*api_pb.ListResponse, error) {
-	var parentID string
-	if req.Path == "/" {
-		parentID = "root"
-	} else {
-		dir, err := r.Storage.GetFileByPath(strings.Trim(req.Path, "/"))
-		if err != nil {
-			return nil, err
-		}
-		if dir == nil {
-			return &api_pb.ListResponse{Error: "no such file or directory"}, nil
-		}
-		parentID = dir.Id
-	}
-
-	var list []*api_pb.FileInfo
-
-	files, err := r.Storage.GetFilesByParentId(parentID)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, file := range files {
-		info := &api_pb.FileInfo{
-			Name:     file.Name,
-			FileSize: file.FileSize,
-		}
-		switch file.Type {
-		case control_pb.FileInfo_DIR:
-			info.Type = api_pb.FileInfo_DIR
-		case control_pb.FileInfo_FILE:
-			info.Type = api_pb.FileInfo_FILE
-		}
-		list = append(list, info)
-
-	}
-
-	sort.Slice(list, func(i, j int) bool {
-		return list[i].Name[0] < list[j].Name[1]
-	})
-	return &api_pb.ListResponse{
-		List: list,
-	}, nil
 }
 
 func (r *Registry) HandleCreatePolicy(req *api_pb.CreatePolicyRequest) (*api_pb.CreatePolicyResponse, error) {

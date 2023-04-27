@@ -64,7 +64,7 @@ func (a *CredentialsAuth) Login(req LoginRequest) (LoginResponse, error) {
 		}
 
 		return LoginResponse{
-			Token:   token.Token,
+			Token:   token.Accessor,
 			Success: true,
 		}, nil
 	}

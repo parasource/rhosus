@@ -36,11 +36,10 @@ func (m *TokenStore) watchForTokensExpiration() {
 			}
 
 			for _, token := range tokens {
-				if time.Now().Unix() > token.ValidUntil {
+				if time.Now().Unix() > token.Ttl+token.CreationTime {
 					err := m.storage.RevokeToken(token)
 					if err != nil {
-						log.Error().Err(err).Str("token", token.Token).
-							Str("role_id", token.RoleID).
+						log.Error().Err(err).Str("token", token.Accessor).
 							Msg("error revoking expired token")
 					}
 				}
@@ -53,9 +52,9 @@ func (m *TokenStore) CreateToken(roleID string, ttl time.Duration) (*control_pb.
 	tokenStr := util.GenerateSecureToken(32)
 
 	token := &control_pb.Token{
-		RoleID:     roleID,
-		Token:      tokenStr,
-		ValidUntil: time.Now().Add(ttl).Unix(),
+		Id:       tokenStr,
+		Accessor: tokenStr,
+		Ttl:      ttl.Milliseconds(),
 	}
 	err := m.storage.StoreToken(token)
 	if err != nil {
