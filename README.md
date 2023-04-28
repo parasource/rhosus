@@ -8,12 +8,7 @@
 and
 uses etcd for service discovery and password-based authentication.
 
-## What is Rhosus
-
-It was originally developed as a scholar project at [Samara University](https://ssau.ru), but very soon I decided to
-make something out of it.
-
-### Rhosus architecture
+## Architecture
 
 In Rhosus there are two types of working units: Registry and Node. Node's only purpose is to store raw blocks on
 machine. The main complexity is on Registry, which decides, where to store blocks, how to store it and so on.
