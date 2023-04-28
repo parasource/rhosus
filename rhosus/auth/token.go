@@ -52,9 +52,10 @@ func (m *TokenStore) CreateToken(roleID string, ttl time.Duration) (*control_pb.
 	tokenStr := util.GenerateSecureToken(32)
 
 	token := &control_pb.Token{
-		Id:       tokenStr,
-		Accessor: tokenStr,
-		Ttl:      ttl.Milliseconds(),
+		Id:           tokenStr,
+		Accessor:     tokenStr,
+		Ttl:          ttl.Milliseconds(),
+		CreationTime: time.Now().UnixMilli(),
 	}
 	err := m.storage.StoreToken(token)
 	if err != nil {
@@ -64,12 +65,12 @@ func (m *TokenStore) CreateToken(roleID string, ttl time.Duration) (*control_pb.
 	return token, nil
 }
 
-func (m *TokenStore) GetToken(token string) (*control_pb.Token, error) {
-	return m.storage.GetToken(token)
+func (m *TokenStore) GetToken(accessor string) (*control_pb.Token, error) {
+	return m.storage.GetToken(accessor)
 }
 
-func (m *TokenStore) RevokeToken(token string) error {
-	t, err := m.storage.GetToken(token)
+func (m *TokenStore) RevokeToken(accessor string) error {
+	t, err := m.storage.GetToken(accessor)
 	if err != nil {
 		return fmt.Errorf("error getting token from storage: %w", err)
 	}

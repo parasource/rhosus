@@ -8,6 +8,7 @@
 package registry
 
 import (
+	"errors"
 	"fmt"
 	api_pb "github.com/parasource/rhosus/rhosus/pb/api"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
@@ -175,6 +176,53 @@ func (r *Registry) HandleCreatePolicy(req *api_pb.CreatePolicyRequest) (*api_pb.
 	}
 
 	return &api_pb.CreatePolicyResponse{}, nil
+}
+
+func (r *Registry) HandleGetPolicy(req *api_pb.GetPolicyRequest) (*api_pb.GetPolicyResponse, error) {
+	if req.Name == "" {
+		return nil, errors.New("empty policy name")
+	}
+
+	policy, err := r.Storage.GetPolicy(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	if policy == nil {
+		return nil, nil
+	}
+
+	paths := make([]*api_pb.PolicyPathRules, 0, len(policy.Paths))
+	for _, path := range policy.Paths {
+		paths = append(paths, &api_pb.PolicyPathRules{
+			Path:         path.Path,
+			Capabilities: path.Capabilities,
+		})
+	}
+	return &api_pb.GetPolicyResponse{
+		Name:  policy.Name,
+		Paths: paths,
+	}, nil
+}
+
+func (r *Registry) HandleDeletePolicy(req *api_pb.DeletePolicyRequest) (*api_pb.DeletePolicyResponse, error) {
+	if req.Name == "" {
+		return nil, errors.New("empty policy name")
+	}
+
+	policy, err := r.Storage.GetPolicy(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	if policy == nil {
+		return nil, nil
+	}
+
+	err = r.Storage.DeletePolicy(policy)
+	if err != nil {
+		return nil, err
+	}
+
+	return &api_pb.DeletePolicyResponse{}, nil
 }
 
 func (r *Registry) HandleListPolicies(req *api_pb.ListPoliciesRequest) (*api_pb.ListPoliciesResponse, error) {

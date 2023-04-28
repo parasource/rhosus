@@ -10,7 +10,10 @@ func (a *Api) Router() *mux.Router {
 
 	// system routes
 	sysr := r.PathPrefix("/sys").Subrouter()
-	sysr.Use(JsonMiddleware)
+	sysr.Use(a.JsonMiddleware)
+	r.Use(a.AuthMiddleware)
+	r.Use(a.CorsMiddleware)
+
 	sysr.HandleFunc("/login", a.handleLogin).Methods(http.MethodPost)
 	sysr.HandleFunc("/mkdir", a.handleMakeDir).Methods(http.MethodPost)
 	sysr.HandleFunc("/create-test-user", a.handleCreateTestUser).Methods(http.MethodPost)

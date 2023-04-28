@@ -107,7 +107,9 @@ message CreatePolicyRequest {
 message CreatePolicyResponse {}
 
 
-message GetPolicyRequest {}
+message GetPolicyRequest {
+  string name = 1;
+}
 message GetPolicyResponse {
   string name = 1;
   repeated PolicyPathRules paths = 2;
@@ -117,3 +119,9 @@ message ListPoliciesRequest {}
 message ListPoliciesResponse {
   repeated Policy policies = 1;
 }
+
+message DeletePolicyRequest {
+  string name = 1;
+}
+
+message DeletePolicyResponse {}

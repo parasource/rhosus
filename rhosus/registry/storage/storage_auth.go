@@ -125,10 +125,10 @@ func (s *Storage) storeTokenInMemory(token *control_pb.Token) error {
 	return nil
 }
 
-func (s *Storage) GetToken(token string) (*control_pb.Token, error) {
+func (s *Storage) GetToken(accessor string) (*control_pb.Token, error) {
 	txn := s.db.Txn(false)
 
-	raw, err := txn.First(defaultTokensTableName, "id", token)
+	raw, err := txn.First(defaultTokensTableName, "id", accessor)
 	if err != nil {
 		return nil, err
 	}

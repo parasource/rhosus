@@ -146,11 +146,45 @@ func (a *Api) handleCreateUpdatePolicy(rw http.ResponseWriter, r *http.Request) 
 }
 
 func (a *Api) handleGetPolicy(rw http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	policyName, ok := vars["name"]
+	if !ok {
+		rw.WriteHeader(http.StatusNotFound)
+		return
+	}
 
+	res, err := a.registry.HandleGetPolicy(&api_pb.GetPolicyRequest{Name: policyName})
+	if err != nil {
+		log.Error().Err(err).Msg("error getting policy")
+		rw.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if res == nil {
+		rw.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	rw.WriteHeader(http.StatusOK)
+	a.encoder.Marshal(rw, res)
 }
 
 func (a *Api) handleDeletePolicy(rw http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	policyName, ok := vars["name"]
+	if !ok {
+		rw.WriteHeader(http.StatusNotFound)
+		return
+	}
 
+	res, err := a.registry.HandleDeletePolicy(&api_pb.DeletePolicyRequest{Name: policyName})
+	if err != nil {
+		log.Error().Err(err).Msg("error deleting policy")
+		rw.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	rw.WriteHeader(http.StatusOK)
+	a.encoder.Marshal(rw, res)
 }
 
 func (a *Api) handleListPolicies(rw http.ResponseWriter, r *http.Request) {
