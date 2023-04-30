@@ -25,8 +25,8 @@ func (a *Api) Router() *mux.Router {
 
 	sysr.HandleFunc("/tokens/create", a.handleCreateToken).Methods(http.MethodPost)
 	sysr.HandleFunc("/tokens/{accessor}", a.handleRevokeToken).Methods(http.MethodDelete)
-	sysr.HandleFunc("/tokens/{accessor}", a.handleRevokeToken).Methods(http.MethodGet)
-	sysr.HandleFunc("/tokens", a.handleRevokeToken).Methods("LIST")
+	sysr.HandleFunc("/tokens/{accessor}", a.handleGetToken).Methods(http.MethodGet)
+	sysr.HandleFunc("/tokens", a.handleListTokens).Methods("LIST")
 
 	r.PathPrefix("/").HandlerFunc(a.HandleFilesystem)
 

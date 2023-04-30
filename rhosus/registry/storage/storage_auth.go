@@ -157,7 +157,7 @@ func (s *Storage) GetAllRoleTokens(roleID string) ([]*control_pb.Token, error) {
 	return tokens, nil
 }
 
-func (s *Storage) GetAllTokens() ([]*control_pb.Token, error) {
+func (s *Storage) ListTokens() ([]*control_pb.Token, error) {
 	txn := s.db.Txn(false)
 
 	var tokens []*control_pb.Token

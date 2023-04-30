@@ -89,6 +89,11 @@ message LoginResponse {
   string Message = 3;
 }
 
+
+// <---------------------->
+//        Policies
+// <---------------------->
+
 message Policy {
   string id = 1;
   string name = 2;
@@ -125,3 +130,47 @@ message DeletePolicyRequest {
 }
 
 message DeletePolicyResponse {}
+
+// <---------------------->
+//         Tokens
+// <---------------------->
+
+message CreateTokenRequest {
+  repeated string policies = 1;
+  string ttl = 2;
+}
+
+message CreateTokenResponse {
+  string token = 1;
+}
+
+message GetTokenRequest {
+  string accessor = 1;
+}
+
+message GetTokenResponse {
+  string accessor = 1;
+  repeated string policies = 2;
+  string ttl = 3;
+}
+
+message ListTokensRequest {
+
+}
+
+message ListTokensResponse {
+  message Token {
+    string accessor = 1;
+    repeated string policies = 2;
+    string ttl = 3;
+  }
+  repeated Token tokens = 1;
+}
+
+message RevokeTokenRequest {
+  string accessor = 1;
+}
+
+message RevokeTokenResponse {
+
+}

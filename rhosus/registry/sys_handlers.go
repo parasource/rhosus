@@ -8,13 +8,15 @@
 package registry
 
 import (
-	"errors"
 	"fmt"
 	api_pb "github.com/parasource/rhosus/rhosus/pb/api"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
+	"github.com/parasource/rhosus/rhosus/util"
+	"github.com/parasource/rhosus/rhosus/util/errors"
 	"github.com/parasource/rhosus/rhosus/util/uuid"
 	"github.com/rs/zerolog/log"
 	"strings"
+	"time"
 )
 
 func (r *Registry) HandleMakeDir(req *api_pb.MakeDirRequest) (*api_pb.CommonResponse, error) {
@@ -179,16 +181,12 @@ func (r *Registry) HandleCreatePolicy(req *api_pb.CreatePolicyRequest) (*api_pb.
 }
 
 func (r *Registry) HandleGetPolicy(req *api_pb.GetPolicyRequest) (*api_pb.GetPolicyResponse, error) {
-	if req.Name == "" {
-		return nil, errors.New("empty policy name")
-	}
-
 	policy, err := r.Storage.GetPolicy(req.Name)
 	if err != nil {
 		return nil, err
 	}
 	if policy == nil {
-		return nil, nil
+		return nil, errors.ErrEntryNotFound
 	}
 
 	paths := make([]*api_pb.PolicyPathRules, 0, len(policy.Paths))
@@ -205,10 +203,6 @@ func (r *Registry) HandleGetPolicy(req *api_pb.GetPolicyRequest) (*api_pb.GetPol
 }
 
 func (r *Registry) HandleDeletePolicy(req *api_pb.DeletePolicyRequest) (*api_pb.DeletePolicyResponse, error) {
-	if req.Name == "" {
-		return nil, errors.New("empty policy name")
-	}
-
 	policy, err := r.Storage.GetPolicy(req.Name)
 	if err != nil {
 		return nil, err
@@ -243,6 +237,77 @@ func (r *Registry) HandleListPolicies(req *api_pb.ListPoliciesRequest) (*api_pb.
 		res.Policies = append(res.Policies, &api_pb.Policy{
 			Name:  policy.Name,
 			Paths: paths,
+		})
+	}
+
+	return &res, nil
+}
+
+func (r *Registry) HandleCreateToken(req *api_pb.CreateTokenRequest) (*api_pb.CreateTokenResponse, error) {
+	tokenStr := util.GenerateSecureToken(32)
+
+	token := &control_pb.Token{
+		Id:           tokenStr,
+		Accessor:     tokenStr,
+		Policies:     req.Policies,
+		Ttl:          time.Second.Milliseconds(),
+		CreationTime: time.Now().UnixMilli(),
+	}
+	err := r.Storage.StoreToken(token)
+	if err != nil {
+		return nil, err
+	}
+
+	return &api_pb.CreateTokenResponse{
+		Token: tokenStr,
+	}, nil
+}
+
+func (r *Registry) HandleRevokeToken(req *api_pb.RevokeTokenRequest) (*api_pb.RevokeTokenResponse, error) {
+	token, err := r.Storage.GetToken(req.Accessor)
+	if err != nil {
+		return nil, fmt.Errorf("error getting token: %w", err)
+	}
+	if token == nil {
+		return nil, nil
+	}
+
+	err = r.Storage.RevokeToken(token)
+	if err != nil {
+		return nil, fmt.Errorf("error revoking token: %w", err)
+	}
+
+	return nil, nil
+}
+
+func (r *Registry) HandleGetToken(req *api_pb.GetTokenRequest) (*api_pb.GetTokenResponse, error) {
+	token, err := r.Storage.GetToken(req.Accessor)
+	if err != nil {
+		return nil, fmt.Errorf("error getting token: %w", err)
+	}
+	if token == nil {
+		return nil, errors.ErrEntryNotFound
+	}
+
+	return &api_pb.GetTokenResponse{
+		Accessor: token.Accessor,
+		Policies: token.Policies,
+		Ttl:      "3m",
+	}, nil
+}
+
+func (r *Registry) HandleListTokens(req *api_pb.ListTokensRequest) (*api_pb.ListTokensResponse, error) {
+	tokens, err := r.Storage.ListTokens()
+	if err != nil {
+		return nil, fmt.Errorf("error listing tokens: %w", err)
+	}
+
+	var res api_pb.ListTokensResponse
+	for _, token := range tokens {
+		res.Tokens = append(res.Tokens, &api_pb.ListTokensResponse_Token{
+			Accessor: token.Accessor,
+			Policies: token.Policies,
+			Ttl:      "3m",
 		})
 	}
 

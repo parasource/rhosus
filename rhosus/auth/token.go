@@ -29,7 +29,7 @@ func (m *TokenStore) watchForTokensExpiration() {
 	for {
 		select {
 		case <-ticker.C:
-			tokens, err := m.storage.GetAllTokens()
+			tokens, err := m.storage.ListTokens()
 			if err != nil {
 				log.Error().Err(err).Msg("error getting all tokens in expiration watch")
 				continue

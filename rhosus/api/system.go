@@ -4,6 +4,7 @@ import (
 	"github.com/gorilla/mux"
 	api_pb "github.com/parasource/rhosus/rhosus/pb/api"
 	control_pb "github.com/parasource/rhosus/rhosus/pb/control"
+	"github.com/parasource/rhosus/rhosus/util/errors"
 	"github.com/parasource/rhosus/rhosus/util/uuid"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/bcrypt"
@@ -11,16 +12,8 @@ import (
 )
 
 func (a *Api) handleLogin(rw http.ResponseWriter, r *http.Request) {
-	var body []byte
-	_, err := r.Body.Read(body)
-	if err != nil {
-		log.Error().Err(err).Msg("error reading request body")
-		rw.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
 	var req api_pb.LoginRequest
-	err = a.decoder.Unmarshal(r.Body, &req)
+	err := a.decoder.Unmarshal(r.Body, &req)
 	if err != nil {
 		log.Debug().Err(err).Msg("error unmarshaling login request")
 		rw.WriteHeader(http.StatusBadRequest)
@@ -81,17 +74,8 @@ func (a *Api) handleCreateTestUser(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (a *Api) handleMakeDir(rw http.ResponseWriter, r *http.Request) {
-	var body []byte
-
-	_, err := r.Body.Read(body)
-	if err != nil {
-		log.Error().Err(err).Msg("error reading request body")
-		rw.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
 	var msg api_pb.MakeDirRequest
-	err = a.decoder.Unmarshal(r.Body, &msg)
+	err := a.decoder.Unmarshal(r.Body, &msg)
 	if err != nil {
 		log.Error().Err(err).Msg("error unmarshaling sys request")
 		rw.WriteHeader(http.StatusBadRequest)
@@ -117,19 +101,10 @@ func (a *Api) handleCreateUpdatePolicy(rw http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	var body []byte
-	_, err := r.Body.Read(body)
-	if err != nil {
-		log.Error().Err(err).Msg("error reading request body")
-		rw.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
 	var msg api_pb.CreatePolicyRequest
 	msg.Name = policyName
-	err = a.decoder.Unmarshal(r.Body, &msg)
+	err := a.decoder.Unmarshal(r.Body, &msg)
 	if err != nil {
-		log.Debug().Err(err).Msg("error unmarshaling create policy request")
 		rw.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -153,10 +128,20 @@ func (a *Api) handleGetPolicy(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if policyName == "" {
+		rw.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	res, err := a.registry.HandleGetPolicy(&api_pb.GetPolicyRequest{Name: policyName})
 	if err != nil {
 		log.Error().Err(err).Msg("error getting policy")
-		rw.WriteHeader(http.StatusInternalServerError)
+		switch err {
+		case errors.ErrEntryNotFound:
+			rw.WriteHeader(http.StatusNotFound)
+		default:
+			rw.WriteHeader(http.StatusInternalServerError)
+		}
 		return
 	}
 	if res == nil {
@@ -200,9 +185,90 @@ func (a *Api) handleListPolicies(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (a *Api) handleCreateToken(rw http.ResponseWriter, r *http.Request) {
+	var msg api_pb.CreateTokenRequest
+	err := a.decoder.Unmarshal(r.Body, &msg)
+	if err != nil {
+		log.Error().Err(err).Msg("cant unmarshal")
+		rw.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
+	res, err := a.registry.HandleCreateToken(&msg)
+	if err != nil {
+		log.Error().Err(err).Msg("error creating token")
+		rw.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	rw.WriteHeader(http.StatusOK)
+	a.encoder.Marshal(rw, res)
+}
+
+func (a *Api) handleGetToken(rw http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	accessor, ok := vars["accessor"]
+	if !ok {
+		rw.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	if accessor == "" {
+		rw.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	res, err := a.registry.HandleGetToken(&api_pb.GetTokenRequest{Accessor: accessor})
+	if err != nil {
+		switch err {
+		case errors.ErrEntryNotFound:
+			rw.WriteHeader(http.StatusNotFound)
+		default:
+			log.Error().Err(err).Msg("error getting token")
+			rw.WriteHeader(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	rw.WriteHeader(http.StatusOK)
+	a.encoder.Marshal(rw, res)
+}
+
+func (a *Api) handleListTokens(rw http.ResponseWriter, r *http.Request) {
+	res, err := a.registry.HandleListTokens(&api_pb.ListTokensRequest{})
+	if err != nil {
+		log.Error().Err(err).Msg("error listing tokens")
+		rw.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	rw.WriteHeader(http.StatusOK)
+	a.encoder.Marshal(rw, res)
 }
 
 func (a *Api) handleRevokeToken(rw http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	accessor, ok := vars["accessor"]
+	if !ok {
+		rw.WriteHeader(http.StatusNotFound)
+		return
+	}
+	if accessor == "" {
+		rw.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
+	res, err := a.registry.HandleRevokeToken(&api_pb.RevokeTokenRequest{Accessor: accessor})
+	if err != nil {
+		switch err {
+		case errors.ErrEntryNotFound:
+			rw.WriteHeader(http.StatusNotFound)
+		default:
+			log.Error().Err(err).Msg("error revoking token")
+			rw.WriteHeader(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	rw.WriteHeader(http.StatusOK)
+	a.encoder.Marshal(rw, res)
 }
