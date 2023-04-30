@@ -52,7 +52,7 @@ func (a *Api) JsonMiddleware(next http.Handler) http.Handler {
 
 func (a *Api) CorsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		rw.Header().Set("Access-Control-Allow-Origin", "*")
+		rw.Header().Set("Access-Control-Allow-Origin", "127.0.0.1:3000")
 
 		next.ServeHTTP(rw, r)
 	})
