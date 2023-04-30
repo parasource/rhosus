@@ -121,6 +121,58 @@ func (c *Cluster) WriteDeleteBlocksEntry(blocks []*control_pb.BlockInfo) error {
 	return c.writeEntry(control_pb.Entry_DELETE_BLOCKS, entryBytes)
 }
 
+func (c *Cluster) WriteCreatePolicyEntry(p *control_pb.Policy) error {
+	entry := &control_pb.EntryCreatePolicy{
+		NodeId: c.ID,
+		Policy: p,
+	}
+	entryBytes, err := entry.Marshal()
+	if err != nil {
+		return fmt.Errorf("error marshaling create entry to bytes: %w", err)
+	}
+
+	return c.writeEntry(control_pb.Entry_CREATE_POLICY, entryBytes)
+}
+
+func (c *Cluster) WriteDeletePolicyEntry(policyName string) error {
+	entry := &control_pb.EntryDeletePolicy{
+		NodeId:     c.ID,
+		PolicyName: policyName,
+	}
+	entryBytes, err := entry.Marshal()
+	if err != nil {
+		return fmt.Errorf("error marshaling delete entry to bytes: %w", err)
+	}
+
+	return c.writeEntry(control_pb.Entry_DELETE_POLICY, entryBytes)
+}
+
+func (c *Cluster) WriteCreateTokenEntry(t *control_pb.Token) error {
+	entry := &control_pb.EntryCreateToken{
+		NodeId: c.ID,
+		Token:  t,
+	}
+	entryBytes, err := entry.Marshal()
+	if err != nil {
+		return fmt.Errorf("error marshaling create entry to bytes: %w", err)
+	}
+
+	return c.writeEntry(control_pb.Entry_CREATE_TOKEN, entryBytes)
+}
+
+func (c *Cluster) WriteRevokeTokenEntry(accessor string) error {
+	entry := &control_pb.EntryRevokeToken{
+		NodeId:   c.ID,
+		Accessor: accessor,
+	}
+	entryBytes, err := entry.Marshal()
+	if err != nil {
+		return fmt.Errorf("error marshaling revoke entry to bytes: %w", err)
+	}
+
+	return c.writeEntry(control_pb.Entry_REVOKE_TOKEN, entryBytes)
+}
+
 // WriteEntry writes an entry to buffer, which
 // will be distributed to other nodes
 func (c *Cluster) WriteEntry(typ control_pb.Entry_Type, data []byte) error {

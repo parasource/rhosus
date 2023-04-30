@@ -177,6 +177,11 @@ func (r *Registry) HandleCreatePolicy(req *api_pb.CreatePolicyRequest) (*api_pb.
 		return nil, err
 	}
 
+	err = r.Cluster.WriteCreatePolicyEntry(policy)
+	if err != nil {
+		log.Error().Err(err).Msg("error writing create policy entry to cluster")
+	}
+
 	return &api_pb.CreatePolicyResponse{}, nil
 }
 
@@ -200,23 +205,6 @@ func (r *Registry) HandleGetPolicy(req *api_pb.GetPolicyRequest) (*api_pb.GetPol
 		Name:  policy.Name,
 		Paths: paths,
 	}, nil
-}
-
-func (r *Registry) HandleDeletePolicy(req *api_pb.DeletePolicyRequest) (*api_pb.DeletePolicyResponse, error) {
-	policy, err := r.Storage.GetPolicy(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	if policy == nil {
-		return nil, nil
-	}
-
-	err = r.Storage.DeletePolicy(policy)
-	if err != nil {
-		return nil, err
-	}
-
-	return &api_pb.DeletePolicyResponse{}, nil
 }
 
 func (r *Registry) HandleListPolicies(req *api_pb.ListPoliciesRequest) (*api_pb.ListPoliciesResponse, error) {
@@ -243,6 +231,28 @@ func (r *Registry) HandleListPolicies(req *api_pb.ListPoliciesRequest) (*api_pb.
 	return &res, nil
 }
 
+func (r *Registry) HandleDeletePolicy(req *api_pb.DeletePolicyRequest) (*api_pb.DeletePolicyResponse, error) {
+	policy, err := r.Storage.GetPolicy(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	if policy == nil {
+		return nil, nil
+	}
+
+	err = r.Storage.DeletePolicy(policy)
+	if err != nil {
+		return nil, err
+	}
+
+	err = r.Cluster.WriteDeletePolicyEntry(policy.Name)
+	if err != nil {
+		log.Error().Err(err).Msg("error writing delete policy entry to cluster")
+	}
+
+	return &api_pb.DeletePolicyResponse{}, nil
+}
+
 func (r *Registry) HandleCreateToken(req *api_pb.CreateTokenRequest) (*api_pb.CreateTokenResponse, error) {
 	tokenStr := util.GenerateSecureToken(32)
 
@@ -258,26 +268,14 @@ func (r *Registry) HandleCreateToken(req *api_pb.CreateTokenRequest) (*api_pb.Cr
 		return nil, err
 	}
 
+	err = r.Cluster.WriteCreateTokenEntry(token)
+	if err != nil {
+		log.Error().Err(err).Msg("error writing create token entry to cluster")
+	}
+
 	return &api_pb.CreateTokenResponse{
 		Token: tokenStr,
 	}, nil
-}
-
-func (r *Registry) HandleRevokeToken(req *api_pb.RevokeTokenRequest) (*api_pb.RevokeTokenResponse, error) {
-	token, err := r.Storage.GetToken(req.Accessor)
-	if err != nil {
-		return nil, fmt.Errorf("error getting token: %w", err)
-	}
-	if token == nil {
-		return nil, nil
-	}
-
-	err = r.Storage.RevokeToken(token)
-	if err != nil {
-		return nil, fmt.Errorf("error revoking token: %w", err)
-	}
-
-	return nil, nil
 }
 
 func (r *Registry) HandleGetToken(req *api_pb.GetTokenRequest) (*api_pb.GetTokenResponse, error) {
@@ -312,4 +310,26 @@ func (r *Registry) HandleListTokens(req *api_pb.ListTokensRequest) (*api_pb.List
 	}
 
 	return &res, nil
+}
+
+func (r *Registry) HandleRevokeToken(req *api_pb.RevokeTokenRequest) (*api_pb.RevokeTokenResponse, error) {
+	token, err := r.Storage.GetToken(req.Accessor)
+	if err != nil {
+		return nil, fmt.Errorf("error getting token: %w", err)
+	}
+	if token == nil {
+		return nil, nil
+	}
+
+	err = r.Storage.RevokeToken(token)
+	if err != nil {
+		return nil, fmt.Errorf("error revoking token: %w", err)
+	}
+
+	err = r.Cluster.WriteRevokeTokenEntry(token.Accessor)
+	if err != nil {
+		log.Error().Err(err).Msg("error writing revoke token entry to cluster")
+	}
+
+	return nil, nil
 }

@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -52,7 +53,7 @@ func (a *Api) JsonMiddleware(next http.Handler) http.Handler {
 
 func (a *Api) CorsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		rw.Header().Set("Access-Control-Allow-Origin", "http://127.0.0.1:3000")
+		rw.Header().Set("Access-Control-Allow-Origin", os.Getenv("UI_HOST"))
 
 		next.ServeHTTP(rw, r)
 	})

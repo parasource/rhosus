@@ -188,6 +188,68 @@ func (r *Registry) handleEntriesFromLeader(entries []*control_pb.Entry) {
 				log.Error().Err(err).
 					Msg("error deleting blocks from storage")
 			}
+		case control_pb.Entry_CREATE_POLICY:
+			var entryDelete control_pb.EntryCreatePolicy
+			err = entryDelete.Unmarshal(entry.Data)
+			if err != nil {
+				log.Error().Err(err).Str("type", "create_policy").Msg("error unmarshalling entry")
+				continue
+			}
+			err = r.Storage.StorePolicy(entryDelete.Policy)
+			if err != nil {
+				// todo more informative log
+				log.Error().Err(err).
+					Msg("error creating policy")
+			}
+		case control_pb.Entry_DELETE_POLICY:
+			var entryDelete control_pb.EntryDeletePolicy
+			err = entryDelete.Unmarshal(entry.Data)
+			if err != nil {
+				log.Error().Err(err).Str("type", "delete_policy").Msg("error unmarshalling entry")
+				continue
+			}
+			policy, err := r.Storage.GetPolicy(entryDelete.PolicyName)
+			if err != nil || policy == nil {
+				log.Error().Err(err).Msg("error getting policy")
+				continue
+			}
+			err = r.Storage.DeletePolicy(policy)
+			if err != nil {
+				// todo more informative log
+				log.Error().Err(err).
+					Msg("error deleting policy")
+			}
+		case control_pb.Entry_CREATE_TOKEN:
+			var entryDelete control_pb.EntryCreateToken
+			err = entryDelete.Unmarshal(entry.Data)
+			if err != nil {
+				log.Error().Err(err).Str("type", "create_token").Msg("error unmarshalling entry")
+				continue
+			}
+			err = r.Storage.StoreToken(entryDelete.Token)
+			if err != nil {
+				// todo more informative log
+				log.Error().Err(err).
+					Msg("error creating token")
+			}
+		case control_pb.Entry_REVOKE_TOKEN:
+			var entryDelete control_pb.EntryRevokeToken
+			err = entryDelete.Unmarshal(entry.Data)
+			if err != nil {
+				log.Error().Err(err).Str("type", "revoke_token").Msg("error unmarshalling entry")
+				continue
+			}
+			token, err := r.Storage.GetToken(entryDelete.Accessor)
+			if err != nil || token == nil {
+				log.Error().Err(err).Msg("error getting token")
+				continue
+			}
+			err = r.Storage.RevokeToken(token)
+			if err != nil {
+				// todo more informative log
+				log.Error().Err(err).
+					Msg("error creating token")
+			}
 		}
 	}
 }
