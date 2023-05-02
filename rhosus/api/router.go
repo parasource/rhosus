@@ -2,17 +2,17 @@ package api
 
 import (
 	"github.com/gorilla/mux"
+	"github.com/rs/cors"
 	"net/http"
 )
 
-func (a *Api) Router() *mux.Router {
+func (a *Api) Router() http.Handler {
 	r := mux.NewRouter()
 
 	// system routes
 	sysr := r.PathPrefix("/sys").Subrouter()
 	sysr.Use(a.JsonMiddleware)
 	r.Use(a.AuthMiddleware)
-	r.Use(a.CorsMiddleware)
 
 	sysr.HandleFunc("/login", a.handleLogin).Methods(http.MethodPost)
 	sysr.HandleFunc("/mkdir", a.handleMakeDir).Methods(http.MethodPost)
@@ -30,5 +30,19 @@ func (a *Api) Router() *mux.Router {
 
 	r.PathPrefix("/").HandlerFunc(a.HandleFilesystem)
 
-	return r
+	cors.AllowAll()
+	return cors.New(cors.Options{
+		AllowedOrigins: []string{"*"},
+		AllowedMethods: []string{
+			http.MethodHead,
+			http.MethodGet,
+			http.MethodPost,
+			http.MethodPut,
+			http.MethodPatch,
+			http.MethodDelete,
+			"LIST",
+		},
+		AllowedHeaders: []string{"*"},
+		Debug:          true,
+	}).Handler(r)
 }

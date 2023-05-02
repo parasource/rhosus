@@ -2,7 +2,6 @@ package api
 
 import (
 	"net/http"
-	"os"
 	"strings"
 	"time"
 )
@@ -46,14 +45,6 @@ func (a *Api) AuthMiddleware(next http.Handler) http.Handler {
 func (a *Api) JsonMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		rw.Header().Set("Content-Type", "application/json")
-
-		next.ServeHTTP(rw, r)
-	})
-}
-
-func (a *Api) CorsMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		rw.Header().Set("Access-Control-Allow-Origin", os.Getenv("UI_HOST"))
 
 		next.ServeHTTP(rw, r)
 	})
