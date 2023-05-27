@@ -144,7 +144,6 @@ func (m *NodesMap) NodeExists(name string) bool {
 }
 
 func (m *NodesMap) WatchNodes() {
-
 	ticker := tickers.SetTicker(time.Millisecond * time.Duration(m.pingIntervalMs))
 
 	for {

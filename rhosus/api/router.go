@@ -30,7 +30,6 @@ func (a *Api) Router() http.Handler {
 
 	r.PathPrefix("/").HandlerFunc(a.HandleFilesystem)
 
-	cors.AllowAll()
 	return cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
 		AllowedMethods: []string{

@@ -1,9 +1,9 @@
 package profiler
 
 import (
-	"github.com/mackerelio/go-osstat/memory"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/disk"
+	"github.com/shirou/gopsutil/mem"
 	"time"
 )
 
@@ -13,9 +13,8 @@ func NewProfiler() (*Profiler, error) {
 	return &Profiler{}, nil
 }
 
-func (p *Profiler) GetMem() (*memory.Stats, error) {
-	mem, err := memory.Get()
-	return mem, err
+func (p *Profiler) GetMem() (*mem.VirtualMemoryStat, error) {
+	return mem.VirtualMemory()
 }
 
 func (p *Profiler) GetCPU() []float64 {

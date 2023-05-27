@@ -9,7 +9,6 @@ require (
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/hashicorp/go-memdb v1.3.2
 	github.com/kr/text v0.2.0 // indirect
-	github.com/mackerelio/go-osstat v0.2.4 // indirect
 	github.com/rs/cors v1.9.0 // indirect
 	github.com/rs/zerolog v1.28.0
 	github.com/shirou/gopsutil v3.21.11+incompatible
