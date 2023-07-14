@@ -90,7 +90,6 @@ func NewNodesMap(registry *Registry, nodes map[string]*transport_pb.NodeInfo) (*
 }
 
 func (m *NodesMap) AddNode(name string, info *transport_pb.NodeInfo) error {
-
 	conn, err := grpc.Dial(info.Address, grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.MaxCallSendMsgSize(32<<20), grpc.MaxCallRecvMsgSize(32<<20)))
 	if err != nil {
 		return err
@@ -104,8 +103,7 @@ func (m *NodesMap) AddNode(name string, info *transport_pb.NodeInfo) error {
 
 	m.mu.Lock()
 	m.nodes[name] = &Node{
-		info: info,
-
+		info:         info,
 		conn:         &client,
 		lastActivity: time.Now(),
 		recovering:   false,
@@ -206,7 +204,6 @@ func (m *NodesMap) WatchNodes() {
 			if aliveNodes <= 1 {
 				// todo
 			}
-
 		}
 	}
 }

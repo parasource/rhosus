@@ -102,14 +102,15 @@ message FetchMetricsResponse {
 
 message NodeMetrics {
   int32 blocksUsed = 1;
-  int32 partitions = 2;
-  uint64 capacity = 3;
-  uint64 remaining = 4;
-  float usedPercent = 5;
-  int64 lastUpdate = 6;
-  uint64 cacheCapacity = 7;
-  uint64 cacheUsed = 8;
-  float memUsedPercent = 9;
+  int32 blocksRemaining = 2;
+  int32 partitions = 3;
+  uint64 diskCapacity = 4;
+  uint64 diskRemaining = 5;
+  float diskUsedPercent = 6;
+  int64 lastUpdate = 7;
+  uint64 cacheCapacity = 8;
+  uint64 cacheUsed = 9;
+  float memUsedPercent = 10;
 }
 
 

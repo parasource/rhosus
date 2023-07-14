@@ -57,8 +57,14 @@ func NewNode(config Config) (*Node, error) {
 		readyC:    make(chan struct{}, 1),
 	}
 
+	nodeProfiler, err := profiler.NewProfiler(config.RhosusPath)
+	if err != nil {
+		log.Fatal().Err(err).Msg("error creating profiler")
+	}
+	node.profiler = nodeProfiler
+
 	dataPath := path.Join(config.RhosusPath, "data")
-	dataManager, err := data.NewManager(dataPath)
+	dataManager, err := data.NewManager(dataPath, nodeProfiler)
 	if err != nil {
 		log.Fatal().Err(err).Msg("error creating data manager")
 	}
@@ -66,12 +72,6 @@ func NewNode(config Config) (*Node, error) {
 
 	statsManager := NewStatsManager(node)
 	node.stats = statsManager
-
-	nodeProfiler, err := profiler.NewProfiler()
-	if err != nil {
-		log.Fatal().Err(err).Msg("error creating profiler")
-	}
-	node.profiler = nodeProfiler
 
 	etcdClient, err := rhosus_etcd.NewEtcdClient(rhosus_etcd.EtcdClientConfig{
 		Address: config.EtcdAddress,
@@ -99,14 +99,16 @@ func (n *Node) CollectMetrics() (*transport_pb.NodeMetrics, error) {
 		log.Error().Err(err).Msg("error getting memory stats")
 	}
 
-	usage := n.profiler.GetPathDiskUsage("/")
+	usage := n.profiler.GetPathDiskUsage(n.Config.RhosusPath)
 
 	metrics := &transport_pb.NodeMetrics{
-		Capacity:       usage.Total,
-		Remaining:      usage.Free,
-		UsedPercent:    float32(usage.UsedPercent),
-		LastUpdate:     time.Now().Unix(),
-		MemUsedPercent: float32(v.UsedPercent),
+		BlocksUsed:      int32(n.data.GetBlocksCount()),
+		BlocksRemaining: int32(n.data.GetFreeBlocksCount()),
+		DiskCapacity:    usage.Total,
+		DiskRemaining:   usage.Free,
+		DiskUsedPercent: float32(usage.UsedPercent),
+		LastUpdate:      time.Now().Unix(),
+		MemUsedPercent:  float32(v.UsedPercent),
 	}
 
 	return metrics, nil

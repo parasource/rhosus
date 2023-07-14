@@ -46,9 +46,8 @@ type Registry struct {
 	mu     sync.RWMutex
 	Config Config
 
-	NodesManager   *NodesMap
-	Storage        *storage.Storage
-	StatsCollector *StatsCollector
+	NodesMap *NodesMap
+	Storage  *storage.Storage
 
 	// Cluster is used to control over other registries
 	Cluster *cluster.Cluster
@@ -74,9 +73,6 @@ func NewRegistry(config Config) (*Registry, error) {
 
 		shutdown: false,
 	}
-
-	statsCollector := NewStatsCollector(r, 5)
-	r.StatsCollector = statsCollector
 
 	etcdClient, err := rhosus_etcd.NewEtcdClient(rhosus_etcd.EtcdClientConfig{
 		Address: config.EtcdAddr,
@@ -120,7 +116,7 @@ func NewRegistry(config Config) (*Registry, error) {
 	if err != nil {
 
 	}
-	r.NodesManager = nMap
+	r.NodesMap = nMap
 
 	// Registering itself in etcd cluster
 	err = r.registerItself(info)
@@ -258,10 +254,8 @@ func (r *Registry) handleEntriesFromLeader(entries []*control_pb.Entry) {
 // RegistriesMap instances management methods
 
 func (r *Registry) Start() {
-	go r.NodesManager.WatchNodes()
+	go r.NodesMap.WatchNodes()
 	go r.RunServiceDiscovery()
-
-	go r.StatsCollector.Run()
 
 	r.readyC <- struct{}{}
 
@@ -444,12 +438,12 @@ func (r *Registry) RunServiceDiscovery() {
 						log.Error().Err(err).Msg("error unmarshalling datanode info")
 					}
 
-					if r.NodesManager.NodeExists(info.Id) {
+					if r.NodesMap.NodeExists(info.Id) {
 						// If node already exists in a node map => updating node info
 
-						r.NodesManager.UpdateNodeInfo(info.Id, &info)
+						r.NodesMap.UpdateNodeInfo(info.Id, &info)
 					} else {
-						err := r.NodesManager.AddNode(info.Id, &info)
+						err := r.NodesMap.AddNode(info.Id, &info)
 						if err != nil {
 							log.Error().Err(err).Msg("error adding datanode")
 							continue
@@ -462,8 +456,8 @@ func (r *Registry) RunServiceDiscovery() {
 				case clientv3.EventTypeDelete:
 					name := rhosus_etcd.ParseNodeName(string(event.Kv.Key))
 
-					if r.NodesManager.NodeExists(name) {
-						r.NodesManager.RemoveNode(name)
+					if r.NodesMap.NodeExists(name) {
+						r.NodesMap.RemoveNode(name)
 
 						log.Info().Str("name", name).Msg("datanode shut down")
 					} else {

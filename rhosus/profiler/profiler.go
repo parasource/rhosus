@@ -7,10 +7,14 @@ import (
 	"time"
 )
 
-type Profiler struct{}
+type Profiler struct {
+	homePath string
+}
 
-func NewProfiler() (*Profiler, error) {
-	return &Profiler{}, nil
+func NewProfiler(homePath string) (*Profiler, error) {
+	return &Profiler{
+		homePath: homePath,
+	}, nil
 }
 
 func (p *Profiler) GetMem() (*mem.VirtualMemoryStat, error) {
@@ -44,6 +48,11 @@ func (p *Profiler) GetDiskPartitionsUsage() (map[string]*disk.UsageStat, error) 
 	}
 
 	return disksUsage, nil
+}
+
+func (p *Profiler) GetHomePathDiskUsage() *disk.UsageStat {
+	stat, _ := disk.Usage(p.homePath)
+	return stat
 }
 
 func (p *Profiler) GetPathDiskUsage(path string) *disk.UsageStat {

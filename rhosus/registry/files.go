@@ -93,7 +93,7 @@ func (r *Registry) unregisterBlocks(blocks []*control_pb.BlockInfo) error {
 }
 
 func (r *Registry) TransportAndRegisterBlocks(fileID string, blocks []*fs_pb.Block, replicationFactor int) error {
-	nodes := r.NodesManager.GetNodesWithLeastBlocks(replicationFactor)
+	nodes := r.NodesMap.GetNodesWithLeastBlocks(replicationFactor)
 
 	blockSeq := make(map[string]uint64, len(blocks))
 	for _, block := range blocks {
@@ -133,7 +133,7 @@ func (r *Registry) TransportAndRegisterBlocks(fileID string, blocks []*fs_pb.Blo
 			defer wg.Done()
 
 			start := time.Now()
-			res, err := r.NodesManager.AssignBlocks(node.info.Id, blocks)
+			res, err := r.NodesMap.AssignBlocks(node.info.Id, blocks)
 			if err != nil {
 				log.Error().Err(err).Msg("error assigning blocks to node")
 			}
@@ -208,7 +208,7 @@ func (r *Registry) RemoveFileBlocks(file *control_pb.FileInfo) (error, map[strin
 		wg.Add(1)
 		go func(nodeId string, blocks []*transport_pb.BlockPlacementInfo) {
 			defer wg.Done()
-			node := r.NodesManager.GetNode(nodeId)
+			node := r.NodesMap.GetNode(nodeId)
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 			defer cancel()
 
@@ -270,7 +270,7 @@ func (r *Registry) GetFileHandler(path string, transport func(block *fs_pb.Block
 		wg.Add(1)
 		go func(nodeID string, blocks []*transport_pb.BlockPlacementInfo) {
 			defer wg.Done()
-			actualBlocks, err := r.NodesManager.GetBlocks(nodeID, blocks)
+			actualBlocks, err := r.NodesMap.GetBlocks(nodeID, blocks)
 			if err != nil {
 				return
 			}

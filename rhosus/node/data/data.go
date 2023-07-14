@@ -10,22 +10,25 @@ package data
 import (
 	"github.com/parasource/rhosus/rhosus/pb/fs_pb"
 	transport_pb "github.com/parasource/rhosus/rhosus/pb/transport"
+	"github.com/parasource/rhosus/rhosus/profiler"
 	"github.com/rs/zerolog/log"
 	"sync"
 )
 
 type Manager struct {
-	parts *PartitionsMap
+	parts    *PartitionsMap
+	profiler *profiler.Profiler
 
 	mu               sync.RWMutex
 	shutdown         bool
 	isReceivingPages bool
 }
 
-func NewManager(dir string) (*Manager, error) {
+func NewManager(dir string, p *profiler.Profiler) (*Manager, error) {
 	m := &Manager{
 		shutdown:         false,
 		isReceivingPages: false,
+		profiler:         p,
 	}
 
 	pmap, err := NewPartitionsMap(dir, 1024)
@@ -45,11 +48,32 @@ func (m *Manager) GetBlocksCount() int {
 	}
 	m.mu.RUnlock()
 
+	return m.getUsedBlocksCount()
+}
+
+func (m *Manager) getUsedBlocksCount() int {
 	count := 0
 	for _, part := range m.parts.parts {
 		count += part.GetUsedBlocks()
 	}
 	return count
+}
+
+// GetFreeBlocksCount returns approximate count of free blocks remaining
+// should be a better way, needs testing
+func (m *Manager) GetFreeBlocksCount() int {
+	m.mu.RLock()
+	if m.shutdown {
+		m.mu.RUnlock()
+		return 0
+	}
+	m.mu.RUnlock()
+
+	usage := m.profiler.GetHomePathDiskUsage()
+	freeBlocks := usage.Free/defaultBlockSize + // total count of "free" blocks
+		uint64(m.parts.getPartsCount()*defaultPartitionSize/defaultBlockSize) - // adding blocks in partitions
+		uint64(m.getUsedBlocksCount()) // subtracting used blocks count in partitions
+	return int(freeBlocks)
 }
 
 func (m *Manager) GetPartitionsCount() int {
