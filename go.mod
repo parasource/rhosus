@@ -5,12 +5,11 @@ go 1.15
 require (
 	github.com/apex/log v1.9.0
 	github.com/dustinkirkland/golang-petname v0.0.0-20191129215211-8e5a1ed0cff0
-	github.com/elliotchance/pie/v2 v2.7.0 // indirect
 	github.com/golang/protobuf v1.5.2
-	github.com/gorilla/mux v1.8.0 // indirect
+	github.com/gorilla/mux v1.8.0
 	github.com/hashicorp/go-memdb v1.3.2
 	github.com/kr/text v0.2.0 // indirect
-	github.com/rs/cors v1.9.0 // indirect
+	github.com/rs/cors v1.9.0
 	github.com/rs/zerolog v1.28.0
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/spf13/cobra v1.1.3
@@ -25,5 +24,5 @@ require (
 	go.etcd.io/etcd/client/v3 v3.5.1
 	golang.org/x/crypto v0.1.0
 	golang.org/x/sys v0.6.0
-	google.golang.org/grpc v1.40.0
+	google.golang.org/grpc v1.53.0
 )
