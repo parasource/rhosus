@@ -66,7 +66,7 @@ var listCmd = &cobra.Command{
 		}
 
 		for _, file := range res.List {
-			fmt.Printf("%-5s %6d %v %4s \n", file.Type, file.Size_, "0777", file.Name)
+			fmt.Printf("%-5s %6d %v %4s \n", file.Type, file.FileSize, "0777", file.Name)
 		}
 	},
 }
